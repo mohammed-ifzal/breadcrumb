@@ -1,5 +1,6 @@
 import '../core/contracts.dart' as contracts;
 import '../core/tuning.dart' as tuning;
+import 'motion_timing.dart';
 
 /// Acceleration peaks used only when the hardware step detector is absent.
 class StepDetector implements contracts.StepDetector {
@@ -12,6 +13,14 @@ class StepDetector implements contracts.StepDetector {
   @override
   contracts.StepEvent? onMotion(int t, double accel) {
     if (t < 0 || !accel.isFinite || (_lastT != null && t <= _lastT!)) {
+      return null;
+    }
+    if (_lastT != null && t - _lastT! > maxMotionGapMs) {
+      _lastT = t;
+      _previous = accel;
+      _rising = false;
+      _peakT = null;
+      _lastStepT = null;
       return null;
     }
     final previous = _previous;

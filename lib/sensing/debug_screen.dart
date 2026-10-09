@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/contracts.dart' as contracts;
 import 'sensing_source.dart';
+import 'trace_recorder.dart';
 
 /// Standalone spike screen. Owns and disposes its source, including injected ones.
 /// The app owner can open it after granting runtime permissions externally.
@@ -20,8 +21,8 @@ class _SensingDebugScreenState extends State<SensingDebugScreen> {
   StreamSubscription<Object>? _subscription;
   final _note = TextEditingController();
   int _steps = 0;
-  double? _lastTurn;
-  bool _recording = false;
+  double _lastTurn = 0;
+  bool _traceBusy = false;
   String? _message;
   String? _error;
 
@@ -36,7 +37,19 @@ class _SensingDebugScreenState extends State<SensingDebugScreen> {
         if (event is contracts.TurnEvent) _lastTurn = event.angle;
       });
     }, onError: (Object error) => _showError(error));
-    unawaited(_startTrace());
+  }
+
+  Future<void> _toggleTrace() async {
+    setState(() => _traceBusy = true);
+    try {
+      if (_source.traceState.value.recording) {
+        await _source.stopTrace();
+      } else {
+        await _startTrace();
+      }
+    } finally {
+      if (mounted) setState(() => _traceBusy = false);
+    }
   }
 
   Future<void> _startTrace() async {
@@ -47,7 +60,6 @@ class _SensingDebugScreenState extends State<SensingDebugScreen> {
         'from': 'start',
         'to': 'end',
       });
-      if (mounted) setState(() => _recording = true);
     } catch (error) {
       _showError(error);
     }
@@ -107,20 +119,40 @@ class _SensingDebugScreenState extends State<SensingDebugScreen> {
         ),
         Text('Steps: $_steps'),
         Text(
-          _lastTurn == null
-              ? 'Last turn: none'
-              : 'Last turn: '
-                    '${_lastTurn! >= 0 ? '+' : ''}${_lastTurn!.toStringAsFixed(1)}°',
+          'Last turn: ${_lastTurn >= 0 ? '+' : ''}${_lastTurn.toStringAsFixed(1)}°',
         ),
-        Text(_recording ? 'Recording trace' : 'Waiting for sensing'),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _note,
-          decoration: const InputDecoration(labelText: 'Mark note'),
+        const Text('Degrees: left positive (+), right negative (-)'),
+        OutlinedButton(
+          onPressed: () => setState(() {
+            _steps = 0;
+            _lastTurn = 0;
+          }),
+          child: const Text('Reset'),
         ),
-        FilledButton(
-          onPressed: _recording && _error == null ? _mark : null,
-          child: const Text('Mark'),
+        ValueListenableBuilder<TraceState>(
+          valueListenable: _source.traceState,
+          builder: (_, trace, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(trace.recording ? 'Recording trace' : 'Trace stopped'),
+              if (trace.path != null) SelectableText(trace.path!),
+              if (trace.error != null)
+                Text('Trace write failed: ${trace.error}'),
+              FilledButton(
+                onPressed: _traceBusy ? null : _toggleTrace,
+                child: Text(trace.recording ? 'Stop trace' : 'Start trace'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _note,
+                decoration: const InputDecoration(labelText: 'Mark note'),
+              ),
+              FilledButton(
+                onPressed: trace.recording ? _mark : null,
+                child: const Text('Mark'),
+              ),
+            ],
+          ),
         ),
         if (_message != null) Text(_message!),
         if (_error != null)

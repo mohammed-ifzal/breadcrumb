@@ -26,6 +26,7 @@ class SensingChannel(context: Context, messenger: BinaryMessenger) :
     private var startNs = 0L
     private var registered = false
     private var paused = false
+    private var stepUnavailable = false
     private var gravityVector: DoubleArray? = null
     private var acceleration: Double? = null
 
@@ -37,7 +38,8 @@ class SensingChannel(context: Context, messenger: BinaryMessenger) :
         startNs = SystemClock.elapsedRealtimeNanos()
         gravityVector = null
         acceleration = null
-        if (step == null) emit(mapOf("type" to "info", "stepDetector" to false))
+        stepUnavailable = false
+        if (step == null) disableStep()
         if (!paused) register()
     }
 
@@ -70,7 +72,7 @@ class SensingChannel(context: Context, messenger: BinaryMessenger) :
         try {
             // 20,000 microseconds requests about 50 Hz; this is a sampling period,
             // not a detection threshold. A zero batch latency sends samples live.
-            for (sensor in listOfNotNull(gravity, accelerometer, gyro, step)) {
+            for (sensor in listOfNotNull(gravity, accelerometer, gyro)) {
                 if (!manager.registerListener(this, sensor, 20_000, 0, main)) {
                     unregister()
                     fail("sensor_unavailable", "Could not register sensor ${sensor.name}.")
@@ -78,9 +80,37 @@ class SensingChannel(context: Context, messenger: BinaryMessenger) :
                 }
             }
             registered = true
+            // Step detection is optional; its permission/registration failure must
+            // never unregister the motion sensors that have already succeeded.
+            if (step != null && !stepUnavailable) {
+                try {
+                    if (!manager.registerListener(this, step, 20_000, 0, main)) disableStep()
+                } catch (error: RuntimeException) {
+                    disableStep()
+                }
+            }
         } catch (error: SecurityException) {
             unregister()
             fail("permission_denied", error.message ?: "Grant activity recognition externally.")
+        }
+    }
+
+    private fun disableStep() {
+        if (stepUnavailable) return
+        stepUnavailable = true
+        if (step != null) {
+            try { manager.unregisterListener(this, step) } catch (_: RuntimeException) { }
+        }
+        emit(mapOf("type" to "info", "stepDetector" to false))
+    }
+
+    private fun emitStep(t: Long) {
+        val target = sink ?: return
+        main.post {
+            if (sink === target && !stepUnavailable) {
+                try { target.success(mapOf("type" to "step", "t" to t)) }
+                catch (_: RuntimeException) { disableStep() }
+            }
         }
     }
 
@@ -103,7 +133,7 @@ class SensingChannel(context: Context, messenger: BinaryMessenger) :
         if (sink == null || paused || event.timestamp < startNs) return
         val t = (event.timestamp - startNs) / 1_000_000L
         when (event.sensor.type) {
-            Sensor.TYPE_STEP_DETECTOR -> emit(mapOf("type" to "step", "t" to t))
+            Sensor.TYPE_STEP_DETECTOR -> emitStep(t)
             Sensor.TYPE_GRAVITY -> gravityVector = DoubleArray(3) { event.values[it].toDouble() }
             Sensor.TYPE_ACCELEROMETER -> {
                 acceleration = sqrt(event.values.sumOf { it.toDouble() * it.toDouble() })

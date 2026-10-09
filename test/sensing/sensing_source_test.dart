@@ -82,7 +82,9 @@ void main() {
           await send({'type': 'motion', 't': t, 'yawRate': 90, 'accel': 9});
         }
         await send({'type': 'motion', 't': 1020, 'yawRate': 0, 'accel': 9});
-        await send({'type': 'motion', 't': 1520, 'yawRate': 0, 'accel': 9});
+        for (var t = 1040; t <= 1520; t += 20) {
+          await send({'type': 'motion', 't': t, 'yawRate': 0, 'accel': 9});
+        }
         expect(events.whereType<contracts.StepEvent>().single.t, 20);
         expect(
           events.whereType<contracts.TurnEvent>().single.angle,
@@ -111,6 +113,90 @@ void main() {
     },
   );
 
+  test(
+    'optional step failure keeps motion alive and enables fallback',
+    () async {
+      final source = SensingSource();
+      final events = <Object>[];
+      final errors = <Object>[];
+      final sub = source.events().listen(events.add, onError: errors.add);
+      try {
+        await Future<void>.delayed(Duration.zero);
+        await send({'type': 'motion', 't': 0, 'yawRate': 0, 'accel': 9});
+        await send({'type': 'step', 't': 1});
+        await send({'type': 'info', 'stepDetector': false});
+        await send({'type': 'motion', 't': 20, 'yawRate': 90, 'accel': 9});
+        await send({'type': 'motion', 't': 40, 'yawRate': 90, 'accel': 13});
+        await send({'type': 'motion', 't': 60, 'yawRate': 90, 'accel': 9});
+        await send({'type': 'step', 't': 61});
+        for (var t = 80; t <= 1000; t += 20) {
+          await send({'type': 'motion', 't': t, 'yawRate': 90, 'accel': 9});
+        }
+        for (var t = 1020; t <= 1520; t += 20) {
+          await send({'type': 'motion', 't': t, 'yawRate': 0, 'accel': 9});
+        }
+        expect(source.hardwareStepDetector.value, isFalse);
+        expect(events.whereType<contracts.StepEvent>().map((e) => e.t), [
+          1,
+          40,
+        ]);
+        expect(
+          events.whereType<contracts.TurnEvent>().single.angle,
+          closeTo(90, .01),
+        );
+        expect(errors, isEmpty);
+        expect(listens, 1);
+        expect(cancels, 0);
+      } finally {
+        await sub.cancel();
+        await source.dispose();
+      }
+    },
+  );
+  test(
+    'trace write failure does not interrupt sensing or repeat logs',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'breadcrumb-source-failure-',
+      );
+      final logs = <String>[];
+      final recorder = TraceRecorder(
+        documentsDirectory: () async => directory,
+        logger: logs.add,
+      );
+      final source = SensingSource(recorder: recorder);
+      final events = <Object>[];
+      final errors = <Object>[];
+      final sub = source.events().listen(events.add, onError: errors.add);
+      try {
+        await Future<void>.delayed(Duration.zero);
+        await send({'type': 'motion', 't': 0, 'yawRate': 0, 'accel': 9});
+        await source.startTrace({'map': 'loop', 'walker': 'T2'});
+        // Serialization is a synchronous write failure, independent of disk timing.
+        recorder.record({'type': 'mark', 'note': Object()});
+        await send({'type': 'step', 't': 20});
+        await send({'type': 'step', 't': 40});
+        source.mark('after failure');
+        await source.stopTrace();
+        expect(events.whereType<contracts.StepEvent>(), hasLength(2));
+        expect(errors, isEmpty);
+        expect(logs, hasLength(1));
+        expect(source.traceState.value.recording, isFalse);
+        expect(source.traceState.value.path, endsWith('.jsonl'));
+        expect(cancels, 0);
+        // A fresh trace can be started after cleanup of the failed one.
+        await source.startTrace({'map': 'retry', 'walker': 'T2'});
+        expect(source.traceState.value.recording, isTrue);
+        expect(source.traceState.value.error, isNull);
+        await source.stopTrace();
+        expect(logs, hasLength(1));
+      } finally {
+        await sub.cancel();
+        await source.dispose();
+        await directory.delete(recursive: true);
+      }
+    },
+  );
   test('native errors reach consumers without enabling fallback', () async {
     final source = SensingSource();
     final errors = <Object>[];

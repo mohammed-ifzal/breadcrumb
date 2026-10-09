@@ -15,6 +15,7 @@ class SensingSource implements contracts.SensingSource {
     EventChannel channel = const EventChannel('breadcrumb/sensing'),
   }) : _recorder = recorder ?? TraceRecorder(),
        _raw = channel.receiveBroadcastStream() {
+    _recorder.state.addListener(_onTraceState);
     _events = StreamController<Object>.broadcast(
       onListen: _ensureListening,
       onCancel: _releaseIfIdle,
@@ -42,6 +43,15 @@ class SensingSource implements contracts.SensingSource {
   Stream<Object> events() {
     if (_disposed) throw StateError('Sensing source is disposed.');
     return _events.stream;
+  }
+
+  ValueListenable<TraceState> get traceState => _recorder.state;
+
+  void _onTraceState() {
+    if (_recorder.state.value.error != null) {
+      _tracing = false;
+      unawaited(_releaseIfIdle());
+    }
   }
 
   void _ensureListening() {
@@ -86,7 +96,10 @@ class SensingSource implements contracts.SensingSource {
       _recorder.record(raw);
       final type = raw['type'];
       if (type == 'info') {
-        if (raw['stepDetector'] == false) hardwareStepDetector.value = false;
+        if (raw['stepDetector'] == false) {
+          if (hardwareStepDetector.value != false) _steps = StepDetector();
+          hardwareStepDetector.value = false;
+        }
       } else if (type == 'motion' || type == 'step') {
         final t = (raw['t'] as num).toInt();
         if (t < 0) throw const FormatException('Negative sensing timestamp.');
@@ -146,6 +159,10 @@ class SensingSource implements contracts.SensingSource {
             ? 'accel'
             : 'detector',
       });
+      if (!_recorder.state.value.recording) {
+        _tracing = false;
+        await _releaseIfIdle();
+      }
     } catch (_) {
       _tracing = false;
       await _releaseIfIdle();
@@ -177,7 +194,8 @@ class SensingSource implements contracts.SensingSource {
     }
     await _subscription?.cancel();
     _subscription = null;
-    await _recorder.stop();
+    _recorder.state.removeListener(_onTraceState);
+    await _recorder.dispose();
     await _events.close();
     _sinceSample.stop();
     hardwareStepDetector.dispose();

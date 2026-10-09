@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,6 +6,43 @@ import 'package:breadcrumb/sensing/trace_recorder.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final failure in ['write', 'done', 'flush', 'close']) {
+    test(
+      '$failure failure logs once, stops recording and preserves path',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'breadcrumb-failure-',
+        );
+        final sink = FailingSink(failure);
+        final logs = <String>[];
+        final recorder = TraceRecorder(
+          documentsDirectory: () async => directory,
+          openSink: (_) => sink,
+          logger: logs.add,
+        );
+        try {
+          await recorder.start({'walker': 'T2', 'map': 'loop'});
+          final path = recorder.state.value.path;
+          expect(path, endsWith('.jsonl'));
+          if (failure == 'done') sink.fail();
+          recorder.record({'type': 'step', 't': 20});
+          await Future<void>.delayed(Duration.zero);
+          await recorder.stop();
+          recorder.record({'type': 'step', 't': 40});
+          recorder.mark(60, 'after failure');
+          await recorder.stop();
+          expect(logs, hasLength(1));
+          expect(recorder.state.value.recording, isFalse);
+          expect(recorder.state.value.path, path);
+          expect(recorder.state.value.error, contains('disk full'));
+          expect(sink.closes, 1);
+        } finally {
+          await recorder.stop();
+          await directory.delete(recursive: true);
+        }
+      },
+    );
+  }
   test(
     'trace writes meta first, raw samples and marks, flushes on stop',
     () async {
@@ -69,4 +107,46 @@ void main() {
       }
     },
   );
+}
+
+class FailingSink implements IOSink {
+  FailingSink(this.failure);
+  final String failure;
+  final completion = Completer<void>();
+  var writes = 0;
+  var closes = 0;
+  void fail() {
+    if (!completion.isCompleted) {
+      completion.completeError(const FileSystemException('disk full'));
+    }
+  }
+
+  @override
+  Future<void> get done => completion.future;
+  @override
+  void writeln([Object? object = '']) {
+    writes++;
+    if (failure == 'write' && writes > 1) {
+      throw const FileSystemException('disk full');
+    }
+  }
+
+  @override
+  Future<void> flush() async {
+    if (failure == 'flush') {
+      throw const FileSystemException('disk full');
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    closes++;
+    if (!completion.isCompleted) completion.complete();
+    if (failure == 'close' || failure == 'write' || failure == 'done') {
+      throw const FileSystemException('disk full');
+    }
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
