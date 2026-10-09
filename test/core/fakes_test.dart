@@ -147,6 +147,24 @@ void main() {
     expect(map.places[2].aliases, ['coffee']);
   });
 
+  test('FakeMapBuilder.snapshot ends the open corridor at _here', () {
+    final b = FakeMapBuilder()..start('Table');
+    b.onStep(const StepEvent(0));
+    b.onTurn(const TurnEvent(1, -90));
+    b.onStep(const StepEvent(2));
+    b.onStep(const StepEvent(3));
+    final snap = b.snapshot();
+
+    expect(snap.places.last.id, hereId);
+    expect(snap.places.last.kind, PlaceKind.junction);
+    expect(snap.corridors.last.from, 'j1');
+    expect(snap.corridors.last.to, hereId);
+    expect(snap.corridors.last.steps, 2);
+    expect(snap.corridors.last.heading, 270);
+    // snapshot() doesn't change the builder.
+    expect(b.finish().places.map((p) => p.id), ['p0', 'j1']);
+  });
+
   test('FakeSensingSource plays its script and records trace calls', () async {
     final s = FakeSensingSource([const StepEvent(1), const TurnEvent(2, -90)]);
     expect(await s.events().toList(), hasLength(2));

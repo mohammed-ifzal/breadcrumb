@@ -72,11 +72,11 @@ thread) emits only raw data:
 - `accel` is the acceleration magnitude in m/s². Samples arrive at about 50 Hz.
 
 Dart detectors in `lib/sensing/` (pure Dart) turn this into `StepEvent` and `TurnEvent`.
-A trace file (`traces/<date>-<walker>-<route>.jsonl`) holds everything, starting with a
+A trace file (`traces/<date>-<walker>-<map>-<micros>.jsonl`, D19) holds everything, starting with a
 `meta` line:
 
 ```json
-{"type": "meta", "map": "table_loop", "from": "p0", "to": "p2", "walker": "T2", "stepSource": "detector"}
+{"type": "meta", "map": "table_loop", "from": "p0", "to": "p2", "walker": "T2", "stepSource": "hardware"}
 {"type": "motion", "t": 1540, "yawRate": 34.2, "accel": 10.9}
 {"type": "step", "t": 1532}
 {"type": "mark", "t": 9900, "note": "turned left"}
@@ -86,7 +86,8 @@ A trace file (`traces/<date>-<walker>-<route>.jsonl`) holds everything, starting
 {"type": "mark", "t": 30000, "note": "arrived"}
 ```
 
-`mark` lines are the tester's ground truth.
+`mark` lines are the tester's ground truth. `stepSource` is `"hardware"` (the phone's step
+detector) or `"accel"` (the Dart `StepDetector` fallback).
 
 ## Dart shapes
 
@@ -114,7 +115,7 @@ A trace file (`traces/<date>-<walker>-<route>.jsonl`) holds everything, starting
 | `Guide` | `Instruction next(RoutePlan r, Position p)` | Ifzal |
 | `StepDetector` | pure Dart; peaks in `accel`, used only when there's no hardware detector | Teammate 2 |
 | `TurnDetector` | pure Dart; `motion` samples to `TurnEvent` (rules below) | Teammate 2 |
-| `MapBuilder` | `start(placeName)`, `onStep`, `onTurn`, `addPlace(name, aliases)`, `MapGraph finish()`. Each turn creates a junction, each place splits the current corridor. | Teammate 2 |
+| `MapBuilder` | `start(placeName)`, `onStep`, `onTurn`, `addPlace(name, aliases)`, `MapGraph snapshot()`, `MapGraph finish()`. Each turn creates a junction, each place splits the current corridor. `snapshot()` (D19) returns the map so far plus the open corridor ending at a temporary node `"_here"` (kind junction); pure Dart. The record screen calls it after every step, turn and mark and pushes it to `TrailView` via `ValueNotifier<MapGraph>`; `TrailView` draws `"_here"` as the moving dot. | Teammate 2 |
 | `SensingSource` | `Stream<Object> events()` (StepEvent or TurnEvent), `startTrace(meta)`, `stopTrace()`, `mark(note)` | Teammate 2 |
 | `SignReader` | `Future<SignReading?> read(String imagePath)`; `MlKitSignReader` is required, `GemmaSignReader` is a stretch goal | Teammate 3 / Ifzal |
 | `DestinationResolver` | `Future<PlaceMatch?> resolve(String utterance, MapGraph map)`: fuzzy match first, Gemma fallback, always validated | Ifzal |
@@ -154,13 +155,25 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 
 **PlaceMatcher**
 
-1. Lowercase. Replace anything that isn't a letter or digit in any script with a space,
-   using `RegExp(r'[^\p{L}\p{N}]+', unicode: true)`, so Devanagari survives.
+1. Lowercase. Replace anything that isn't a letter, combining mark or digit in any
+   script with a space, using `RegExp(r'[^\p{L}\p{M}\p{N}]+', unicode: true)`, so
+   Devanagari survives (its vowel signs are `\p{M}`; without it words break apart).
 2. Never match junctions.
 3. **If the text contains a number, the candidate must contain the same number**:
    "Platform 3" never matches "Platform 2".
 4. Score with token overlap plus normalised Levenshtein over names and aliases. Return
    `null` below `matchThreshold`.
+
+**Clarifications** (from the core engine, PR #1)
+
+- **A correct turn before the snap zone is `offRoute`.** The snap zone is measured over
+  the straight run up to the next turn, not a single leg.
+- **While off route, turns are ignored** until an anchor (`anchor` / `tapHere`) or a
+  new route (`setRoute`) clears `offRoute`.
+- **Places mid-corridor are passed through.** A place splits a corridor into two legs
+  with the same heading; walking past it is straight on, never a turn.
+- **`RoutePlanner.plan` throws `ArgumentError`** for an unknown place ID or when there is
+  no route. Callers must catch it.
 
 ## Tuning (`lib/core/tuning.dart`, starting guesses to tune with traces)
 
