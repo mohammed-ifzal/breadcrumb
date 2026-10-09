@@ -14,6 +14,7 @@ class Wiring {
   
   Wiring._() {
     tracker.setRoute(planner.plan(map, map.start, map.start));
+    sensorEvents = () => _simulatedEventsController.stream;
   }
 
   final MapGraph map = const MapGraph(
@@ -59,7 +60,7 @@ class Wiring {
   /// Event source for step and turn events, matching the exact signature
   /// of SensingSource.events(). When PR #2 lands on main, swap this one line to:
   /// `late final Stream<Object> Function() sensorEvents = sensingSource.events;`
-  late final Stream<Object> Function() sensorEvents = () => _simulatedEventsController.stream;
+  late final Stream<Object> Function() sensorEvents;
 
   void emitSimulatedEvent(Object event) {
     if (!_simulatedEventsController.isClosed) {

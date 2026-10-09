@@ -10,19 +10,16 @@ typedef VibrateFn = Future<void> Function(List<int> pattern, int duration);
 
 class AppSpeaker implements Speaker {
   AppSpeaker({
-    FlutterTts? tts,
-    SpeakFn? customSpeak,
-    StopFn? customStop,
-    VibrateFn? customVibrate,
-  })  : _tts = tts,
-        _customSpeak = customSpeak,
-        _customStop = customStop,
-        _customVibrate = customVibrate;
+    this.tts,
+    this.customSpeak,
+    this.customStop,
+    this.customVibrate,
+  });
 
-  final FlutterTts? _tts;
-  final SpeakFn? _customSpeak;
-  final StopFn? _customStop;
-  final VibrateFn? _customVibrate;
+  final FlutterTts? tts;
+  final SpeakFn? customSpeak;
+  final StopFn? customStop;
+  final VibrateFn? customVibrate;
 
   bool _initialized = false;
   String? _lastSpokenText;
@@ -33,7 +30,7 @@ class AppSpeaker implements Speaker {
   Future<void> _init() async {
     if (_initialized) return;
     try {
-      final t = _tts ?? FlutterTts();
+      final t = tts ?? FlutterTts();
       final dynamic langs = await t.getLanguages;
       if (langs is List) {
         final enIn = langs.firstWhere(
@@ -118,17 +115,19 @@ class AppSpeaker implements Speaker {
 
     try {
       // Stop current speech first so instructions do not queue.
-      if (_customStop != null) {
-        await _customStop();
+      final stop = customStop;
+      if (stop != null) {
+        await stop();
       } else {
-        await (_tts ?? FlutterTts()).stop();
+        await (tts ?? FlutterTts()).stop();
       }
 
-      if (_customSpeak != null) {
-        await _customSpeak(speechText);
+      final speakFn = customSpeak;
+      if (speakFn != null) {
+        await speakFn(speechText);
       } else {
         await _init();
-        await (_tts ?? FlutterTts()).speak(speechText);
+        await (tts ?? FlutterTts()).speak(speechText);
       }
     } catch (_) {
       // Offline TTS voice missing or unsupported: do not crash.
@@ -167,8 +166,9 @@ class AppSpeaker implements Speaker {
           return;
       }
 
-      if (_customVibrate != null) {
-        await _customVibrate(pattern, fallbackDuration);
+      final vib = customVibrate;
+      if (vib != null) {
+        await vib(pattern, fallbackDuration);
         return;
       }
 
