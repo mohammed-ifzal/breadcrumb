@@ -37,3 +37,6 @@ const double accelPeakThreshold = 11.5;
 
 /// Minimum ms between fallback step peaks.
 const int accelPeakMinGapMs = 300;
+
+/// Longest wait for Gemma to choose a destination before giving up (null).
+const int gemmaTimeoutMs = 20000;
