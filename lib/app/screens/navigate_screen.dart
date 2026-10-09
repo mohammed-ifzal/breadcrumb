@@ -127,14 +127,42 @@ class _NavigateScreenState extends State<NavigateScreen> {
 
     final wiring = Wiring.instance;
     final newInstruction = wiring.guide.next(route, position);
+    final oldKind = _currentInstruction?.kind;
 
-    if (_currentInstruction?.text != newInstruction.text) {
-      wiring.speaker.speak(newInstruction);
+    // BUG 2: vibrate only once per new instruction kind
+    if (oldKind != newInstruction.kind) {
       wiring.speaker.vibrate(newInstruction.kind);
     }
 
+    // BUG 4: speaker manages text formatting, cooldown, and stopping previous speech
+    wiring.speaker.speak(newInstruction);
+
     setState(() {
       _currentInstruction = newInstruction;
+    });
+  }
+
+  /// BUG 3: "I am here" advances to the node at the end of the current leg (the next waypoint),
+  /// rather than resetting to the start place.
+  void _onImHere() {
+    final wiring = Wiring.instance;
+    final route = _route;
+    final position = _position;
+    if (route == null || position == null || route.legs.isEmpty) return;
+
+    final legIndex = position.legIndex.clamp(0, route.legs.length - 1);
+    final leg = route.legs[legIndex];
+    final corridor = wiring.map.corridors.cast<Corridor?>().firstWhere(
+      (c) => c?.id == leg.corridorId,
+      orElse: () => null,
+    );
+    if (corridor == null) return;
+
+    final endNodeId = leg.reversed ? corridor.from : corridor.to;
+
+    setState(() {
+      _position = wiring.tracker.tapHere(endNodeId);
+      _updateInstruction();
     });
   }
 
@@ -366,12 +394,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _position = wiring.tracker.tapHere(wiring.effectiveCurrentPlaceId);
-                    _updateInstruction();
-                  });
-                },
+                onPressed: _onImHere,
                 child: const Text('I am here'),
               ),
               ElevatedButton(
