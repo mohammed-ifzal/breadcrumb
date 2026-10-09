@@ -1,13 +1,23 @@
-/// Gemma spike screen (docs/PROMPTS.md, Ifzal prompt 3): load time, backend, and
-/// the resolved place and answer time for a typed request or four presets.
+/// Gemma debug screen: load time, backend, and the resolved place and answer
+/// time for a typed or spoken request or four presets, plus the 40-request
+/// benchmark (docs/BENCHMARKS.md).
+///
+/// `--dart-define=BENCH=reuse|fresh|both` runs the benchmark on its own after
+/// loading: 3 rounds, with one reused chat, a new chat per request, or both
+/// interleaved round by round. Requests are 2 s apart, like spoken ones.
+/// Every result is logged as `BENCH ...`.
 library;
 
 import 'package:flutter/material.dart';
 
 import '../core/contracts.dart';
 import '../core/place_matcher.dart';
+import 'benchmark.dart';
 import 'destination_resolver.dart';
 import 'gemma_service.dart';
+import 'speech_input.dart';
+
+const _autoBench = String.fromEnvironment('BENCH');
 
 /// Same as `demoMap` in test/core/test_maps.dart (lib/ can't import test/).
 const debugDemoMap = MapGraph(
@@ -59,9 +69,12 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
   final _gemma = GemmaService();
   final _matcher = FuzzyPlaceMatcher();
   late final _resolver = GemmaDestinationResolver(matcher: _matcher, chooser: _gemma);
+  final _speech = SpeechInput();
   final _text = TextEditingController();
   final _answers = <_Answer>[];
   String _status = 'Loading Gemma…';
+  String _speechStatus = 'Speech: checking…';
+  String _benchStatus = '';
   bool _busy = true;
 
   @override
@@ -77,10 +90,92 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
           'Loaded in ${r.loadMs} ms (+ warm-up ${r.warmupMs} ms)\n'
           'Backend: ${r.backend}\nPath: ${r.path}'
           '${r.notes.isEmpty ? '' : '\nNotes: ${r.notes.join('\n')}'}';
+      debugPrint('BENCH load ${r.loadMs} ms warmup ${r.warmupMs} ms backend ${r.backend}');
     } catch (e) {
       _status = 'Load failed: $e';
     }
     if (mounted) setState(() => _busy = false);
+    await _checkSpeech();
+    if (_autoBench.isNotEmpty && _gemma.isLoaded) await _bench(_autoBench);
+  }
+
+  Future<void> _checkSpeech() async {
+    final offline = await _speech.offlineLocales();
+    bool has(String id) => offline.any((l) => l.replaceAll('-', '_') == id);
+    final status =
+        'Speech: offline en-IN ${has(speechLocaleEnglish) ? 'yes' : 'no'}, '
+        'hi-IN ${has(speechLocaleHindi) ? 'yes' : 'no'}'
+        '${_speech.lastError == null ? '' : ' (${_speech.lastError})'}\n'
+        'On-device languages: ${offline.isEmpty ? 'none reported' : offline.join(', ')}';
+    debugPrint('BENCH speech $status');
+    if (mounted) setState(() => _speechStatus = status);
+  }
+
+  Future<void> _listen(String localeId) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _speechStatus = 'Listening ($localeId)…';
+    });
+    final text = await _speech.listen(localeId: localeId);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _speechStatus = text == null
+          ? 'Heard nothing ($localeId)${_speech.lastError == null ? '' : ': ${_speech.lastError}'}'
+          : 'Heard ($localeId): $text';
+    });
+    if (text != null) {
+      _text.text = text;
+      await _ask(text);
+    }
+  }
+
+  /// [mode]: `reuse`, `fresh` or `both` (interleaved round by round).
+  Future<void> _bench(String mode) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _benchStatus = 'Benchmark ($mode) running…';
+    });
+    final modes = switch (mode) {
+      'fresh' => [false],
+      'both' => [false, true],
+      _ => [true],
+    };
+    final byMode = {for (final m in modes) m: <BenchResult>[]};
+    var done = 0;
+    for (var round = 1; round <= 3; round++) {
+      for (final reuse in modes) {
+        _gemma.reuseChat = reuse;
+        final label = reuse ? 'reuse' : 'fresh';
+        byMode[reuse]!.addAll(await runBench(
+          resolver: _resolver,
+          map: debugDemoMap,
+          isMatcherHit: (r) => _matcher.match(r, debugDemoMap) != null,
+          rounds: 1,
+          gap: const Duration(seconds: 2),
+          onResult: (r) {
+            debugPrint('BENCH r $label $round|${r.toLine()}');
+            done++;
+            if (mounted) setState(() => _benchStatus = 'Benchmark ($mode): $done done…');
+          },
+        ));
+      }
+    }
+    _gemma.reuseChat = true;
+    final lines = [
+      for (final e in byMode.entries)
+        '${e.key ? 'reuse' : 'fresh'}: ${BenchSummary(e.value).describe()}',
+    ];
+    for (final l in lines) {
+      debugPrint('BENCH summary $l');
+    }
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _benchStatus = lines.join('\n');
+    });
   }
 
   Future<void> _ask(String request) async {
@@ -108,6 +203,7 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
   @override
   void dispose() {
     _text.dispose();
+    _speech.cancel();
     _gemma.close();
     super.dispose();
   }
@@ -120,6 +216,8 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(_status),
+          const SizedBox(height: 8),
+          Text(_speechStatus),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -137,6 +235,26 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.mic),
+                  label: const Text('Speak (en-IN)'),
+                  onPressed: _busy ? null : () => _listen(speechLocaleEnglish),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.mic),
+                  label: const Text('बोलें (hi-IN)'),
+                  onPressed: _busy ? null : () => _listen(speechLocaleHindi),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           for (final preset in debugPresets)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -145,6 +263,12 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
                 child: Text(preset),
               ),
             ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _busy ? null : () => _bench('reuse'),
+            child: const Text('Benchmark: 40 requests × 3'),
+          ),
+          if (_benchStatus.isNotEmpty) Text(_benchStatus),
           if (_busy) const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),
