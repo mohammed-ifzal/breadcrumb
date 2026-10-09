@@ -3,6 +3,19 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 03:50, D21 + merge PR #3 and #4 session
+Done: D21 on main 303209c (tuning maxMotionGapMs 200, turnSnapDegrees 45; CONTRACTS table;
+CI frees runner disk: 82% -> 69% used, 14G -> 23G free). TASKS: T3 follow-up added (f50f2b9).
+PR #3 merged (5374364); comment lists the two SIMULATED-label follow-ups for t3/live-trail.
+PR #4: merged main into ifzal/gemma (kept both status entries and D21 above D20), analyze
+clean, 113 green, CI green incl. `flutter build apk`; merged (5ed8b92).
+main 5ed8b92: 113 tests green; debug APK built, installed on the iQOO, launched: Home shows
+Navigate / Map a route / Replay mode, no FATAL in logcat.
+In progress: nothing; on main, clean.
+Next: Home/Navigate/Replay smoke test on the iQOO; T2 uses maxMotionGapMs in TurnDetector
+and turnSnapDegrees in MapBuilder; T3 does the SIMULATED follow-ups first on t3/live-trail.
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct 03:10, merge session for PR #3 + #4 (neither merged)
 PR #3 BLOCKED (comment posted): main merged in cleanly, analyze clean, 98 tests green, CI green,
 ownership OK, checklist OK. Rule 9 issues: SIMULATED label hides at arrival
