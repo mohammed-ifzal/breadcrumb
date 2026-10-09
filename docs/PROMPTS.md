@@ -136,8 +136,9 @@ Implement lib/core/map_builder.dart (pure Dart) per CONTRACTS.md, with tests:
 Then build lib/app/screens/record_screen.dart:
 - Start: enter the start place name
 - live step count and detected turns
-- "Add place": open the scan screen, take the SignReader's proposed text, and the
-  person confirms or edits it
+- live trail drawing with TrailView (from Teammate 3) as the map grows
+- "Mark place": the person types a name (scanning a sign to propose the name is a
+  bonus; the person still confirms or edits it)
 - Stop: save the map JSON
 Done when a map recorded on a real walk loads in the Navigate screen and plans routes
 correctly.

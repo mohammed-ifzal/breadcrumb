@@ -2,8 +2,8 @@
 
 ## Tonight, on every laptop
 
-1. Install the same Flutter **stable** version on all three laptops and compare
-   `flutter --version`. Install the Android SDK and command-line tools and JDK 17.
+1. Install Flutter **3.47.7** stable (Dart 3.13.5) on all three laptops and compare
+   `flutter --version` (D16). Older versions can't resolve the pinned packages. Install the Android SDK and command-line tools and JDK 17.
    Run `flutter doctor` until it's clean.
 2. Install git and the GitHub CLI, then run `gh auth login`.
 3. Install and sign in to your AI tool:
@@ -23,7 +23,7 @@
 
    ```
    flutter create warmup && cd warmup
-   flutter pub add flutter_edge_ai:2.1.1 google_mlkit_text_recognition:0.17.1 speech_to_text:7.5.0 flutter_tts:4.2.5 sensors_plus:7.1.1 camera path_provider permission_handler vibration file_picker
+   flutter pub add flutter_edge_ai:2.1.1 google_mlkit_text_recognition:0.17.1 speech_to_text:7.5.0 flutter_tts:4.2.5 sensors_plus:7.1.1 camera:^0.12.1 path_provider:^2.1.6 permission_handler:12.0.3 vibration:^3.2.1 file_picker:^13.1.0
    flutter build apk --debug
    ```
 
@@ -73,7 +73,8 @@
    - `minSdk = 30`
    - `abiFilters` set to `arm64-v8a` only
    - add the dependency `com.google.mlkit:text-recognition-devanagari:16.0.1`
-5. Add every package in one commit (the list in step 6 above).
+5. Add every package in one commit (the list in step 6 above). The repo builds with AGP
+   9.1.0, Gradle 9.3.1 and Kotlin 2.4.0 (D16).
 6. In `AndroidManifest.xml`:
    - permissions: `CAMERA`, `RECORD_AUDIO`, `ACTIVITY_RECOGNITION`, `VIBRATE`
    - `<uses-native-library android:name="libOpenCL.so" android:required="false"/>`
@@ -113,7 +114,7 @@ jobs:
       - uses: actions/setup-java@v6
         with: {distribution: temurin, java-version: '17'}
       - uses: subosito/flutter-action@v2
-        with: {channel: stable, cache: true}
+        with: {channel: stable, flutter-version: 3.47.7, cache: true}
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test

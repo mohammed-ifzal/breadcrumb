@@ -5,6 +5,8 @@ without new evidence.
 
 | # | Date | Decision | Why |
 | --- | --- | --- | --- |
+| D17 | 9 Oct | Detector inputs are `onMotion(int t, double accel)` and `onMotion(int t, double yawRate)`; fakes take the map in their constructor | CONTRACTS.md named no input type; primitives avoid a new shape, and Dart interfaces can't require constructors |
+| D16 | 9 Oct | Flutter 3.47.7 (Dart 3.13.5) on every laptop and CI; Android build on AGP 9.1.0, Gradle 9.3.1, Kotlin 2.4.0 (the 3.47 template). Pins that resolved: `flutter_edge_ai` 2.1.1, `google_mlkit_text_recognition` 0.17.1, `speech_to_text` 7.5.0, `flutter_tts` 4.2.5, `sensors_plus` 7.1.1. Unpinned, as locked: `camera` 0.12.1, `file_picker` 13.1.0, `path_provider` 2.1.6, `vibration` 3.2.1. `permission_handler` is pinned to exactly 12.0.3. `pubspec.lock` is committed. | ML Kit 0.17.1 and speech_to_text 7.5.0 need Dart 3.12+. `permission_handler` 13.x pulls `permission_handler_android` 14.x, which compiles against API 37; the SDK installs that as `android-37.0` and AGP 8.11 and 9.1 both fail to find `android-37`, so 12.0.3 (Android side 13.0.1, API 35) it is |
 | D15 | 9 Oct | Demo = record a trail live, mark places, then navigate back. No venue signs, no hand-written map. Record mode and the live trail view are core, not stretch. | The venue has no signs and taping may not be allowed; this works anywhere |
 | D14 | 8 Oct | One status file per person in `docs/status/` | A shared status file causes merge conflicts |
 | D13 | 8 Oct | Version 1 maps come from one walk; merging walks is a stretch goal | Each walk has its own heading frame |

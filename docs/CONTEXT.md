@@ -4,6 +4,15 @@ This is the distilled version of the planning conversations in Claude (Aug–Oct
 It holds the background an agent or teammate needs. Rules for agents are in `AGENTS.md`.
 Facts were checked on 8 Oct 2026; anything unconfirmed is marked UNVERIFIED.
 
+## Current plan (9 Oct, at the venue)
+
+The venue (WeWork Galaxy hall) has no signs, and taping our own may not be allowed. So
+the demo (D15) is: record a trail live, tap **Mark place** to name spots, then a judge
+asks for a place by voice (Gemma maps it to a marked place) and is guided back with an
+arrow, voice and vibration while a dot moves on the trail view. Sign scanning is a bonus
+anchor only. The full script is in `docs/DEMO.md`. Where this file's older sections
+assume signed stations, this section wins.
+
 ## Team
 
 - **Team Groza:** Ifzal (captain, presenter), Teammate 2 and Teammate 3. Final-year

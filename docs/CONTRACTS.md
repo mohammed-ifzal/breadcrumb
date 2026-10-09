@@ -76,7 +76,7 @@ A trace file (`traces/<date>-<walker>-<route>.jsonl`) holds everything, starting
 `meta` line:
 
 ```json
-{"type": "meta", "map": "demo_route", "from": "entrance", "to": "platform_2", "walker": "T2", "stepSource": "detector"}
+{"type": "meta", "map": "table_loop", "from": "p0", "to": "p2", "walker": "T2", "stepSource": "detector"}
 {"type": "motion", "t": 1540, "yawRate": 34.2, "accel": 10.9}
 {"type": "step", "t": 1532}
 {"type": "mark", "t": 9900, "note": "turned left"}
