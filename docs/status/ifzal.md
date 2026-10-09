@@ -3,6 +3,18 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Fri 9 Oct, core-engine session
+Done: Gemma pushed to `/data/local/tmp/llm/gemma-4-E2B-it.litertlm`, 2588147712 bytes,
+sizes match (D18, on main 0b70abf). Core engine (prompt 2) on branch
+`ifzal/core-engine`: map_json, route_planner (DijkstraRoutePlanner), place_matcher
+(FuzzyPlaceMatcher), tracker (RouteTracker), guide (RouteGuide), route_runs; tests in
+test/core/ (78 core tests green, analyze clean). PR open to main, not merged.
+Contract deviation: PlaceMatcher keeps `\p{M}` too, or Devanagari words break apart.
+CONTRACTS.md rule 1 still shows the old regex; update it if accepted.
+Next: merge the PR after review, swap the fakes in lib/app/wiring for the real classes
+(Teammate 3), then prompt 3 (Gemma spike, lib/ai/).
+Blocked: nothing.
+
 ## Fri 9 Oct, end of hour-0 session
 Done: hour 0 complete. CI run #2 green. Debug APK installed and running on the iQOO
 (I2501, Android 16). Docs synced to D15; D16 and D17 recorded.
