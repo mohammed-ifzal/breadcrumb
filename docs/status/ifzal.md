@@ -3,21 +3,20 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
-## Sat 10 Oct 01:40, PR #3 review + D19 session
-Done: D19 on main 4782c14 (MapBuilder.snapshot() with "_here" + hereId const +
-FakeMapBuilder impl + test; trace name <date>-<walker>-<map>-<micros>.jsonl; stepSource
-"hardware" | "accel"). main: analyze clean, 80 tests green. Built, installed on the iQOO,
-launched, no crash; it shows the placeholder screen (Home isn't on main yet).
-PR #3 NOT merged: main merges cleanly, analyze clean, 84 tests green, CI green, all files
-in T3 paths. Blocking: (1) navigate_screen.dart:34-48 Timer.periodic fakes steps and +90
-turns with no "Replay" label (rule 9); must use SensingSource.events(). (2) The start place
-is listed as a destination; plan(start,start) gives legs [] and FakeGuide r.legs[0] throws
-in initState; trail_view.dart:144 legs.last also throws. Not yet posted on the PR.
-PR #2: has NO build.gradle.kts change (only Kotlin, lib/sensing, tests, status), so no
-comment posted. The step-sensor blocker from the last session is still open.
-Next: post the PR #3 blockers to T3; T2 implements snapshot() in map_builder.dart; decide
-T2's android/gradle.properties memory request.
-Blocked: nothing. Last commit: this handoff.
+## Sat 10 Oct 01:45, end of PR #3 review + D19 session
+Done: D19 on main 4782c14 (MapBuilder.snapshot() + "_here"/hereId, FakeMapBuilder + test;
+trace name <date>-<walker>-<map>-<micros>.jsonl; stepSource "hardware" | "accel").
+main: analyze clean, 80 tests green; installed on the iQOO, launched, no crash
+(placeholder screen; Home arrives with PR #3).
+PR #3 NOT merged (merges cleanly, 84 green, CI green, paths OK). Blockers: (1)
+navigate_screen.dart:34-48 Timer fakes steps/+90 turns, no "Replay" label (rule 9); use
+SensingSource.events(). (2) Start place listed as destination: legs [] -> r.legs[0]
+throws in initState; trail_view.dart:144 legs.last too. Not posted on the PR yet.
+PR #2: no build.gradle.kts change, no comment posted; step-sensor blocker still open.
+In progress: nothing; on main, clean.
+Next: post the PR #3 blockers for T3 (gh pr comment 3); T2 implements snapshot() in
+map_builder.dart; decide T2's android/gradle.properties memory request.
+Blocked: nothing. Last commit: this handoff (previous 9363524).
 
 ## Sat 10 Oct 01:05, end of merge-review session
 Done: merged PR #1 (core engine, a93c607); main analyze clean, 79 tests green. Contract
