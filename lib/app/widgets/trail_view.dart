@@ -1,25 +1,40 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/trail_geometry.dart';
 import 'dart:math' as math;
 
 class TrailView extends StatelessWidget {
-  final MapGraph map;
+  final MapGraph? map;
+  final ValueListenable<MapGraph>? mapNotifier;
   final RoutePlan? route;
   final Position? position;
 
   const TrailView({
     super.key,
-    required this.map,
+    this.map,
+    this.mapNotifier,
     this.route,
     this.position,
-  });
+  }) : assert(map != null || mapNotifier != null, 'Either map or mapNotifier must be provided');
 
   @override
   Widget build(BuildContext context) {
+    if (mapNotifier != null) {
+      return ValueListenableBuilder<MapGraph>(
+        valueListenable: mapNotifier!,
+        builder: (context, currentMap, _) {
+          return CustomPaint(
+            size: Size.infinite,
+            painter: TrailPainter(currentMap, route, position),
+          );
+        },
+      );
+    }
+
     return CustomPaint(
       size: Size.infinite,
-      painter: TrailPainter(map, route, position),
+      painter: TrailPainter(map!, route, position),
     );
   }
 }
@@ -91,9 +106,13 @@ class TrailPainter extends CustomPainter {
       }
     }
 
-    if (route != null) {
+    if (route != null && route!.legs.isNotEmpty) {
       for (final leg in route!.legs) {
-        final c = map.corridors.firstWhere((c) => c.id == leg.corridorId);
+        final c = map.corridors.cast<Corridor?>().firstWhere(
+          (c) => c?.id == leg.corridorId,
+          orElse: () => null,
+        );
+        if (c == null) continue;
         final p1 = pointMap[leg.reversed ? c.to : c.from];
         final p2 = pointMap[leg.reversed ? c.from : c.to];
         if (p1 != null && p2 != null) {
@@ -110,10 +129,23 @@ class TrailPainter extends CustomPainter {
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
     for (final p in points) {
-      final place = map.places.firstWhere((pl) => pl.id == p.placeId);
+      // D19: If this node is hereId ('_here'), draw it as the moving dot
+      if (p.placeId == hereId) {
+        canvas.drawCircle(
+          toOffset(p.x, p.y, size, precomputedPoints: points),
+          10,
+          Paint()..color = Colors.red,
+        );
+        continue;
+      }
+
+      final place = map.places.cast<Place?>().firstWhere(
+        (pl) => pl?.id == p.placeId,
+        orElse: () => null,
+      );
       final offset = toOffset(p.x, p.y, size, precomputedPoints: points);
-      
-      if (place.kind == PlaceKind.junction) {
+
+      if (place == null || place.kind == PlaceKind.junction) {
         canvas.drawCircle(offset, 4, Paint()..color = Colors.grey);
       } else {
         canvas.drawCircle(offset, 8, placePaint);
@@ -126,28 +158,47 @@ class TrailPainter extends CustomPainter {
       }
     }
 
-    if (route != null && position != null) {
+    // Line 144 guard: Guard against empty legs or route with zero legs
+    if (route != null && position != null && route!.legs.isNotEmpty) {
       if (position!.legIndex < route!.legs.length) {
         final leg = route!.legs[position!.legIndex];
-        final c = map.corridors.firstWhere((c) => c.id == leg.corridorId);
-        final p1 = pointMap[leg.reversed ? c.to : c.from];
-        final p2 = pointMap[leg.reversed ? c.from : c.to];
-        if (p1 != null && p2 != null) {
-          final fraction = leg.steps == 0 ? 0.0 : (position!.stepsAlong / leg.steps);
-          final clampedFraction = fraction.clamp(0.0, 1.0);
-          final cx = p1.x + (p2.x - p1.x) * clampedFraction;
-          final cy = p1.y + (p2.y - p1.y) * clampedFraction;
-          
-          canvas.drawCircle(toOffset(cx, cy, size, precomputedPoints: points), 10, Paint()..color = Colors.red);
+        final c = map.corridors.cast<Corridor?>().firstWhere(
+          (c) => c?.id == leg.corridorId,
+          orElse: () => null,
+        );
+        if (c != null) {
+          final p1 = pointMap[leg.reversed ? c.to : c.from];
+          final p2 = pointMap[leg.reversed ? c.from : c.to];
+          if (p1 != null && p2 != null) {
+            final fraction = leg.steps == 0 ? 0.0 : (position!.stepsAlong / leg.steps);
+            final clampedFraction = fraction.clamp(0.0, 1.0);
+            final cx = p1.x + (p2.x - p1.x) * clampedFraction;
+            final cy = p1.y + (p2.y - p1.y) * clampedFraction;
+
+            canvas.drawCircle(
+              toOffset(cx, cy, size, precomputedPoints: points),
+              10,
+              Paint()..color = Colors.red,
+            );
+          }
         }
       } else if (position!.legIndex == route!.legs.length) {
-          // Arrived
-          final leg = route!.legs.last;
-          final c = map.corridors.firstWhere((c) => c.id == leg.corridorId);
+        // Arrived
+        final leg = route!.legs.last;
+        final c = map.corridors.cast<Corridor?>().firstWhere(
+          (c) => c?.id == leg.corridorId,
+          orElse: () => null,
+        );
+        if (c != null) {
           final p2 = pointMap[leg.reversed ? c.from : c.to];
           if (p2 != null) {
-             canvas.drawCircle(toOffset(p2.x, p2.y, size, precomputedPoints: points), 10, Paint()..color = Colors.red);
+            canvas.drawCircle(
+              toOffset(p2.x, p2.y, size, precomputedPoints: points),
+              10,
+              Paint()..color = Colors.red,
+            );
           }
+        }
       }
     }
   }

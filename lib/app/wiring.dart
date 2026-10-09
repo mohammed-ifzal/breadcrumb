@@ -1,5 +1,9 @@
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/fakes.dart';
+import 'package:breadcrumb/core/route_planner.dart';
+import 'package:breadcrumb/core/place_matcher.dart';
+import 'package:breadcrumb/core/tracker.dart';
+import 'package:breadcrumb/core/guide.dart';
 import 'package:breadcrumb/app/speaker.dart';
 
 class Wiring {
@@ -29,10 +33,13 @@ class Wiring {
     ],
   );
 
-  final RoutePlanner planner = FakeRoutePlanner();
-  final PlaceMatcher matcher = FakePlaceMatcher();
-  late final Tracker tracker = FakeTracker(map);
-  late final Guide guide = FakeGuide(map);
+  String? currentPlaceId;
+  String get effectiveCurrentPlaceId => currentPlaceId ?? map.start;
+
+  final RoutePlanner planner = DijkstraRoutePlanner();
+  final PlaceMatcher matcher = FuzzyPlaceMatcher();
+  late final Tracker tracker = RouteTracker(map);
+  late final Guide guide = RouteGuide(map);
   final StepDetector stepDetector = FakeStepDetector();
   final TurnDetector turnDetector = FakeTurnDetector();
   final MapBuilder mapBuilder = FakeMapBuilder();

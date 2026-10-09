@@ -9,7 +9,10 @@ class DestinationListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final map = Wiring.instance.map;
-    final places = map.places.where((p) => p.kind != PlaceKind.junction).toList();
+    final currentPlace = Wiring.instance.effectiveCurrentPlaceId;
+    final places = map.places
+        .where((p) => p.kind != PlaceKind.junction && p.id != currentPlace)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Select Destination')),
