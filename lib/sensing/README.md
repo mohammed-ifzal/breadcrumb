@@ -44,3 +44,40 @@ This spike supports D15's real live recording. It does not implement MapBuilder 
 record_screen.dart, draw a fabricated trail, or require signs. No contract/tuning or
 shared build changes are needed. Test with `flutter test --concurrency=1` if parallel
 Flutter test compilation exhausts memory on the laptop.
+
+## Android build memory failure (10 Oct)
+
+The first captured failure was `Gradle build daemon disappeared unexpectedly` at
+`build_log.txt:61`. It did not identify a Kotlin source line. The JVM crash log
+`android/hs_err_pid11692.log:2-3` reported insufficient memory and a failed native
+allocation of 1,245,708,288 bytes. The current `android/gradle.properties:1` allows an
+8 GB Java heap and 4 GB metaspace. No Kotlin changes were needed.
+
+A debug APK built successfully with the following temporary process-only override.
+This leaves all captain-owned files unchanged and restores the shell's original value:
+
+```powershell
+$previousGradleOpts = $env:GRADLE_OPTS
+try {
+    $env:GRADLE_OPTS = '-Dorg.gradle.jvmargs="-Xmx2G -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=256m -XX:ActiveProcessorCount=2 -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.workers.max=1 -Dorg.gradle.parallel=false -Dorg.gradle.daemon=false'
+    flutter build apk --debug
+} finally {
+    $env:GRADLE_OPTS = $previousGradleOpts
+}
+adb install -r build\app\outputs\flutter-apk\app-debug.apk
+```
+
+For a persistent fix on this laptop, ask the captain to replace the first line of
+`android/gradle.properties` and add the three build controls below (keep its AndroidX
+and Kotlin migration settings unchanged):
+
+```properties
+org.gradle.jvmargs=-Xmx2G -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=256m -XX:ActiveProcessorCount=2 -XX:+HeapDumpOnOutOfMemoryError
+org.gradle.workers.max=1
+org.gradle.parallel=false
+org.gradle.daemon=false
+```
+
+The captured build log is temporary and is deleted after diagnosis; it is not committed.
+The existing flutter_tts built-in-Kotlin compatibility message was a warning, not the
+cause of this failure. Physical step/turn calibration still requires a phone walk.
