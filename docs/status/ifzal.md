@@ -3,7 +3,7 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
-## Sat 10 Oct 01:00, merge review
+## Sat 10 Oct 01:05, end of merge-review session
 Done: merged PR #1 (core engine, a93c607); main analyze clean, 79 tests green. Contract
 update a4a4bc6: PlaceMatcher regex keeps \p{M}; Clarifications list (offRoute before snap
 zone, turns ignored while off route, places passed through, RoutePlanner ArgumentError).
@@ -13,8 +13,9 @@ flutter test (96). Blocking: SensingChannel.kt registers the step sensor in the 
 as gyro/accel, so if it fails (e.g. no ACTIVITY_RECOGNITION) the whole stream dies.
 PR #3 (t3/app-shell) is open and not reviewed yet.
 In progress: nothing; on main, clean.
-Last commit: this entry (after a4a4bc6).
-Next: review PR #3 and PR #2 after T2's phone results; then prompt 3 (Gemma spike, lib/ai/).
+Last commit: 9ab4520 (handoff), then this end-of-session edit.
+Next: review PR #3 (t3/app-shell) with a subagent per CLAUDE.md; merge PR #2 once T2 fixes
+the step-sensor blocker and posts phone results; then PROMPTS.md Ifzal prompt 3 (Gemma).
 Blocked: nothing. T2 asks for android/gradle.properties memory changes (decide).
 
 ## Fri 9 Oct, core-engine session
