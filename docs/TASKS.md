@@ -6,7 +6,7 @@ the iQOO phone. **[RL]** = suits Red Light (phone only).
 
 ## Hour 0 (now)
 
-- [ ] **Ifzal:** hour-0 commit per `docs/SETUP.md` (project, shared debug key, packages,
+- [x] **Ifzal:** hour-0 commit per `docs/SETUP.md` (project, shared debug key, packages,
   manifest, contracts, tuning, fakes, status files, CI). Done when CI is green and the
   APK installs on the iQOO.
 - [ ] **Ifzal:** Gemma file onto the iQOO; record the path in `DECISIONS.md`.

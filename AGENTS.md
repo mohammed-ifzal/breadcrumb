@@ -88,19 +88,23 @@ adb install -r build/app/outputs/flutter-apk/app-debug.apk
 
 ## Workflow for every task
 
-1. `git pull`, then read the newest entries in `docs/status/` and `docs/CONTRACTS.md`.
+1. Start the session as "Sessions and handoff" below describes.
 2. Work on a branch named `<owner>/<short-task>`, for example `t2/turn-detector`.
 3. First write or update a test that proves the task is done. Iterate until it passes.
 4. Make small commits, push, and open a pull request to `main`. Never push to `main`
    directly.
-5. Add a 3-line handoff (done, next, blocked) at the top of
-   `docs/status/<your-name>.md`.
+5. Write a handoff at the top of `docs/status/<your-name>.md` (see below).
 6. Ask the human before deleting files, adding packages or touching another owner's paths.
 
-## When context is compacted or a session ends
+## Sessions and handoff (every agent)
 
-Preserve the files changed, any failing tests, the next step and open decisions.
-Write the handoff to your status file so a fresh session can resume from files alone.
+- **Start of a session:** `git pull`, then read `AGENTS.md`, `docs/CONTRACTS.md`, your
+  own `docs/status/<name>.md`, and the newest entry of the other status files.
+- **End of a session, before switching tasks, or when the context is about half full:**
+  write a handoff entry at the top of your status file: done / in progress (branch,
+  files) / next exact step / blockers / last commit. Max 15 lines. Commit and push it.
+  Then tell the human to start a fresh session.
+- **Never rely on chat history.** If it matters, it's in the repo.
 
 ## Words we use
 

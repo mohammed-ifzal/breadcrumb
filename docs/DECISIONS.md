@@ -31,7 +31,7 @@ without new evidence.
 | Can laptops run agents during Red Light, steered from the phone? Are cloud agents allowed? | |
 | Evaluation rounds: times and what is checked | |
 | Submission deadline, repo lock, platform; are planning docs OK? | |
-| Phones per team; ADB and sideloading allowed? | |
+| Phones per team; ADB and sideloading allowed? | One iQOO 15 per person (3) |
 | AI credits: provider and amount | |
 | Venue Wi-Fi allows device-to-device connections? | |
 
