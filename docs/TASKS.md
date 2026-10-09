@@ -36,6 +36,9 @@ the iQOO phone. **[RL]** = suits Red Light (phone only).
 - [ ] **Teammate 2 [RL]:** 10 traced test walks; replay tests; tune turn thresholds.
 - [ ] **Teammate 3:** replay mode labelled "Replay"; scan any printed text to anchor
   (bonus); export the trail for Office Kit.
+- [ ] **Teammate 3:** First commit on t3/live-trail: SIMULATED label stays on the
+  arrival screen; +1 step / turn debug buttons hidden behind a dev toggle and show
+  SIMULATED when used (PR #3 follow-up).
 - [ ] **Teammate 3 [RL]:** first backup video.
 - [ ] **Ifzal [RL]:** pitch and Q&A drill.
 - [ ] **G3 (Sat 6 pm):** feature cut.

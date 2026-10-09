@@ -182,6 +182,8 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `turnRateMin` | 25 | deg/s above which the phone is turning |
 | `turnSettleMs` | 500 | ms the rate must stay below `turnRateMin` to finish a turn |
 | `turnMinAngle` | 60 | Minimum total degrees to count as a turn |
+| `maxMotionGapMs` | 200 | Motion samples with a bigger gap (ms) reset turn integration |
+| `turnSnapDegrees` | 45 | `MapBuilder` rounds each recorded turn angle to the nearest multiple |
 | `straightTolerance` | 30 | Leg-to-leg changes smaller than this are "straight on" |
 | `turnAroundAngle` | 150 | Changes larger than this are "turn around" |
 | `turnNowSteps` | 3 | Say "turn now" this many steps before the end of a leg |

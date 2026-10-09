@@ -3,6 +3,19 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 03:10, merge session for PR #3 + #4 (neither merged)
+PR #3 BLOCKED (comment posted): main merged in cleanly, analyze clean, 98 tests green, CI green,
+ownership OK, checklist OK. Rule 9 issues: SIMULATED label hides at arrival
+(navigate_screen.dart:96-113) while the fake arrival stays on screen, and the kDebugMode
++1 step / ±90° buttons (:135-160, :324-347) move the dot unlabelled in the debug APK.
+PR #4 BLOCKED on CI only (comment posted): code review clean, 95 tests green. CI's
+`flutter build apk` hits "No space left on device" twice (LiteRT-LM libs). Fix .github/ (mine).
+main: 80 tests green; installed on the iQOO, placeholder screen, no crash in logcat. The
+Home/Navigate/Replay smoke test waits for #3. DEMO.md: added the Gemma first-load checklist line.
+Next: free runner disk space in .github/workflows, re-run #4 CI, merge #4 (resolve the
+status-file conflict at the top of this file); T3 fixes #3, then merge #3 and run the smoke
+test. Blocked: T3 on #3. Last commit: this handoff.
+
 ## Sat 10 Oct 02:40, Gemma spike (prompt 3) session
 Done: branch ifzal/gemma. lib/ai: GemmaService (flutter_edge_ai 2.1.1 + new
 flutter_edge_ai_litertlm 1.10.1, D20), GemmaDestinationResolver (PlaceMatcher first,
