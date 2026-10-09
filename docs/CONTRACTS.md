@@ -154,13 +154,25 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 
 **PlaceMatcher**
 
-1. Lowercase. Replace anything that isn't a letter or digit in any script with a space,
-   using `RegExp(r'[^\p{L}\p{N}]+', unicode: true)`, so Devanagari survives.
+1. Lowercase. Replace anything that isn't a letter, combining mark or digit in any
+   script with a space, using `RegExp(r'[^\p{L}\p{M}\p{N}]+', unicode: true)`, so
+   Devanagari survives (its vowel signs are `\p{M}`; without it words break apart).
 2. Never match junctions.
 3. **If the text contains a number, the candidate must contain the same number**:
    "Platform 3" never matches "Platform 2".
 4. Score with token overlap plus normalised Levenshtein over names and aliases. Return
    `null` below `matchThreshold`.
+
+**Clarifications** (from the core engine, PR #1)
+
+- **A correct turn before the snap zone is `offRoute`.** The snap zone is measured over
+  the straight run up to the next turn, not a single leg.
+- **While off route, turns are ignored** until an anchor (`anchor` / `tapHere`) or a
+  new route (`setRoute`) clears `offRoute`.
+- **Places mid-corridor are passed through.** A place splits a corridor into two legs
+  with the same heading; walking past it is straight on, never a turn.
+- **`RoutePlanner.plan` throws `ArgumentError`** for an unknown place ID or when there is
+  no route. Callers must catch it.
 
 ## Tuning (`lib/core/tuning.dart`, starting guesses to tune with traces)
 
