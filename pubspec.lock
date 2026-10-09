@@ -270,6 +270,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.1"
+  flutter_edge_ai_litertlm:
+    dependency: "direct main"
+    description:
+      name: flutter_edge_ai_litertlm
+      sha256: "06141f5956d445a00ad7af6d33bec90d37998917c13fab6893dc42eb525f4056"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.10.1"
   flutter_lints:
     dependency: "direct dev"
     description:

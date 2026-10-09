@@ -16,6 +16,19 @@ Next: free runner disk space in .github/workflows, re-run #4 CI, merge #4 (resol
 status-file conflict at the top of this file); T3 fixes #3, then merge #3 and run the smoke
 test. Blocked: T3 on #3. Last commit: this handoff.
 
+## Sat 10 Oct 02:40, Gemma spike (prompt 3) session
+Done: branch ifzal/gemma. lib/ai: GemmaService (flutter_edge_ai 2.1.1 + new
+flutter_edge_ai_litertlm 1.10.1, D20), GemmaDestinationResolver (PlaceMatcher first,
+then tool choose_place; only real non-junction IDs pass), debug_screen + debug_main.
+On the iQOO in aeroplane mode: GPU, load 2758 ms + warm-up 539 ms, all 4 presets pass,
+answers 4.1-6.1 s (Spike results in DECISIONS.md). D18 path works; option B not needed.
+Added gemmaTimeoutMs (20 s) to tuning.dart + CONTRACTS.md tuning table.
+analyze clean, 95 tests green (15 new in test/ai).
+In progress: PR open, not merged.
+Next: cut answer time: ~4 s/request is createConversation building the tool grammar;
+try reusing one chat per map instead of one per request. Wire resolver into the app (T3).
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct 01:45, end of PR #3 review + D19 session
 Done: D19 on main 4782c14 (MapBuilder.snapshot() + "_here"/hereId, FakeMapBuilder + test;
 trace name <date>-<walker>-<map>-<micros>.jsonl; stepSource "hardware" | "accel").

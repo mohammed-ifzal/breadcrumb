@@ -193,6 +193,7 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `matchThreshold` | 0.8 | Minimum fuzzy score for a place match |
 | `accelPeakThreshold` | 11.5 | m/s² peak needed to count a step (fallback only) |
 | `accelPeakMinGapMs` | 300 | Minimum ms between fallback step peaks |
+| `gemmaTimeoutMs` | 20000 | Longest wait for Gemma to choose a destination; then `null` |
 
 ## Instruction text (English; Hindi strings are a stretch goal)
 
