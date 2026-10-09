@@ -43,6 +43,7 @@ If there's no room to walk, record a 10-step L-shape beside the table and naviga
 
 - [ ] Phone battery above 60%, Do Not Disturb on, brightness and volume up
 - [ ] Aeroplane mode on
+- [ ] After any fresh install, open the app once and wait for Gemma 'Loaded' (first GPU compile can take ~10 min)
 - [ ] Gemma warmed up; record screen open
 - [ ] USB mirroring to the laptop working (Office Kit USB, or scrcpy)
 - [ ] The loop route has been walked once in the last hour
