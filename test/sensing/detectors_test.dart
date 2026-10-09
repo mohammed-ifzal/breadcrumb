@@ -19,6 +19,31 @@ List<contracts.TurnEvent> feed(
 }
 
 void main() {
+  for (final periodMs in [333, 400, 1000]) {
+    test('fallback counts all 20 steps at ${1000 / periodMs} steps/s', () {
+      final detector = StepDetector();
+      final steps = <contracts.StepEvent>[];
+      // 50 Hz samples of one acceleration pulse per footfall, including baseline
+      // between pulses. No amplitude/debounce adjustments for fast cadence.
+      for (var t = 0; t <= periodMs * 20; t += 20) {
+        final distanceFromPeak = ((t % periodMs) - 100).abs();
+        final accel = distanceFromPeak < 60
+            ? 13.0 - distanceFromPeak * 3.2 / 60
+            : 9.8;
+        final step = detector.onMotion(t, accel);
+        if (step != null) steps.add(step);
+      }
+      expect(steps, hasLength(20));
+      expect(steps.map((step) => step.t).toSet(), hasLength(20));
+    });
+  }
+  test('stationary low amplitude motion never produces fallback steps', () {
+    final detector = StepDetector();
+    for (var t = 0; t <= 10000; t += 20) {
+      final accel = (t ~/ 20).isEven ? 9.6 : 10.0;
+      expect(detector.onMotion(t, accel), isNull);
+    }
+  });
   test('gap over 200 ms discards partial turn and starts a new interval', () {
     final detector = TurnDetector();
     detector.onMotion(0, 0);

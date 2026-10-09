@@ -197,6 +197,74 @@ void main() {
       }
     },
   );
+  for (final periodMs in [333, 400, 1000]) {
+    test('hardware preserves 20 steps at ${1000 / periodMs} steps/s', () async {
+      final source = SensingSource();
+      final events = <Object>[];
+      final errors = <Object>[];
+      final sub = source.events().listen(events.add, onError: errors.add);
+      try {
+        await Future<void>.delayed(Duration.zero);
+        await send({'type': 'motion', 't': 0, 'yawRate': 0, 'accel': 9.8});
+        for (var i = 1; i <= 20; i++) {
+          final t = i * periodMs;
+          // A delayed hardware event can arrive after a newer gyro sample.
+          // Accel pulses must not be fused/double-counted in hardware mode.
+          await send({
+            'type': 'motion',
+            't': t + 40,
+            'yawRate': 90,
+            'accel': 13,
+          });
+          await send({'type': 'step', 't': t});
+          await send({
+            'type': 'motion',
+            't': t + 60,
+            'yawRate': 0,
+            'accel': 9.8,
+          });
+        }
+        expect(events.whereType<contracts.StepEvent>().map((e) => e.t), [
+          for (var i = 1; i <= 20; i++) i * periodMs,
+        ]);
+        expect(source.hardwareStepDetector.value, isTrue);
+        expect(errors, isEmpty);
+        expect(listens, 1);
+        expect(cancels, 0);
+      } finally {
+        await sub.cancel();
+        await source.dispose();
+      }
+    });
+  }
+  for (final hardware in [true, false]) {
+    test('stationary turn adds no steps with hardware=$hardware', () async {
+      final source = SensingSource();
+      final events = <Object>[];
+      final sub = source.events().listen(events.add);
+      try {
+        await Future<void>.delayed(Duration.zero);
+        if (!hardware) await send({'type': 'info', 'stepDetector': false});
+        await send({'type': 'motion', 't': 0, 'yawRate': 0, 'accel': 9.8});
+        for (var t = 20; t <= 1520; t += 20) {
+          await send({
+            'type': 'motion',
+            't': t,
+            'yawRate': t <= 1000 ? 90 : 0,
+            'accel': (t ~/ 20).isEven ? 9.6 : 10.0,
+          });
+        }
+        expect(events.whereType<contracts.StepEvent>(), isEmpty);
+        expect(
+          events.whereType<contracts.TurnEvent>().single.angle,
+          closeTo(90, .01),
+        );
+      } finally {
+        await sub.cancel();
+        await source.dispose();
+      }
+    });
+  }
   test('native errors reach consumers without enabling fallback', () async {
     final source = SensingSource();
     final errors = <Object>[];
