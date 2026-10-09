@@ -50,7 +50,7 @@ Reading the example: c1 → c2 is a **left** turn (0 → 90). c2 → c3 is strai
 c4 is a **right** turn (90 → 0). Walking back from Platform 2, c4 reversed has heading
 180.
 
-`assets/maps/demo_route.json` uses the 8 places from `docs/DEMO.md`. In version 1, **a
+Maps come from record mode (D15). Tests build maps in code. In version 1, **a
 map comes from one walk**; merging several walks is a stretch goal, because each walk
 has its own heading frame.
 

@@ -1,0 +1,5 @@
+package com.teamgroza.breadcrumb
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
