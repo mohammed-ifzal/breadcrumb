@@ -20,6 +20,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
   Instruction? _currentInstruction;
   Timer? _timer;
   bool _isSimulating = false;
+  bool _showDebugButtons = false;
+  bool _usedSimulation = false;
   String? _errorMessage;
   String? _alreadyTherePlace;
   int _simulatedTimestamp = 0;
@@ -65,6 +67,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
     _updateInstruction();
 
     _isSimulating = true;
+    _usedSimulation = true;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final currentPos = _position;
       final currentRoute = _route;
@@ -107,6 +110,9 @@ class _NavigateScreenState extends State<NavigateScreen> {
   void _stopSimulation() {
     _timer?.cancel();
     _timer = null;
+    if (mounted) {
+      _updateInstruction();
+    }
     if (_isSimulating && mounted) {
       setState(() {
         _isSimulating = false;
@@ -135,6 +141,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
   void _onStepDebug() {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
+    _usedSimulation = true;
     setState(() {
       _position = wiring.tracker.onStep(StepEvent(_simulatedTimestamp));
       _updateInstruction();
@@ -144,6 +151,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
   void _onTurnLeftDebug() {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
+    _usedSimulation = true;
     setState(() {
       _position = wiring.tracker.onTurn(TurnEvent(_simulatedTimestamp, 90.0));
       _updateInstruction();
@@ -153,6 +161,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
   void _onTurnRightDebug() {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
+    _usedSimulation = true;
     setState(() {
       _position = wiring.tracker.onTurn(TurnEvent(_simulatedTimestamp, -90.0));
       _updateInstruction();
@@ -237,12 +246,20 @@ class _NavigateScreenState extends State<NavigateScreen> {
     }
 
     final progress = totalSteps > 0 ? (stepsTaken / totalSteps).clamp(0.0, 1.0) : 0.0;
+    final showSimulated = _isSimulating || _usedSimulation;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Navigating'),
+        title: GestureDetector(
+          onLongPress: kDebugMode
+              ? () {
+                  setState(() => _showDebugButtons = !_showDebugButtons);
+                }
+              : null,
+          child: const Text('Navigating'),
+        ),
         actions: [
-          if (_isSimulating)
+          if (showSimulated)
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: Center(
@@ -268,7 +285,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
       ),
       body: Column(
         children: [
-          if (_isSimulating)
+          if (showSimulated)
             Container(
               width: double.infinity,
               color: Colors.amber.shade800,
@@ -321,7 +338,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
               ),
             ),
           ),
-          if (kDebugMode)
+          if (_showDebugButtons && kDebugMode)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
               child: Row(

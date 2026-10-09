@@ -65,6 +65,43 @@ void main() {
     expect(find.text('SIMULATED'), findsWidgets);
   });
 
+  testWidgets('COMMIT 1a: SIMULATED label stays visible on the arrival screen too', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: NavigateScreen(destinationId: 'cafe'),
+    ));
+    await tester.pump();
+    expect(find.text('SIMULATED'), findsWidgets);
+
+    // Fast-forward simulation to completion
+    for (int i = 0; i < 35; i++) {
+      await tester.pump(const Duration(seconds: 1));
+    }
+    // On arrival, SIMULATED remains visible
+    expect(find.text('SIMULATED'), findsWidgets);
+    expect(find.textContaining('is here'), findsOneWidget);
+  });
+
+  testWidgets('COMMIT 1b: debug buttons hidden behind dev toggle, show SIMULATED when used', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: NavigateScreen(destinationId: 'cafe'),
+    ));
+    await tester.pump();
+
+    // Debug buttons (+1 step) hidden initially
+    expect(find.text('+1 step'), findsNothing);
+
+    // Long press title to reveal
+    await tester.longPress(find.text('Navigating'));
+    await tester.pump();
+
+    expect(find.text('+1 step'), findsOneWidget);
+
+    // Tapping debug button keeps SIMULATED visible
+    await tester.tap(find.text('+1 step'));
+    await tester.pump();
+    expect(find.text('SIMULATED'), findsWidgets);
+  });
+
   test('turn calculations: right turn gives negative angle, left gives positive, straight produces no turn', () {
     // Current leg heading 0
     const currentHeading = 0.0;
