@@ -3,6 +3,20 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 05:00, voice + benchmark session (branch ifzal/voice, PR open, not merged)
+Done: GemmaService reuses one chat per map, clears history after each answer (conversation
+open ~1650 ms moved off the critical path). iQOO GPU, load 2468 ms: Gemma median 2863 -> 1173
+ms, p90 4432 -> 2363 ms; 96/120 correct, 0 false positives, 24 misses (8 requests, all to null).
+Two prompt rewrites scored 90/120, original kept. docs/BENCHMARKS.md. SpeechInput
+(lib/ai/speech_input.dart): on-device only, no network fallback. Offline en-IN yes, hi-IN yes.
+analyze clean, 128 tests green. The phone has the Gemma debug APK (not the main app) installed.
+Spoken test (yours): phone in aeroplane mode, open Breadcrumb (Gemma debug), wait for "Loaded",
+tap "Speak (en-IN)", say "where can I get coffee" -> "Heard (en_IN): ..." then Food counter.
+Tap "बोलें (hi-IN)", say "स्टेज कहाँ है" -> Stage side. Say nothing once -> "Heard nothing".
+Note: vivo Remote Control in front blocked the run once; I brought the app forward.
+Next: spoken test; merge PR after review; reinstall main app (flutter build apk --debug).
+Blocked: nothing. Last commit: this handoff (previous 2be332a).
+
 ## Sat 10 Oct 03:50, D21 + merge PR #3 and #4 session
 Done: D21 on main 303209c (tuning maxMotionGapMs 200, turnSnapDegrees 45; CONTRACTS table;
 CI frees runner disk: 82% -> 69% used, 14G -> 23G free). TASKS: T3 follow-up added (f50f2b9).
