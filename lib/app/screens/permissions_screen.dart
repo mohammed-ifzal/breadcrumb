@@ -20,30 +20,41 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
   }
 
   Future<void> _requestPermissions() async {
-    final statusMap = await [
-      Permission.camera,
-      Permission.microphone,
-      Permission.activityRecognition,
-    ].request();
+    try {
+      final statusMap = await [
+        Permission.camera,
+        Permission.microphone,
+        Permission.activityRecognition,
+      ].request();
 
-    bool allGranted = true;
-    for (final status in statusMap.values) {
-      if (!status.isGranted) {
-        allGranted = false;
-        break;
+      bool allGranted = true;
+      for (final status in statusMap.values) {
+        if (!status.isGranted) {
+          allGranted = false;
+          break;
+        }
       }
-    }
 
-    if (allGranted) {
+      if (allGranted) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _checking = false;
+          _error =
+              'Breadcrumb needs Camera, Microphone, and Activity Recognition permissions to work. Please grant them in Settings.';
+        });
+      }
+    } catch (e) {
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-    } else {
       setState(() {
         _checking = false;
-        _error = 'Breadcrumb needs Camera, Microphone, and Activity Recognition permissions to work. Please grant them in Settings.';
+        _error =
+            'Unable to request permissions: $e. Please grant permissions in Settings.';
       });
     }
   }
