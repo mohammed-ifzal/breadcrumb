@@ -11,6 +11,12 @@ const int turnSettleMs = 500;
 /// Minimum total degrees to count as a turn.
 const double turnMinAngle = 60;
 
+/// Motion samples further apart than this many ms reset turn integration.
+const int maxMotionGapMs = 200;
+
+/// MapBuilder rounds each recorded turn angle to the nearest multiple of this.
+const double turnSnapDegrees = 45;
+
 /// Leg-to-leg changes smaller than this are "straight on".
 const double straightTolerance = 30;
 
