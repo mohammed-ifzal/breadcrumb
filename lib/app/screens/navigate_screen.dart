@@ -19,6 +19,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
   Position? _position;
   Instruction? _currentInstruction;
   Timer? _timer;
+  StreamSubscription<Object>? _sensorSubscription;
   bool _isSimulating = false;
   bool _showDebugButtons = false;
   bool _usedSimulation = false;
@@ -29,6 +30,20 @@ class _NavigateScreenState extends State<NavigateScreen> {
   @override
   void initState() {
     super.initState();
+    _sensorSubscription = Wiring.instance.sensorEvents().listen((event) {
+      if (!mounted) return;
+      if (event is StepEvent) {
+        setState(() {
+          _position = Wiring.instance.tracker.onStep(event);
+          _updateInstruction();
+        });
+      } else if (event is TurnEvent) {
+        setState(() {
+          _position = Wiring.instance.tracker.onTurn(event);
+          _updateInstruction();
+        });
+      }
+    });
     _startNavigation();
   }
 
@@ -85,16 +100,16 @@ class _NavigateScreenState extends State<NavigateScreen> {
       _simulatedTimestamp += 500;
 
       if (currentPos.stepsAlong < currentLeg.steps) {
-        _position = wiring.tracker.onStep(StepEvent(_simulatedTimestamp));
+        wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
       } else {
         if (currentPos.legIndex + 1 < currentRoute.legs.length) {
           final nextLeg = currentRoute.legs[currentPos.legIndex + 1];
           final turnAngle = turnBetween(currentLeg.heading, nextLeg.heading);
           if (turnAngle.abs() >= tuning.straightTolerance) {
-            _position = wiring.tracker.onTurn(TurnEvent(_simulatedTimestamp, turnAngle));
+            wiring.emitSimulatedEvent(TurnEvent(_simulatedTimestamp, turnAngle));
           } else {
             // Straight boundary: carry on with step
-            _position = wiring.tracker.onStep(StepEvent(_simulatedTimestamp));
+            wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
           }
         } else {
           // Finished route
@@ -102,8 +117,6 @@ class _NavigateScreenState extends State<NavigateScreen> {
           return;
         }
       }
-
-      _updateInstruction();
     });
   }
 
@@ -170,34 +183,26 @@ class _NavigateScreenState extends State<NavigateScreen> {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
     _usedSimulation = true;
-    setState(() {
-      _position = wiring.tracker.onStep(StepEvent(_simulatedTimestamp));
-      _updateInstruction();
-    });
+    wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
   }
 
   void _onTurnLeftDebug() {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
     _usedSimulation = true;
-    setState(() {
-      _position = wiring.tracker.onTurn(TurnEvent(_simulatedTimestamp, 90.0));
-      _updateInstruction();
-    });
+    wiring.emitSimulatedEvent(TurnEvent(_simulatedTimestamp, 90.0));
   }
 
   void _onTurnRightDebug() {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
     _usedSimulation = true;
-    setState(() {
-      _position = wiring.tracker.onTurn(TurnEvent(_simulatedTimestamp, -90.0));
-      _updateInstruction();
-    });
+    wiring.emitSimulatedEvent(TurnEvent(_simulatedTimestamp, -90.0));
   }
 
   @override
   void dispose() {
+    _sensorSubscription?.cancel();
     _timer?.cancel();
     super.dispose();
   }

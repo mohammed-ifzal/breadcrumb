@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/fakes.dart';
 import 'package:breadcrumb/core/route_planner.dart';
@@ -47,4 +48,17 @@ class Wiring {
   final SignReader signReader = FakeSignReader();
   final DestinationResolver destinationResolver = FakeDestinationResolver();
   final Speaker speaker = AppSpeaker();
+
+  final StreamController<Object> _simulatedEventsController = StreamController<Object>.broadcast();
+
+  /// Event source for step and turn events, matching the exact signature
+  /// of SensingSource.events(). When PR #2 lands on main, swap this one line to:
+  /// `late final Stream<Object> Function() sensorEvents = sensingSource.events;`
+  late final Stream<Object> Function() sensorEvents = () => _simulatedEventsController.stream;
+
+  void emitSimulatedEvent(Object event) {
+    if (!_simulatedEventsController.isClosed) {
+      _simulatedEventsController.add(event);
+    }
+  }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/trail_geometry.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
+import 'package:breadcrumb/app/wiring.dart';
 
 /// Test helper to grow a map step by step until Teammate 2's MapBuilder lands.
 class StepByStepMapBuilder {
@@ -160,5 +161,20 @@ void main() {
     final offsetRoomA = painter.toOffset(pRoomA.x, pRoomA.y, size);
 
     expect(offsetRoomA.dx, lessThan(offsetJ1.dx));
+  });
+
+  test('Wiring sensorEvents emits StepEvent and TurnEvent matching SensingSource.events() signature', () async {
+    final wiring = Wiring.instance;
+    final events = <Object>[];
+    final sub = wiring.sensorEvents().listen(events.add);
+
+    wiring.emitSimulatedEvent(const StepEvent(100));
+    wiring.emitSimulatedEvent(const TurnEvent(200, 90.0));
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    expect(events.length, 2);
+    expect(events[0], isA<StepEvent>());
+    expect(events[1], isA<TurnEvent>());
+    await sub.cancel();
   });
 }
