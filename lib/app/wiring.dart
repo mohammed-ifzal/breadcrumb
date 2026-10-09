@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:breadcrumb/ai/destination_resolver.dart';
+import 'package:breadcrumb/ai/gemma_service.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/fakes.dart';
 import 'package:breadcrumb/core/route_planner.dart';
@@ -46,7 +48,10 @@ class Wiring {
   final MapBuilder mapBuilder = FakeMapBuilder();
   final SensingSource sensingSource = FakeSensingSource();
   final SignReader signReader = FakeSignReader();
-  final DestinationResolver destinationResolver = FakeDestinationResolver();
+  DestinationResolver destinationResolver = GemmaDestinationResolver(
+    matcher: FuzzyPlaceMatcher(),
+    chooser: GemmaService(),
+  );
   final Speaker speaker = AppSpeaker();
 
   final StreamController<Object> _simulatedEventsController = StreamController<Object>.broadcast();
