@@ -247,6 +247,31 @@ class FakeMapBuilder implements MapBuilder {
   );
 
   @override
+  MapGraph snapshot() {
+    final from = _lastNode;
+    if (from == null) throw StateError('snapshot() before start()');
+    final map = finish();
+    return MapGraph(
+      name: map.name,
+      start: map.start,
+      places: [
+        ...map.places,
+        const Place(id: hereId, name: 'You are here', kind: PlaceKind.junction),
+      ],
+      corridors: [
+        ...map.corridors,
+        Corridor(
+          id: 'c${map.corridors.length + 1}',
+          from: from,
+          to: hereId,
+          steps: _steps,
+          heading: _heading,
+        ),
+      ],
+    );
+  }
+
+  @override
   MapGraph finish() {
     final start = _startId;
     if (start == null) throw StateError('finish() before start()');

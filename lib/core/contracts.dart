@@ -295,6 +295,9 @@ abstract interface class TurnDetector {
   TurnEvent? onMotion(int t, double yawRate);
 }
 
+/// Temporary node ID that [MapBuilder.snapshot] uses for the walker's position.
+const String hereId = '_here';
+
 /// Owner: Teammate 2. Each turn creates a junction; each place splits the current
 /// corridor.
 abstract interface class MapBuilder {
@@ -302,6 +305,10 @@ abstract interface class MapBuilder {
   void onStep(StepEvent e);
   void onTurn(TurnEvent e);
   void addPlace(String name, List<String> aliases);
+
+  /// The map so far, plus the open corridor ending at a temporary junction
+  /// [hereId] (D19). The record screen draws [hereId] as the moving dot.
+  MapGraph snapshot();
   MapGraph finish();
 }
 
