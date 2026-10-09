@@ -42,7 +42,7 @@ without new evidence.
 
 | Spike | Result | Numbers | Fallback chosen |
 | --- | --- | --- | --- |
-| Gemma 4 on the iQOO | | load time, answer time | |
+| Gemma 4 on the iQOO | **Pass** (10 Oct, aeroplane mode, `flutter_edge_ai` 2.1.1 + `flutter_edge_ai_litertlm` 1.10.1, D20). Loads from the D18 path (option A works, option B not needed). Backend **GPU** (OpenCL), no CPU fallback. Presets: "where can I get coffee" -> Food counter via Gemma, **pass** (first prompt version gave null; the system prompt now says a request may ask for something you can get at a place); "take me back to the stage" -> Stage side via Gemma, **pass**; "मुझे खाने की जगह जाना है" -> Food counter via Gemma, **pass**; "take me to the moon" -> null, **pass**. | Load 2758 ms + warm-up 539 ms (screen on; the very first load also compiles GPU programs and took far longer, with the screen asleep). Answers: coffee 6059 ms, stage 5739 ms, Hindi 5264 ms, moon 4118 ms. About 4 s of each is `createConversation` building the tool grammar; generation is 0.3-1.3 s. | Not needed; tap-a-place stays as the UI fallback when the answer is null |
 | Step detector present? | | steps counted / real steps | |
 | Turn detection | | angles seen for 90-degree turns | |
 | ML Kit on signs | | signs read correctly / total | |

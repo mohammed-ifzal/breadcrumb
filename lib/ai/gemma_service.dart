@@ -141,7 +141,9 @@ class GemmaService implements PlaceChooser {
       ],
       systemInstruction:
           'You help someone find a place on an indoor map. The request may be in '
-          'English or Hindi. If one place on the map fits the request, call '
+          'English or Hindi. It may name a place, describe it, or ask for '
+          'something you can get or do somewhere without naming the place; then '
+          'pick the place where that is most likely. If one place fits, call '
           '$choosePlaceTool with its ID. If no place fits, do not call the tool; '
           'reply with the single word none.',
     );
