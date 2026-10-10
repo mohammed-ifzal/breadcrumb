@@ -3,6 +3,20 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 22:55, end of session: demo build merged to main
+Done: PR #20 (demo/now -> main) merged 7014b0d, CI green. Brings in D28 tuning
+(turnRateMin 15, turnSettleMs 300), PRs #17, #18 and #19 (now shown as merged), trail labels
+and the Navigate layout. Local: analyze clean, 359 tests green.
+Final map skipped: origin/t2/final-map doesn't exist yet, so assets/maps/final_map.json
+isn't bundled, there's no latest.json fallback, and nothing was pushed via run-as.
+iQOO: debug APK from main 7014b0d installed and launched, Gemma 4 loads (prefill 514 ms),
+no FATAL or E/flutter in logcat. Screens not checked by hand.
+New remote branch seen: origin/t2/robust-sensing (not reviewed).
+Next: when T2 pushes t2/final-map, copy demo/final_map.json, bundle it as
+assets/maps/final_map.json, add the fallback and its test, then push it as
+app_flutter/maps/latest.json via run-as.
+Blocked: final map from T2. Last commit: this handoff.
+
 ## Sat 10 Oct 16:40, merge round 5: PR #16 and #14 merged
 Docs on main 1a082f8: docs/MENTOR.md (10:00 mentor Q&A + feedback), TASKS Saturday plan.
 PR #16 merged a90e6bf (CI green, temp merge with main: docs only, 300 green).
