@@ -3,6 +3,11 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct, 11:10
+Done: Prompt 2 (Sign Reading): Implemented MlKitSignReader in lib/perception/mlkit_sign_reader.dart (Latin + Devanagari OCR via google_mlkit_text_recognition). Added ScanScreen in lib/app/screens/scan_screen.dart with camera capture, tracker.pauseTurns(true/false) lifecyle guard, text recognition + PlaceMatcher evaluation, "You're at <place>" or "Couldn't read that, try again", on-route anchoring, and automatic re-planning when off-route. Wired "Scan sign" button on NavigateScreen. Added test/perception/mlkit_sign_reader_test.dart and test/app/scan_screen_test.dart (10 printed sign simulations match 10/10). 201 tests pass, analyze clean.
+Next: On-device check of sign scan with camera; adopt teammate’s shared widgets on Navigate screen once theme PR is merged.
+Blocked: Nothing.
+
 ## Sat 10 Oct, 10:55
 Done: Removed lib/app/theme.dart and reverted screen styling per plan update so teammate owns theme.dart, shared widgets, and Home/Destination restyling. Kept all functional real sensors wiring, D22 map loading, D23 start selector, Gemma warm-up/AI-ready indicator, and mic button. 190 tests pass, analyze clean.
 Next: Test real sensors on device; adopt teammate’s shared widgets on Navigate screen (huge arrow, 40+ instruction, bottom trail card) once merged.

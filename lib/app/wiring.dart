@@ -14,6 +14,7 @@ import 'package:breadcrumb/core/tracker.dart';
 import 'package:breadcrumb/core/guide.dart';
 import 'package:breadcrumb/sensing/sensing_source.dart' as real_sensing;
 import 'package:breadcrumb/app/speaker.dart';
+import 'package:breadcrumb/perception/mlkit_sign_reader.dart';
 
 class Wiring {
   static Wiring instance = Wiring._();
@@ -81,7 +82,7 @@ class Wiring {
 
   /// Real SensingSource wrapping native EventChannel breadcrumb/sensing
   SensingSource sensingSource = real_sensing.SensingSource();
-  final SignReader signReader = FakeSignReader();
+  SignReader signReader = MlKitSignReader();
 
   final GemmaService gemmaService = GemmaService();
   final ValueNotifier<bool> isAiReady = ValueNotifier<bool>(false);
