@@ -3,6 +3,19 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sun 11 Oct 02:30, captain merge round 1 (main bf7f47b)
+Merged: #23 c7b4311, #22 a9e93c3, #24 74584cd (main merged into t2/robust-sensing:
+tuning both sides; sensing_source keeps main's pending-trace buffer + T2 snapshots),
+#25 c811884, #26 bf7f47b (captain wiring + flags). Skipped: step 1, no origin/t2/final-map.
+#26: record_screen suggests aliases after Mark place (full tier only, background; a
+reply after Stop is dropped); AiStatus.tier; warmAi RAM gate; chip "Basic matching".
+Flags: useTurnConfirmer, useConfidence on; useArrivalGuard, useBoutGating,
+useHandlingGate, usePlacement off. Replay 2 steps/8000 ms: 9/9, 0 false, 0 missed;
+synthetic straight 8 false -> 0. analyze clean, 510 green.
+iQOO: main bf7f47b installed, launched, Gemma loaded 1.8 s, no FATAL / E/flutter.
+Next: walk the loop with the flags on; T2 records the final map (no final map yet).
+Blocked: nothing. Last commit: this handoff.
+
 ## Sun 11 Oct 00:55, D30 AI tier + aliases (branch ifzal/ai-tier)
 Done: lib/ai/alias_suggester.dart (AliasSuggester.suggest, validateAliases, applyAliases,
 fillerWords), lib/ai/device_tier.dart (AiTierGate, ramAllowsGemma, BasicDestinationResolver,
