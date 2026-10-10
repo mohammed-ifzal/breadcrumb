@@ -3,6 +3,11 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct, 14:15
+Done: 3-state AI status (loading/ready/unavailable with timeout & error handling), fuzzy-first destination search with honest AI fallback, mic error text display with speech-pack note and hint; 262 tests green, flutter analyze clean.
+Next: Review captain PR #12 merge, on-device test of speech and Gemma when model is available.
+Blocked: Nothing.
+
 ## Sat 10 Oct, 13:30
 Done: Added live reload of maps/latest.json on DestinationListScreen (and Home Navigate tap) with documentsDirectoryProvider override; added test/app/destination_reload_test.dart verifying recorded map pickup without restart and fallback to demo map; 250 tests green, flutter analyze clean.
 Next: On-device testing of loop record -> live navigate reload; integrate teammate widgets on NavigateScreen.
