@@ -3,6 +3,20 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sun 11 Oct 00:55, D30 AI tier + aliases (branch ifzal/ai-tier)
+Done: lib/ai/alias_suggester.dart (AliasSuggester.suggest, validateAliases, applyAliases,
+fillerWords), lib/ai/device_tier.dart (AiTierGate, ramAllowsGemma, BasicDestinationResolver,
+destinationResolverFor, aiChipLabel "Basic matching"), GemmaService.suggestAliases; tuning
+maxAliases 8 / maxAliasWords 3 / aliasSuggestTimeoutMs; D30, CONTRACTS, BENCHMARKS.
+iQOO benchmark (names-only demo map): matcher 45/120, + aliases 63/120, + Gemma 90/120,
+0 false positives each; Gemma median 529 ms. analyze clean, 406 green. Main app reinstalled.
+Not wired (other owners' paths, see PR): T2 record_screen calls suggest after Mark place;
+T3 wiring.warmAi uses AiTierGate + destinationResolverFor, chip shows aiChipLabel(tier).
+Open: Gemma aliases name the place, not what's there (no coffee/tea/show); RAM 0 (T2 stub)
+lets the load decide. PR #23 still open.
+Next: merge this PR; T2/T3 wire it; merge PR #23 and walk the loop with D29 flags.
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct 16:40, merge round 5: PR #16 and #14 merged
 Docs on main 1a082f8: docs/MENTOR.md (10:00 mentor Q&A + feedback), TASKS Saturday plan.
 PR #16 merged a90e6bf (CI green, temp merge with main: docs only, 300 green).
