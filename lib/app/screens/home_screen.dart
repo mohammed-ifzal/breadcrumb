@@ -37,14 +37,33 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(fontSize: 20, height: 1.35, color: BreadcrumbTheme.textSecondary),
             ),
             const SizedBox(height: 20),
-            ValueListenableBuilder<bool>(
-              valueListenable: Wiring.instance.isAiReady,
-              builder: (context, ready, _) => Wrap(
+            ValueListenableBuilder<AiStatus>(
+              valueListenable: Wiring.instance.aiStatus,
+              builder: (context, status, _) => Wrap(
                 spacing: 8,
                 runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const StatusPill.offline(),
-                  StatusPill.aiOnDevice(ready: ready),
+                  if (status.isReady)
+                    const StatusPill.aiOnDevice(ready: true)
+                  else if (status.isLoading)
+                    const StatusPill.aiOnDevice(ready: false)
+                  else ...[
+                    const StatusPill(
+                      label: 'AI unavailable',
+                      icon: Icons.cloud_off_rounded,
+                      tone: StatusTone.warning,
+                    ),
+                    if (status.reason != null && status.reason!.isNotEmpty)
+                      Text(
+                        status.reason!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: BreadcrumbTheme.textSecondary,
+                        ),
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -55,7 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
               title: 'Navigate',
               subtitle: 'Say or type a place. Follow the arrow back along the trail.',
               highlighted: true,
-              onTap: () {
+              onTap: () async {
+                await Wiring.instance.reloadActiveMap();
+                if (!context.mounted) return;
                 Navigator.push(
                   context,
                   MaterialPageRoute(

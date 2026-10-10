@@ -7,6 +7,17 @@ import 'package:breadcrumb/app/screens/destination_list_screen.dart';
 import 'package:breadcrumb/app/screens/navigate_screen.dart';
 
 void main() {
+  setUp(() {
+    // Prevent warmAi from creating a pending timer in tests.
+    Wiring.instance.resetAiForTesting();
+    Wiring.instance.aiStatus.value = const AiStatus.ready();
+    Wiring.instance.isAiReady.value = true;
+  });
+
+  tearDown(() {
+    Wiring.instance.resetAiForTesting();
+  });
+
   testWidgets('the start place is not in the destination list and junctions never show', (tester) async {
     final wiring = Wiring.instance;
     final startPlaceId = wiring.effectiveCurrentPlaceId;

@@ -3,6 +3,19 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 16:40, merge round 5: PR #16 and #14 merged
+Docs on main 1a082f8: docs/MENTOR.md (10:00 mentor Q&A + feedback), TASKS Saturday plan.
+PR #16 merged a90e6bf (CI green, temp merge with main: docs only, 300 green).
+PR #14 (t3/polish) merged d38631e: merge of main had no conflicts; #12 reload, Home ->
+RecordScreen, speaker D24/D27 wording and main.dart theme all intact. Added 378da6f:
+navigate_screen vibrates at "Turn left/right at the corner" (steps == 0), not "Get ready";
+bug_regressions_test updated. analyze clean, 319 green, CI green.
+iQOO: main d38631e installed, Home / Destination / Navigate OK, no FATAL or E/flutter.
+Seen on device: Navigate trail labels "End of walk" and "washroom" overlap; the
+orientation card shows "0 steps left on this leg" under "Turn around, then walk straight."
+Next: device-load benchmark -> BENCHMARKS.md; pitch; 16:45 final map walk.
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct 15:55, end of session: D27 robust navigation (branch ifzal/nav-robust)
 Done: PR #15 (ifzal/floors, D24) merged 0477be5 (CI green, temp merge up to date, 281 green).
 In progress: PR #16 open, not merged (ifzal/nav-robust, D27, CI was pending). Fixes from the

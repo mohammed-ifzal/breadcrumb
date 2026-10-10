@@ -27,16 +27,21 @@ void main() {
 
   setUp(() {
     originalResolver = Wiring.instance.destinationResolver;
+    Wiring.instance.resetAiForTesting();
+    Wiring.instance.aiStatus.value = const AiStatus.ready();
+    Wiring.instance.isAiReady.value = true;
   });
 
   tearDown(() {
     Wiring.instance.destinationResolver = originalResolver;
+    Wiring.instance.resetAiForTesting();
   });
 
   testWidgets('renders "Where do you want to go?" text box, submit button, active mic button, and AI ready indicator', (tester) async {
-    Wiring.instance.isAiReady.value = false;
+    // Set AI status directly to test the three UI states.
+    Wiring.instance.aiStatus.value = const AiStatus.loading();
     await tester.pumpWidget(const MaterialApp(home: DestinationListScreen()));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.text('Where do you want to go?'), findsWidgets);
     expect(find.widgetWithText(ElevatedButton, 'Submit'), findsOneWidget);
@@ -50,7 +55,7 @@ void main() {
     expect(find.text('AI warming...'), findsOneWidget);
 
     // Change to ready
-    Wiring.instance.isAiReady.value = true;
+    Wiring.instance.aiStatus.value = const AiStatus.ready();
     await tester.pump();
     expect(find.text('AI ready'), findsOneWidget);
   });
@@ -102,7 +107,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: DestinationListScreen()));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'where is cafe');
+    await tester.enterText(find.byType(TextField), 'I need some snacks');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Submit'));
     await tester.pump();
 
