@@ -1,3 +1,4 @@
+import 'map_screen.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../widgets/ui/ui.dart';
@@ -95,6 +96,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const RecordScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            ActionCard(
+              icon: Icons.map_rounded,
+              title: 'View floor map',
+              subtitle: 'Full trail, all marked places and route preview.',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MapScreen(),
                   ),
                 );
               },
