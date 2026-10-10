@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breadcrumb — Map Desk</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --junction: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--surface-border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .brand-badge {
+      font-size: 0.75rem;
+      background: #1e3a8a;
+      color: #93c5fd;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .file-btn {
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+
+    .file-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .file-btn input[type="file"] {
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--surface-border);
+    }
+
+    .btn-success {
+      background: #065f46;
+      border-color: #047857;
+      color: #ecfdf5;
+    }
+
+    .btn-success:hover {
+      background: #047857;
+    }
+
+    main {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 65px);
+      overflow: hidden;
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      background: #0b1120;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      cursor: grab;
+    }
+
+    canvas:active {
+      cursor: grabbing;
+    }
+
+    .canvas-hint {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--surface-border);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+    }
+
+    .sidebar {
+      width: 360px;
+      background: var(--surface);
+      border-left: 1px solid var(--surface-border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--surface-border);
+    }
+
+    .sidebar-section h2 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-card {
+      background: #0f172a;
+      border: 1px solid var(--surface-border);
+      border-radius: 6px;
+      padding: 10px;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .stat-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 4px;
+    }
+
+    .alert {
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 0.825rem;
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+
+    .alert-warning {
+      background: #451a03;
+      border: 1px solid #78350f;
+      color: #fde68a;
+    }
+
+    .alert-danger {
+      background: #450a0a;
+      border: 1px solid #7f1d1d;
+      color: #fecaca;
+    }
+
+    .place-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .place-item {
+      background: #0f172a;
+      border: 1px solid var(--surface-border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .place-item:hover {
+      border-color: var(--primary);
+      background: #172554;
+    }
+
+    .place-item.active {
+      border-color: var(--primary);
+      background: #1e3a8a;
+    }
+
+    .place-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .place-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .place-kind {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .kind-start {
+      background: #064e3b;
+      color: #6ee7b7;
+    }
+
+    .kind-place {
+      background: #1e3a8a;
+      color: #93c5fd;
+    }
+
+    .kind-junction {
+      background: #334155;
+      color: #94a3b8;
+    }
+
+    .place-aliases {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      width: 440px;
+      max-width: 90vw;
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 8px 12px;
+      background: #0f172a;
+      border: 1px solid var(--surface-border);
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Breadcrumb Map Desk</h1>
+      <span class="brand-badge">Offline</span>
+    </div>
+    <div class="toolbar">
+      <label class="file-btn">
+        <span>Load Map JSON</span>
+        <input type="file" id="fileInput" accept=".json,application/json">
+      </label>
+      <button class="btn" id="loadSampleBtn">Load Sample</button>
+      <button class="btn btn-success" id="downloadBtn">Download JSON</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="canvas-container" id="canvasContainer">
+      <canvas id="mapCanvas"></canvas>
+      <div class="canvas-hint">
+        Heading 0 = Up | Heading 90 = Left | Click place dot to edit
+      </div>
+    </div>
+
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h2>Map Summary</h2>
+        <div id="errorArea"></div>
+        <div id="warningArea"></div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label">Map Name</div>
+            <div class="stat-value" id="mapNameVal" style="font-size:0.95rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Steps</div>
+            <div class="stat-value" id="totalStepsVal">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Places</div>
+            <div class="stat-value" id="placesCountVal">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Corridors</div>
+            <div class="stat-value" id="corridorsCountVal">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" style="flex:1;">
+        <h2>Places &amp; Aliases</h2>
+        <div class="place-list" id="placeListContainer">
+          <p style="color:var(--text-muted); font-size:0.85rem;">No map loaded.</p>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Edit Place Modal -->
+  <div class="modal-backdrop" id="editModal">
+    <div class="modal">
+      <h3>Edit Place</h3>
+      <div class="form-group">
+        <label>ID</label>
+        <input type="text" id="editPlaceId" disabled style="opacity:0.6; cursor:not-allowed;">
+      </div>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="editPlaceName">
+      </div>
+      <div class="form-group">
+        <label>Aliases (comma separated)</label>
+        <input type="text" id="editPlaceAliases" placeholder="e.g. coffee, canteen">
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="modalCancelBtn">Cancel</button>
+        <button class="btn btn-success" id="modalSaveBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Embedded sample map fallback for zero-network offline testing
+    const defaultSampleMap = {
+      version: 1,
+      name: "Sample Office Trail",
+      start: "entrance",
+      places: [
+        { id: "entrance", name: "Entrance", aliases: ["main gate", "front door"], kind: "start" },
+        { id: "j1", name: "Junction 1", aliases: [], kind: "junction" },
+        { id: "cafe", name: "Cafe", aliases: ["coffee", "cafeteria"], kind: "place" },
+        { id: "j2", name: "Junction 2", aliases: [], kind: "junction" },
+        { id: "stage", name: "Stage Side", aliases: ["auditorium", "hall"], kind: "place" }
+      ],
+      corridors: [
+        { id: "c1", from: "entrance", to: "j1", steps: 15, heading: 0 },
+        { id: "c2", from: "j1", to: "cafe", steps: 10, heading: 90 },
+        { id: "c3", from: "cafe", to: "j2", steps: 12, heading: 90 },
+        { id: "c4", from: "j2", to: "stage", steps: 15, heading: 0 }
+      ]
+    };
+
+    let currentMap = null;
+    let computedLayout = { points: {}, unclosedCorridors: new Set(), warnings: [] };
+    let selectedPlaceId = null;
+
+    const canvas = document.getElementById("mapCanvas");
+    const ctx = canvas.getContext("2d");
+    const container = document.getElementById("canvasContainer");
+
+    // Layout computation following docs/CONTRACTS.md:
+    // Heading in degrees counter-clockwise from above (0 = up, 90 = left).
+    // With y pointing down on screen:
+    // next_x = x - steps * sin(rad)
+    // next_y = y - steps * cos(rad)
+    function layoutMap(map) {
+      if (!map || !map.start || !Array.isArray(map.corridors)) {
+        return { points: {}, unclosedCorridors: new Set(), warnings: ["Invalid MapGraph data."] };
+      }
+
+      const byNode = {};
+      for (const c of map.corridors) {
+        if (!byNode[c.from]) byNode[c.from] = [];
+        if (!byNode[c.to]) byNode[c.to] = [];
+        byNode[c.from].push(c);
+        byNode[c.to].push(c);
+      }
+
+      const points = {};
+      const unclosedCorridors = new Set();
+      const warnings = [];
+
+      points[map.start] = { x: 0, y: 0 };
+      const queue = [map.start];
+      const traversedCorridors = new Set();
+
+      while (queue.length > 0) {
+        const u = queue.shift();
+        const here = points[u];
+        const connected = byNode[u] || [];
+
+        for (const c of connected) {
+          if (traversedCorridors.has(c.id)) continue;
+
+          const forward = (c.from === u);
+          const next = forward ? c.to : c.from;
+          const heading = forward ? c.heading : (c.heading + 180) % 360;
+          const rad = (heading * Math.PI) / 180;
+
+          const nextX = here.x - c.steps * Math.sin(rad);
+          const nextY = here.y - c.steps * Math.cos(rad);
+
+          if (!points[next]) {
+            points[next] = { x: nextX, y: nextY };
+            traversedCorridors.add(c.id);
+            queue.push(next);
+          } else {
+            // Reached already-placed node: check loop closure
+            traversedCorridors.add(c.id);
+            const dx = points[next].x - nextX;
+            const dy = points[next].y - nextY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > 0.5) {
+              unclosedCorridors.add(c.id);
+              warnings.push(
+                `Unclosed loop on corridor '${c.id}' (${u} ↔ ${next}): mismatch of ${dist.toFixed(1)} steps.`
+              );
+            }
+          }
+        }
+      }
+
+      // Check for unreachable nodes
+      if (Array.isArray(map.places)) {
+        for (const p of map.places) {
+          if (!points[p.id]) {
+            warnings.push(`Place '${p.name || p.id}' (${p.id}) is disconnected from start.`);
+          }
+        }
+      }
+
+      return { points, unclosedCorridors, warnings };
+    }
+
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      render();
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+
+    function render() {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      if (!currentMap) return;
+
+      const { points, unclosedCorridors } = computedLayout;
+      const placeIds = Object.keys(points);
+      if (placeIds.length === 0) return;
+
+      // Compute bounding box
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const id of placeIds) {
+        const pt = points[id];
+        if (pt.x < minX) minX = pt.x;
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y < minY) minY = pt.y;
+        if (pt.y > maxY) maxY = pt.y;
+      }
+
+      const padding = 70;
+      const spanX = (maxX - minX) || 10;
+      const spanY = (maxY - minY) || 10;
+      const scaleX = (w - padding * 2) / spanX;
+      const scaleY = (h - padding * 2) / spanY;
+      const scale = Math.min(scaleX, scaleY);
+
+      const midX = (minX + maxX) / 2;
+      const midY = (minY + maxY) / 2;
+
+      function toScreen(x, y) {
+        return {
+          sx: (x - midX) * scale + w / 2,
+          sy: (y - midY) * scale + h / 2
+        };
+      }
+
+      // Draw corridors
+      for (const c of currentMap.corridors) {
+        const p1 = points[c.from];
+        const p2 = points[c.to];
+        if (!p1 || !p2) continue;
+
+        const s1 = toScreen(p1.x, p1.y);
+        const s2 = toScreen(p2.x, p2.y);
+        const isUnclosed = unclosedCorridors.has(c.id);
+
+        ctx.save();
+        ctx.beginPath();
+        if (isUnclosed) {
+          ctx.setLineDash([8, 6]);
+          ctx.strokeStyle = "#f59e0b"; // Warning amber
+          ctx.lineWidth = 3;
+        } else {
+          ctx.setLineDash([]);
+          ctx.strokeStyle = "#38bdf8"; // Light sky blue
+          ctx.lineWidth = 3.5;
+        }
+        ctx.lineCap = "round";
+        ctx.moveTo(s1.sx, s1.sy);
+        ctx.lineTo(s2.sx, s2.sy);
+        ctx.stroke();
+        ctx.restore();
+
+        // Label corridor with steps
+        const midSx = (s1.sx + s2.sx) / 2;
+        const midSy = (s1.sy + s2.sy) / 2;
+        ctx.save();
+        ctx.font = "11px -apple-system, sans-serif";
+        const labelText = `${c.steps} steps`;
+        const textMetrics = ctx.measureText(labelText);
+        const bgW = textMetrics.width + 10;
+        const bgH = 18;
+
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+        ctx.beginPath();
+        ctx.roundRect(midSx - bgW / 2, midSy - bgH / 2, bgW, bgH, 4);
+        ctx.fill();
+
+        ctx.fillStyle = isUnclosed ? "#fde68a" : "#cbd5e1";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(labelText, midSx, midSy);
+        ctx.restore();
+      }
+
+      // Draw places
+      const placeMap = {};
+      for (const pl of currentMap.places) placeMap[pl.id] = pl;
+
+      for (const id of placeIds) {
+        const pt = points[id];
+        const scr = toScreen(pt.x, pt.y);
+        const pl = placeMap[id] || { id, name: id, kind: "place" };
+        const isStart = (pl.kind === "start" || id === currentMap.start);
+        const isJunction = (pl.kind === "junction");
+        const isSelected = (id === selectedPlaceId);
+
+        ctx.save();
+        if (isJunction) {
+          // Small unlabelled dot
+          ctx.beginPath();
+          ctx.arc(scr.sx, scr.sy, 5, 0, Math.PI * 2);
+          ctx.fillStyle = isSelected ? "#38bdf8" : "#64748b";
+          ctx.fill();
+          if (isSelected) {
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+        } else {
+          // Named place / start
+          const radius = isStart ? 11 : 9;
+
+          if (isSelected) {
+            ctx.beginPath();
+            ctx.arc(scr.sx, scr.sy, radius + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = "#38bdf8";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+
+          ctx.beginPath();
+          ctx.arc(scr.sx, scr.sy, radius, 0, Math.PI * 2);
+          ctx.fillStyle = isStart ? "#10b981" : "#3b82f6";
+          ctx.fill();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Label
+          ctx.font = isStart ? "bold 13px -apple-system, sans-serif" : "600 12px -apple-system, sans-serif";
+          ctx.fillStyle = isStart ? "#6ee7b7" : "#f8fafc";
+          ctx.textAlign = "center";
+          ctx.fillText(pl.name || id, scr.sx, scr.sy + radius + 15);
+        }
+        ctx.restore();
+      }
+    }
+
+    function updateSidebar() {
+      const errArea = document.getElementById("errorArea");
+      const warnArea = document.getElementById("warningArea");
+      errArea.innerHTML = "";
+      warnArea.innerHTML = "";
+
+      if (!currentMap) return;
+
+      document.getElementById("mapNameVal").textContent = currentMap.name || "Untitled";
+      document.getElementById("placesCountVal").textContent = currentMap.places.length;
+      document.getElementById("corridorsCountVal").textContent = currentMap.corridors.length;
+
+      const totalSteps = currentMap.corridors.reduce((acc, c) => acc + (Number(c.steps) || 0), 0);
+      document.getElementById("totalStepsVal").textContent = totalSteps;
+
+      if (computedLayout.warnings && computedLayout.warnings.length > 0) {
+        const warnBox = document.createElement("div");
+        warnBox.className = "alert alert-warning";
+        warnBox.innerHTML = `<strong>Warnings:</strong><br>${computedLayout.warnings.join("<br>")}`;
+        warnArea.appendChild(warnBox);
+      }
+
+      const listContainer = document.getElementById("placeListContainer");
+      listContainer.innerHTML = "";
+
+      currentMap.places.forEach(p => {
+        const item = document.createElement("div");
+        item.className = "place-item" + (p.id === selectedPlaceId ? " active" : "");
+        item.onclick = () => openEditModal(p.id);
+
+        const isStart = p.kind === "start" || p.id === currentMap.start;
+        const kindClass = isStart ? "kind-start" : (p.kind === "junction" ? "kind-junction" : "kind-place");
+        const kindLabel = isStart ? "start" : (p.kind || "place");
+        const aliasesText = (p.aliases && p.aliases.length > 0) ? `Aliases: ${p.aliases.join(", ")}` : "No aliases";
+
+        item.innerHTML = `
+          <div class="place-header">
+            <span class="place-name">${escapeHtml(p.name || p.id)}</span>
+            <span class="place-kind ${kindClass}">${kindLabel}</span>
+          </div>
+          <div class="place-aliases">${escapeHtml(aliasesText)}</div>
+        `;
+        listContainer.appendChild(item);
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function loadMapJson(jsonString) {
+      const errArea = document.getElementById("errorArea");
+      errArea.innerHTML = "";
+      try {
+        const data = JSON.parse(jsonString);
+        if (!data || typeof data !== "object") throw new Error("JSON root must be an object.");
+        if (!Array.isArray(data.places)) throw new Error("Missing 'places' array.");
+        if (!Array.isArray(data.corridors)) throw new Error("Missing 'corridors' array.");
+        if (!data.start) throw new Error("Missing 'start' place ID.");
+
+        currentMap = data;
+        selectedPlaceId = null;
+        computedLayout = layoutMap(currentMap);
+        updateSidebar();
+        resizeCanvas();
+      } catch (e) {
+        errArea.innerHTML = `<div class="alert alert-danger"><strong>Error parsing map:</strong> ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    // Modal Edit Handlers
+    function openEditModal(placeId) {
+      if (!currentMap) return;
+      const pl = currentMap.places.find(p => p.id === placeId);
+      if (!pl) return;
+
+      selectedPlaceId = placeId;
+      document.getElementById("editPlaceId").value = pl.id;
+      document.getElementById("editPlaceName").value = pl.name || "";
+      document.getElementById("editPlaceAliases").value = (pl.aliases || []).join(", ");
+      document.getElementById("editModal").classList.add("open");
+      updateSidebar();
+      render();
+    }
+
+    function closeEditModal() {
+      document.getElementById("editModal").classList.remove("open");
+    }
+
+    document.getElementById("modalCancelBtn").onclick = closeEditModal;
+
+    document.getElementById("modalSaveBtn").onclick = () => {
+      if (!currentMap || !selectedPlaceId) return;
+      const pl = currentMap.places.find(p => p.id === selectedPlaceId);
+      if (pl) {
+        const newName = document.getElementById("editPlaceName").value.trim();
+        const aliasesRaw = document.getElementById("editPlaceAliases").value;
+        const newAliases = aliasesRaw
+          .split(",")
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+
+        pl.name = newName || pl.id;
+        pl.aliases = newAliases;
+      }
+      closeEditModal();
+      updateSidebar();
+      render();
+    };
+
+    // Canvas click to select place
+    canvas.addEventListener("click", e => {
+      if (!currentMap || !computedLayout) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      const { points } = computedLayout;
+      const placeIds = Object.keys(points);
+      if (placeIds.length === 0) return;
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const id of placeIds) {
+        const pt = points[id];
+        if (pt.x < minX) minX = pt.x;
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y < minY) minY = pt.y;
+        if (pt.y > maxY) maxY = pt.y;
+      }
+
+      const padding = 70;
+      const spanX = (maxX - minX) || 10;
+      const spanY = (maxY - minY) || 10;
+      const scale = Math.min((w - padding * 2) / spanX, (h - padding * 2) / spanY);
+      const midX = (minX + maxX) / 2;
+      const midY = (minY + maxY) / 2;
+
+      let clickedId = null;
+      for (const id of placeIds) {
+        const pt = points[id];
+        const sx = (pt.x - midX) * scale + w / 2;
+        const sy = (pt.y - midY) * scale + h / 2;
+        const d = Math.hypot(mouseX - sx, mouseY - sy);
+        if (d <= 15) {
+          clickedId = id;
+          break;
+        }
+      }
+
+      if (clickedId) {
+        openEditModal(clickedId);
+      }
+    });
+
+    // File input
+    document.getElementById("fileInput").addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => loadMapJson(ev.target.result);
+      reader.readAsText(file);
+    });
+
+    // Load sample button
+    document.getElementById("loadSampleBtn").addEventListener("click", () => {
+      loadMapJson(JSON.stringify(defaultSampleMap));
+    });
+
+    // Download JSON button
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      if (!currentMap) {
+        alert("No map loaded to download.");
+        return;
+      }
+      const dataStr = JSON.stringify(currentMap, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(currentMap.name || "map").toLowerCase().replace(/[^a-z0-9_-]/g, "_")}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // Initial load with sample map
+    loadMapJson(JSON.stringify(defaultSampleMap));
+  </script>
+</body>
+</html>

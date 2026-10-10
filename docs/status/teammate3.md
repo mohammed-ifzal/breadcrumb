@@ -3,6 +3,11 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct, 09:25
+Done: Built self-contained offline tools/map_desk.html (MapGraph layout, loop mismatch warning, canvas renderer, place/alias editor, JSON download) and tools/sample_map.json; verified layout math and loop closure in Node.js (heading 0 up, heading 90 left).
+Next: Visual check of map_desk.html in a browser; integrate with MapBuilder export when Teammate 2 PR lands.
+Blocked: Nothing for tools.
+
 ## Sat 10 Oct, 02:00
 Done: STEP 2 — Replay screen consumes trace events via StepDetector/TurnDetector interfaces (wiring.stepDetector, wiring.turnDetector); REPLAY label always visible (AppBar + banner); empty/missing-meta/malformed-line traces handled gracefully. STEP 3 — start-place guard, zero-leg route guard, unknown destination error screen. STEP 4 — replay_test.dart (5 tests: REPLAY always visible, empty trace, missing meta, malformed line, full replay), destination_and_navigation_test.dart (SIMULATED label test, turn angle sign test for leg boundaries). 98 tests green, analyze clean, debug APK builds.
 Next: Phone test with real .jsonl traces once Teammate 2's PR #2 merges; add export if time permits.
