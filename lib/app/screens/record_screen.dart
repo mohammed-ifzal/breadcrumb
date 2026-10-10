@@ -8,6 +8,7 @@ import '../../core/contracts.dart' as contracts;
 import '../../core/map_builder.dart' as recording;
 import '../../core/map_json.dart';
 import '../../sensing/sensing_source.dart';
+import '../../sensing/trace_recorder.dart';
 import '../widgets/trail_view.dart';
 
 /// Saves a finished recording to the D22 location, replacing the previous map.
@@ -32,11 +33,18 @@ typedef RecordMapSave = Future<String> Function(contracts.MapGraph map);
 /// Permissions are granted by the app shell. An injected stream remains owned by
 /// its caller; this screen owns and closes only its default sensing source.
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key, this.mapBuilder, this.events, this.save});
+  const RecordScreen({
+    super.key,
+    this.mapBuilder,
+    this.events,
+    this.save,
+    this.traceRecorder,
+  });
 
   final contracts.MapBuilder? mapBuilder;
   final Stream<Object>? events;
   final RecordMapSave? save;
+  final TraceRecorder? traceRecorder;
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -45,6 +53,16 @@ class RecordScreen extends StatefulWidget {
 class _RecordScreenState extends State<RecordScreen> {
   late final contracts.MapBuilder _builder;
   late final RecordMapSave _save;
+  late final TraceRecorder _trace;
+  Future<void>? _traceOpening;
+  Future<void>? _traceClosing;
+  bool _traceReady = false;
+  bool _traceFailed = false;
+  bool _traceErrorLogged = false;
+  String? _traceFailure;
+  final _pendingInjected = <Map<String, Object?>>[];
+  int _lastInjectedT = 0;
+  final _sinceInjected = Stopwatch();
   final _startName = TextEditingController();
   final _placeName = TextEditingController();
   ValueNotifier<contracts.MapGraph>? _map;
@@ -68,6 +86,8 @@ class _RecordScreenState extends State<RecordScreen> {
     super.initState();
     _builder = widget.mapBuilder ?? recording.MapBuilder();
     _save = widget.save ?? saveLatestMap;
+    _trace = widget.traceRecorder ?? TraceRecorder();
+    _trace.state.addListener(_onTraceState);
   }
 
   void _start() {
@@ -82,7 +102,10 @@ class _RecordScreenState extends State<RecordScreen> {
         _recording = true;
         _sensorError = null;
       });
-      final events = widget.events ?? (_ownedSource = SensingSource()).events();
+      _sinceInjected.start();
+      if (widget.events == null) _ownedSource = SensingSource(recorder: _trace);
+      _traceOpening = _beginTrace(name);
+      final events = widget.events ?? _ownedSource!.events();
       _subscription = events.listen(
         _onEvent,
         onError: _onSensorError,
@@ -106,6 +129,13 @@ class _RecordScreenState extends State<RecordScreen> {
       if (event is contracts.StepEvent) {
         _builder.onStep(event);
         _steps++;
+        if (widget.events != null) {
+          _lastInjectedT = event.t;
+          _sinceInjected
+            ..reset()
+            ..start();
+          _writeInjectedTrace({'type': 'step', 't': event.t});
+        }
       } else if (event is contracts.TurnEvent) {
         _builder.onTurn(event);
         _turns.add(event.angle);
@@ -129,6 +159,7 @@ class _RecordScreenState extends State<RecordScreen> {
     try {
       _builder.addPlace(name, const []);
       _stepsAtLastMark = _steps;
+      _traceMark(name);
       _map!.value = _builder.snapshot();
       _placeName.clear();
       setState(() => _marked = 'Marked place: $name');
@@ -153,6 +184,7 @@ class _RecordScreenState extends State<RecordScreen> {
         if (_stepsAtLastMark != _steps) {
           _builder.addPlace('End of walk', const []);
           _stepsAtLastMark = _steps;
+          _traceMark('End of walk');
           _map!.value = _builder.snapshot();
         }
         _finished = _builder.finish();
@@ -165,7 +197,109 @@ class _RecordScreenState extends State<RecordScreen> {
     } catch (error) {
       if (mounted) setState(() => _saveError = 'Could not save map: $error');
     } finally {
+      await _stopWalkTrace();
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _onTraceState() {
+    if (_trace.state.value.error != null) _traceFailed = true;
+    if (mounted) setState(() {});
+  }
+
+  void _traceError(Object error) {
+    _traceFailed = true;
+    _pendingInjected.clear();
+    // TraceRecorder logs its own I/O errors; don't log those again here.
+    if (!_traceErrorLogged && _trace.state.value.error == null) {
+      _traceErrorLogged = true;
+      debugPrint('Trace recording failed: $error');
+    }
+    if (mounted) setState(() => _traceFailure = error.toString());
+  }
+
+  Future<void> _beginTrace(String name) async {
+    final meta = <String, Object?>{
+      'map': name,
+      'walker': 'record',
+      'from': _map!.value.start,
+    };
+    try {
+      if (_ownedSource != null) {
+        await _ownedSource!.startTrace(meta);
+      } else {
+        // Injected derived events cannot provide gyro samples. Do not invent
+        // hardware provenance or motion; these traces are explicitly labelled.
+        await _trace.start({
+          ...meta,
+          'eventSource': 'injected-events',
+          'motionReplayable': false,
+        });
+      }
+      _traceReady = _trace.state.value.recording;
+      final pending = List<Map<String, Object?>>.of(_pendingInjected);
+      _pendingInjected.clear();
+      if (_traceReady) {
+        for (final row in pending) {
+          _trace.record(row);
+        }
+      }
+    } catch (error) {
+      _traceError(error);
+    }
+  }
+
+  void _writeInjectedTrace(Map<String, Object?> row) {
+    if (_traceFailed) return;
+    try {
+      if (!_traceReady) {
+        _pendingInjected.add(Map.of(row));
+      } else {
+        _trace.record(row);
+      }
+    } catch (error) {
+      _traceError(error);
+    }
+  }
+
+  void _traceMark(String note) {
+    if (_traceFailed) return;
+    try {
+      if (_ownedSource != null) {
+        _ownedSource!.mark(note);
+      } else {
+        _writeInjectedTrace({
+          'type': 'mark',
+          't': _lastInjectedT + _sinceInjected.elapsedMilliseconds,
+          'note': note,
+        });
+      }
+    } catch (error) {
+      _traceError(error);
+    }
+  }
+
+  Future<void> _stopWalkTrace() => _traceClosing ??= _finishTrace();
+  Future<void> _finishTrace() async {
+    try {
+      await _traceOpening;
+      if (_ownedSource != null) {
+        await _ownedSource!.stopTrace();
+      } else {
+        await _trace.stop();
+      }
+      if (!_traceFailed) {
+        final places = _finished?.places
+            .where((p) => p.kind == contracts.PlaceKind.place)
+            .toList();
+        await _trace.finalizeMetadata({
+          'completed': _finished != null,
+          'mapSaved': _savedPath != null,
+          if (places != null && places.isNotEmpty) 'to': places.last.id,
+        });
+      }
+    } catch (error) {
+      _traceError(error);
     }
   }
 
@@ -174,8 +308,10 @@ class _RecordScreenState extends State<RecordScreen> {
   Future<void> _closeSensors() async {
     final subscription = _subscription;
     _subscription = null;
+    final cancelled = subscription?.cancel();
+    await _stopWalkTrace();
     try {
-      await subscription?.cancel();
+      await cancelled;
     } catch (error) {
       debugPrint('Record subscription cleanup failed: $error');
     }
@@ -190,10 +326,20 @@ class _RecordScreenState extends State<RecordScreen> {
   void dispose() {
     _recording = false;
     unawaited(_releaseSensors());
+    _trace.state.removeListener(_onTraceState);
+    _sinceInjected.stop();
+    if (widget.traceRecorder == null) {
+      unawaited(_disposeTrace());
+    }
     _startName.dispose();
     _placeName.dispose();
     _map?.dispose();
     super.dispose();
+  }
+
+  Future<void> _disposeTrace() async {
+    await _releaseSensors();
+    await _trace.dispose();
   }
 
   String _formatTurn(double angle) =>
@@ -328,6 +474,20 @@ class _RecordScreenState extends State<RecordScreen> {
                               'Saved map: $_savedPath',
                               key: ValueKey(_savedPath),
                             ),
+                    ),
+                    ValueListenableBuilder<TraceState>(
+                      valueListenable: _trace.state,
+                      builder: (_, trace, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (trace.path != null)
+                            SelectableText('Trace file: ${trace.path}'),
+                          if (trace.error != null || _traceFailure != null)
+                            Text(
+                              'Trace unavailable: ${trace.error ?? _traceFailure}. Map recording continues.',
+                            ),
+                        ],
+                      ),
                     ),
                     if (_saveError != null)
                       Text(

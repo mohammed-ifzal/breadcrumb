@@ -13,7 +13,8 @@ class SensingSource implements contracts.SensingSource {
   SensingSource({
     TraceRecorder? recorder,
     EventChannel channel = const EventChannel('breadcrumb/sensing'),
-  }) : _recorder = recorder ?? TraceRecorder(),
+  }) : _ownsRecorder = recorder == null,
+       _recorder = recorder ?? TraceRecorder(),
        _raw = channel.receiveBroadcastStream() {
     _recorder.state.addListener(_onTraceState);
     _events = StreamController<Object>.broadcast(
@@ -22,7 +23,10 @@ class SensingSource implements contracts.SensingSource {
     );
   }
 
+  final bool _ownsRecorder;
   final TraceRecorder _recorder;
+  bool _startingTrace = false;
+  final _pendingTrace = <Map<String, Object?>>[];
   final Stream<dynamic> _raw;
   late final StreamController<Object> _events;
   StreamSubscription<dynamic>? _subscription;
@@ -93,7 +97,7 @@ class SensingSource implements contracts.SensingSource {
   void _onRaw(dynamic value) {
     try {
       final raw = Map<String, Object?>.from(value as Map);
-      _recorder.record(raw);
+      _writeTrace(raw);
       final type = raw['type'];
       if (type == 'info') {
         if (raw['stepDetector'] == false) {
@@ -149,6 +153,8 @@ class SensingSource implements contracts.SensingSource {
   Future<void> startTrace(Map<String, Object?> meta) async {
     if (_tracing) throw StateError('A trace is already active.');
     _tracing = true;
+    _startingTrace = true;
+    _pendingTrace.clear();
     try {
       _ensureListening();
       await _capability!.future;
@@ -157,13 +163,21 @@ class SensingSource implements contracts.SensingSource {
         ...meta,
         'stepSource': hardwareStepDetector.value == false
             ? 'accel'
-            : 'detector',
+            : 'hardware',
       });
+      final pending = List<Map<String, Object?>>.of(_pendingTrace);
+      _pendingTrace.clear();
+      _startingTrace = false;
+      for (final row in pending) {
+        _recorder.record(row);
+      }
       if (!_recorder.state.value.recording) {
         _tracing = false;
         await _releaseIfIdle();
       }
     } catch (_) {
+      _startingTrace = false;
+      _pendingTrace.clear();
       _tracing = false;
       await _releaseIfIdle();
       rethrow;
@@ -180,9 +194,20 @@ class SensingSource implements contracts.SensingSource {
     }
   }
 
+  void _writeTrace(Map<String, Object?> row) {
+    if (_startingTrace) {
+      _pendingTrace.add(Map.of(row));
+    } else if (_tracing) {
+      _recorder.record(row);
+    }
+  }
+
   @override
-  void mark(String note) =>
-      _recorder.mark(_lastT + _sinceSample.elapsedMilliseconds, note);
+  void mark(String note) => _writeTrace({
+    'type': 'mark',
+    't': _lastT + _sinceSample.elapsedMilliseconds,
+    'note': note,
+  });
 
   Future<void> dispose() => _disposing ??= _dispose();
 
@@ -195,7 +220,11 @@ class SensingSource implements contracts.SensingSource {
     await _subscription?.cancel();
     _subscription = null;
     _recorder.state.removeListener(_onTraceState);
-    await _recorder.dispose();
+    if (_ownsRecorder) {
+      await _recorder.dispose();
+    } else {
+      await _recorder.stop();
+    }
     await _events.close();
     _sinceSample.stop();
     hardwareStepDetector.dispose();
