@@ -3,6 +3,21 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 13:10, merge round 3: PR #9, #8, #10 merged
+PR #9 (T3 real sensors + sign scan, head 9f040b9) merged 40f16af: analyze clean, 201 tests, CI green.
+PR #8 (T2 record, cf0404a) merged 0cf4c60: 231 tests, CI green. Ownership note: T2 added two new
+files in T3 paths (lib/app/screens/record_debug_main.dart, test/app/record_screen_test.dart);
+accepted, they only touch the record screen. Trace path fix on main 280f154.
+PR #10 (ifzal/ui) retargeted to main, origin/main merged in with no conflicts (T3 logic was already
+in from 979484e), Home "Map a route" placeholder replaced by "Record a trail" -> RecordScreen
+(7bd43f7, + widget test), CI green, merged 96f6843. main: analyze clean, 248 tests green.
+iQOO (main 96f6843 debug APK): Home shows both cards, Record screen opens, Destination shows
+"AI ready" + mic + start selector, Cafe -> Navigate with no SIMULATED, Scan sign button. No FATAL.
+Not checked in aeroplane mode (Wi-Fi was on).
+Still open (T3): TrailView place dots/labels black on dark background; Navigate overflow at 1.3.
+Next: full demo loop on the phone in aeroplane mode (record -> latest.json -> navigate).
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct, UI session (branch ifzal/ui, stacked on t3/real-sensors, PR open, not merged)
 Done: T3's t3/real-sensors already had theme.dart + Home/Destination logic, so ifzal/ui is
 based on it (Ifzal's call). theme.dart replaced: dark #0B0F14/#141A22, teal #2DE2C3, amber
