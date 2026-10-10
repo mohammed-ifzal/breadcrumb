@@ -247,14 +247,43 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
           // AI Ready indicator
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: ValueListenableBuilder<bool>(
-              valueListenable: wiring.isAiReady,
-              builder: (context, ready, _) {
-                return StatusPill(
-                  label: ready ? 'AI ready' : 'AI warming...',
-                  icon: ready ? Icons.memory_rounded : Icons.hourglass_top_rounded,
-                  tone: ready ? StatusTone.accent : StatusTone.neutral,
-                );
+            child: ValueListenableBuilder<AiStatus>(
+              valueListenable: wiring.aiStatus,
+              builder: (context, status, _) {
+                if (status.isReady) {
+                  return const StatusPill(
+                    label: 'AI ready',
+                    icon: Icons.memory_rounded,
+                    tone: StatusTone.accent,
+                  );
+                } else if (status.isLoading) {
+                  return const StatusPill(
+                    label: 'AI warming...',
+                    icon: Icons.hourglass_top_rounded,
+                    tone: StatusTone.neutral,
+                  );
+                } else {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const StatusPill(
+                        label: 'AI unavailable',
+                        icon: Icons.cloud_off_rounded,
+                        tone: StatusTone.warning,
+                      ),
+                      if (status.reason != null && status.reason!.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          status.reason!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: BreadcrumbTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                }
               },
             ),
           ),

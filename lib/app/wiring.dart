@@ -16,6 +16,38 @@ import 'package:breadcrumb/sensing/sensing_source.dart' as real_sensing;
 import 'package:breadcrumb/app/speaker.dart';
 import 'package:breadcrumb/perception/mlkit_sign_reader.dart';
 
+
+enum AiState { loading, ready, unavailable }
+
+class AiStatus {
+  const AiStatus.loading()
+      : state = AiState.loading,
+        reason = null;
+  const AiStatus.ready()
+      : state = AiState.ready,
+        reason = null;
+  const AiStatus.unavailable([this.reason = 'model not loaded'])
+      : state = AiState.unavailable;
+
+  final AiState state;
+  final String? reason;
+
+  bool get isLoading => state == AiState.loading;
+  bool get isReady => state == AiState.ready;
+  bool get isUnavailable => state == AiState.unavailable;
+
+  @override
+  String toString() => 'AiStatus($state, reason: $reason)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiStatus && other.state == state && other.reason == reason;
+
+  @override
+  int get hashCode => Object.hash(state, reason);
+}
+
 class Wiring {
   static Wiring instance = Wiring._();
 
@@ -25,6 +57,25 @@ class Wiring {
     guide = RouteGuide(_activeMap);
     tracker.setRoute(planner.plan(_activeMap, _activeMap.start, _activeMap.start));
     sensorEvents = _createSensorEventsStream;
+
+    isAiReady.addListener(() {
+      if (isAiReady.value) {
+        _warmAiTimer?.cancel();
+        _warmAiTimer = null;
+        if (!aiStatus.value.isReady) {
+          aiStatus.value = const AiStatus.ready();
+        }
+      } else if (aiStatus.value.isReady) {
+        aiStatus.value = const AiStatus.loading();
+      }
+    });
+    aiStatus.addListener(() {
+      if (aiStatus.value.isReady && !isAiReady.value) {
+        isAiReady.value = true;
+      } else if (!aiStatus.value.isReady && isAiReady.value) {
+        isAiReady.value = false;
+      }
+    });
   }
 
   static const MapGraph defaultDemoMap = MapGraph(
@@ -85,8 +136,17 @@ class Wiring {
   SignReader signReader = MlKitSignReader();
 
   final GemmaService gemmaService = GemmaService();
+  final ValueNotifier<AiStatus> aiStatus =
+      ValueNotifier<AiStatus>(const AiStatus.loading());
   final ValueNotifier<bool> isAiReady = ValueNotifier<bool>(false);
-  final SpeechInput speechInput = SpeechInput();
+  SpeechInput speechInput = SpeechInput();
+  PlaceMatcher placeMatcher = FuzzyPlaceMatcher();
+
+  Duration aiWarmTimeout = const Duration(seconds: 90);
+  Duration destinationResolveTimeout = const Duration(seconds: 20);
+  Future<void> Function()? gemmaLoader;
+  Future<bool>? _warmAiInFlight;
+  Timer? _warmAiTimer;
 
   late DestinationResolver destinationResolver = GemmaDestinationResolver(
     matcher: FuzzyPlaceMatcher(),
@@ -155,18 +215,71 @@ class Wiring {
     return false;
   }
 
-  /// Warm up Gemma LLM in the background and update [isAiReady].
-  Future<bool> warmAi() async {
-    try {
-      if (isAiReady.value) return true;
-      if (!gemmaService.isLoaded) {
-        await gemmaService.load();
+  /// Warm up Gemma LLM in the background and update [aiStatus] / [isAiReady].
+  ///
+  /// Catches errors and timeouts to transition to unavailable ("model not loaded").
+  /// Concurrent calls share one in-flight Future.
+  Future<bool> warmAi({Duration? timeout}) {
+    if (aiStatus.value.isReady) return Future.value(true);
+    if (_warmAiInFlight != null) return _warmAiInFlight!;
+
+    final effectiveTimeout = timeout ?? aiWarmTimeout;
+    final future = _performWarmAi(effectiveTimeout);
+    _warmAiInFlight = future;
+    return future.whenComplete(() {
+      _warmAiInFlight = null;
+    });
+  }
+
+  Future<bool> _performWarmAi(Duration timeout) async {
+    aiStatus.value = const AiStatus.loading();
+    isAiReady.value = false;
+
+    final timeoutCompleter = Completer<void>();
+    _warmAiTimer?.cancel();
+    _warmAiTimer = Timer(timeout, () {
+      if (!timeoutCompleter.isCompleted) {
+        timeoutCompleter.completeError(TimeoutException('Gemma load timed out', timeout));
       }
+    });
+
+    try {
+      final loadFuture = gemmaLoader != null
+          ? gemmaLoader!()
+          : (!gemmaService.isLoaded ? gemmaService.load() : Future<void>.value());
+
+      await Future.any([loadFuture, timeoutCompleter.future]);
+      _warmAiTimer?.cancel();
+      _warmAiTimer = null;
+
+      aiStatus.value = const AiStatus.ready();
       isAiReady.value = true;
       return true;
-    } catch (_) {
+    } on TimeoutException {
+      _warmAiTimer?.cancel();
+      _warmAiTimer = null;
+      debugPrint('Gemma load timed out after $timeout');
+      aiStatus.value = const AiStatus.unavailable('model not loaded');
+      isAiReady.value = false;
+      return false;
+    } catch (e) {
+      _warmAiTimer?.cancel();
+      _warmAiTimer = null;
+      debugPrint('Failed to warm Gemma: $e');
+      aiStatus.value = const AiStatus.unavailable('model not loaded');
       isAiReady.value = false;
       return false;
     }
+  }
+
+  void resetAiForTesting() {
+    _warmAiTimer?.cancel();
+    _warmAiTimer = null;
+    _warmAiInFlight = null;
+    gemmaLoader = null;
+    aiWarmTimeout = const Duration(seconds: 90);
+    destinationResolveTimeout = const Duration(seconds: 20);
+    aiStatus.value = const AiStatus.loading();
+    isAiReady.value = false;
   }
 }
