@@ -67,3 +67,25 @@ const double gravityFallbackLowPassAlpha = 0.8;
 /// Preserve the latest changed lux sample during the mandatory 5 Hz transport cap.
 /// False drops intervening light changes instead; the cap remains in both modes.
 const bool lightCoalescingEnabled = true;
+
+
+/// Rapid gravity direction change used only by the separate motion classifier.
+const double handlingGravityDeg = 35;
+const int handlingWindowMs = 600;
+
+/// Linger after the latest excessive angle, rather than delaying handling entry.
+const int handlingHoldMs = 1200;
+
+const int boutMinSteps = 3;
+const int boutMinGapMs = 250;
+const int boutMaxGapMs = 1500;
+
+const bool useBoutGating = true;
+const bool useHandlingGate = true;
+const bool usePlacement = true;
+
+const double pocketLuxMax = 10;
+
+/// Pocket requires continuous near-and-dark for MORE than this many ms.
+const int pocketHoldMs = 2000;
+

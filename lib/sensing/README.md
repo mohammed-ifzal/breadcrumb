@@ -133,3 +133,56 @@ This checkout has only spike_walk_talha.jsonl; expected_turns.json and the later
 labelled walks are absent. The spike regression verifies unchanged detected turn
 angles/timestamps with auxiliary gravity samples interleaved; it is not a substitute
 for retesting the absent labelled walks. No trace or expected label is invented.
+
+## Separate D29 preparation: motion, bouts and placement
+
+These pure-Dart classes are NOT wired into SensingSource.events(). Live phone
+behavior and existing step/turn detectors remain unchanged, even though the new
+standalone flags default true. Current contracts.dart contains no D29 types;
+state_events.dart temporarily defines exactly MotionState {walking, still,
+handling}, Placement {hand, pocket, unknown}, MotionStateEvent(state, tMs), and
+PlacementEvent(placement, tMs). Replace that single type boundary with D29 exports
+when the captain's types become available; no shared contract was edited here.
+
+- WalkingBoutGate.onStep(StepEvent) returns zero or more original step objects.
+  Three candidates with inclusive 250..1500 ms gaps confirm a bout and release its
+  first three steps retroactively, with their original timestamps. Too-close
+  samples do not advance the valid cadence baseline; unconfirmed isolated steps
+  expire without being flushed. advanceTo(tMs) expires bout state; reset() clears
+  it. useBoutGating=false forwards every valid hardware step immediately,
+  including delayed timestamps, without applying a new cadence filter.
+- MotionStateDetector.onGravity(GravitySample, inWalkingBout: ...) normalizes
+  gravity vectors and compares them within a rolling 600 ms window. Exceeding
+  35 degrees enters handling immediately, and each crossing refreshes a 1200 ms
+  hold. The hold is NOT a 1200 ms delay before detecting a quick phone flip.
+  Handling takes precedence over walking; walking requires the supplied bout
+  state; otherwise still. Zero/non-finite vectors are ignored. Gravity-source
+  changes and gaps over the existing maxMotionGapMs reset the observation window.
+- PlacementDetector consumes the existing ProximitySample, LightSample and
+  DeviceInfo classes. Continuous near AND lux <=10 for MORE than 2000 ms means
+  pocket. Bright light or far proximity returns hand immediately. Missing inputs
+  or explicit sensor-unavailable notices mean unknown, never an inferred pocket.
+  On-change values persist until changed or unavailable. RAM notices have no
+  effect. usePlacement=false emits no placement events and remains unknown.
+- SensingGates is the future adapter: onRaw(existingRawEvent),
+  onStep(hardwareStep), onMotion(tMs, yawRate, accel: optionalFallbackAccel), and
+  advanceTo(tMs) return List<Object> containing StepEvent/TurnEvent plus local
+  state-change events. Supply accel only for fallback mode, never alongside
+  hardware steps. Process gravity before same-frame yaw, as native transport does.
+  A clock pulse (or normal motion/gravity input) finishes holds, placement dwell and
+  bout expiry without wall-clock timers or synthetic gyro samples.
+
+useHandlingGate=true drops steps and skips both fallback-step and turn processing
+while handling; it clears pending bouts and replaces detector state on entry and
+exit. The first motion afterwards seeds a fresh timestamp, discarding any partial
+heading integration instead of combining motion across the handling period.
+useHandlingGate=false preserves step/turn processing even if the classifier reports
+handling. Placement never gates counts or integration. The all-flags-off path is
+unit-tested against today's detectors, including independent invalid accel/yaw
+validation. No existing detector was modified.
+
+ADDITIVE defaults only: handlingGravityDeg=35, handlingWindowMs=600,
+handlingHoldMs=1200, boutMinSteps=3, boutMinGapMs=250, boutMaxGapMs=1500,
+useBoutGating=true, useHandlingGate=true, usePlacement=true, pocketLuxMax=10,
+pocketHoldMs=2000. No existing tuning value changed. All production files here
+import only Dart libraries and the existing pure models; no Flutter or I/O imports.
