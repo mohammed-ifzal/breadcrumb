@@ -1,3 +1,4 @@
+import 'package:breadcrumb/app/theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/core/contracts.dart';
@@ -40,6 +41,28 @@ class TrailView extends StatelessWidget {
 }
 
 class TrailPainter extends CustomPainter {
+  static const Color labelColor = BreadcrumbTheme.textPrimary;
+  static const Color labelBackgroundColor = BreadcrumbTheme.surfaceRaised;
+  static const Color canvasBackgroundColor = BreadcrumbTheme.background;
+
+  /// WCAG 2.1 relative luminance for contrast calculation.
+  static double relativeLuminance(Color color) {
+    double chan(double c) =>
+        c <= 0.04045 ? c / 12.92 : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
+    return 0.2126 * chan(color.r) +
+        0.7152 * chan(color.g) +
+        0.0722 * chan(color.b);
+  }
+
+  /// WCAG 2.1 contrast ratio between two colors (at least 4.5:1 required for normal text).
+  static double contrastRatio(Color c1, Color c2) {
+    final l1 = relativeLuminance(c1);
+    final l2 = relativeLuminance(c2);
+    final lighter = math.max(l1, l2);
+    final darker = math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
   final MapGraph map;
   final RoutePlan? route;
   final Position? position;
@@ -125,7 +148,7 @@ class TrailPainter extends CustomPainter {
       }
     }
 
-    final placePaint = Paint()..color = Colors.black;
+    final placePaint = Paint()..color = BreadcrumbTheme.accent;
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
     for (final p in points) {
@@ -134,7 +157,7 @@ class TrailPainter extends CustomPainter {
         canvas.drawCircle(
           toOffset(p.x, p.y, size, precomputedPoints: points),
           10,
-          Paint()..color = Colors.red,
+          Paint()..color = BreadcrumbTheme.danger,
         );
         continue;
       }
@@ -146,15 +169,40 @@ class TrailPainter extends CustomPainter {
       final offset = toOffset(p.x, p.y, size, precomputedPoints: points);
 
       if (place == null || place.kind == PlaceKind.junction) {
-        canvas.drawCircle(offset, 4, Paint()..color = Colors.grey);
+        canvas.drawCircle(offset, 4, Paint()..color = BreadcrumbTheme.textFaint);
       } else {
         canvas.drawCircle(offset, 8, placePaint);
         textPainter.text = TextSpan(
           text: place.name,
-          style: const TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: labelColor,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
         );
         textPainter.layout();
-        textPainter.paint(canvas, offset + const Offset(-10, 10));
+        final textOffset = offset + const Offset(-10, 10);
+        final bgRect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            textOffset.dx - 4,
+            textOffset.dy - 2,
+            textPainter.width + 8,
+            textPainter.height + 4,
+          ),
+          const Radius.circular(4),
+        );
+        canvas.drawRRect(
+          bgRect,
+          Paint()..color = labelBackgroundColor,
+        );
+        canvas.drawRRect(
+          bgRect,
+          Paint()
+            ..color = BreadcrumbTheme.border
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1,
+        );
+        textPainter.paint(canvas, textOffset);
       }
     }
 

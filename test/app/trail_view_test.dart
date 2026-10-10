@@ -1,3 +1,4 @@
+import 'package:breadcrumb/app/theme.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/trail_geometry.dart';
@@ -86,4 +87,36 @@ void main() {
     expect(find.byType(TrailView), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
   });
+
+  test('trail view labels contrast at least 4.5:1 against what they are drawn on', () {
+    // Label color vs label background pill
+    final pillContrast = TrailPainter.contrastRatio(
+      TrailPainter.labelColor,
+      TrailPainter.labelBackgroundColor,
+    );
+    expect(pillContrast, greaterThanOrEqualTo(4.5),
+        reason: 'Label contrast against pill badge must meet WCAG AA (>= 4.5:1)');
+
+    // Label color vs canvas background
+    final canvasContrast = TrailPainter.contrastRatio(
+      TrailPainter.labelColor,
+      TrailPainter.canvasBackgroundColor,
+    );
+    expect(canvasContrast, greaterThanOrEqualTo(4.5),
+        reason: 'Label contrast against canvas background must meet WCAG AA (>= 4.5:1)');
+
+    // Label color vs BreadcrumbTheme.surface and BreadcrumbTheme.background
+    final surfaceContrast = TrailPainter.contrastRatio(
+      TrailPainter.labelColor,
+      BreadcrumbTheme.surface,
+    );
+    expect(surfaceContrast, greaterThanOrEqualTo(4.5));
+
+    final bgContrast = TrailPainter.contrastRatio(
+      TrailPainter.labelColor,
+      BreadcrumbTheme.background,
+    );
+    expect(bgContrast, greaterThanOrEqualTo(4.5));
+  });
+
 }
