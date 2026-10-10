@@ -83,6 +83,8 @@ class AppSpeaker implements Speaker {
         return 'You are off route. Scan a nearby sign.';
       case InstructionKind.rescan:
         return 'You may have passed the turn.';
+      case InstructionKind.changeFloor:
+        return i.text;
     }
   }
 

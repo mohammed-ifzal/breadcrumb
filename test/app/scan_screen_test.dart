@@ -237,4 +237,11 @@ class FakeTracker implements Tracker {
         offRoute: false,
         needsReplan: false,
       );
+
+  @override
+  Position onFloorChange(int delta) => const Position(
+        legIndex: 0,
+        stepsAlong: 0,
+        anchoredBy: AnchorSource.floor,
+      );
 }

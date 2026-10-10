@@ -88,6 +88,12 @@ void main() {
       expect(tracker.tapHere('cafe').stepsAlong, 5);
       expect(tracker.anchor('island').needsReplan, isTrue);
     });
+
+    test('a floor change moves to the next leg, not past the last', () {
+      final p = tracker.onFloorChange(1);
+      expect((p.legIndex, p.stepsAlong, p.anchoredBy), (1, 0, AnchorSource.floor));
+      expect(tracker.onFloorChange(1).legIndex, 1);
+    });
   });
 
   test('FakeGuide says straight, then arrive', () {
