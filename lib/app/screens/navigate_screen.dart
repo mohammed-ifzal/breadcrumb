@@ -5,6 +5,7 @@ import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/tuning.dart' as tuning;
 import 'package:breadcrumb/app/wiring.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
+import 'scan_screen.dart';
 
 class NavigateScreen extends StatefulWidget {
   final String destinationId;
@@ -425,7 +426,25 @@ class _NavigateScreenState extends State<NavigateScreen> {
                 child: const Text('I am here'),
               ),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ScanScreen(
+                        destinationId: widget.destinationId,
+                        currentRoute: _route,
+                        onReplan: (newRoute, newPosition) {
+                          setState(() {
+                            _route = newRoute;
+                            _position = newPosition;
+                          });
+                          _updateInstruction();
+                        },
+                      ),
+                    ),
+                  );
+                  _updateInstruction();
+                },
                 child: const Text('Scan sign'),
               ),
             ],
