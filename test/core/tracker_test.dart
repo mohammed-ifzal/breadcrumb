@@ -49,10 +49,13 @@ void main() {
     expect(p.offRoute, isFalse);
   });
 
-  test('without a turn, steps keep counting past the end of a turning leg', () {
+  test('without a turn, steps count past a corner until overwalk, then move on (D27)', () {
     final tracker = trackerFor('start', 'stage_side');
-    final p = walk(tracker, 16);
-    expect((p.legIndex, p.stepsAlong), (0, 16));
+    // c1 is 12 steps; overwalk is 30% of it (3.6 steps).
+    var p = walk(tracker, 15);
+    expect((p.legIndex, p.stepsAlong), (0, 15));
+    p = walk(tracker, 1);
+    expect((p.legIndex, p.stepsAlong, p.offRoute), (1, 0, false));
   });
 
   test('a correct turn near the end of a leg snaps to the next leg', () {
@@ -95,7 +98,7 @@ void main() {
 
   test('a turn far from the end of a leg gives offRoute', () {
     final tracker = trackerFor('start', 'stage_side');
-    walk(tracker, 2); // 10 steps before j1: outside both snap rules
+    walk(tracker, 1); // 11 steps before j1: outside both snap rules
     expect(turn(tracker, 90).offRoute, isTrue);
   });
 
@@ -242,6 +245,7 @@ void main() {
 
   test('the late-turn window is lateTurnSteps and needs the right direction', () {
     final wrongWay = trackerFor('start', 'stage_side');
+    walk(wrongWay, 1); // ends the orientation phase (D27)
     wrongWay.tapHere('j1');
     expect(turn(wrongWay, -90).offRoute, isTrue, reason: 'j1 needs a left');
 
@@ -251,6 +255,7 @@ void main() {
     expect(turn(tooLate, 90).offRoute, isTrue);
 
     final straightOn = trackerFor('j1', 'stage_side');
+    walk(straightOn, 1);
     straightOn.tapHere('food_counter'); // c2 -> c3 is straight on: no turn to absorb
     expect(turn(straightOn, 90).offRoute, isTrue);
   });

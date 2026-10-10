@@ -10,8 +10,12 @@ library;
 
 enum PlaceKind { start, junction, place }
 
-/// What last fixed the position.
-enum AnchorSource { start, turn, sign, tap }
+/// How a corridor is walked (D24). Anything but [walk] is a floor transition.
+enum CorridorKind { walk, stairs, escalator, lift }
+
+/// What last fixed the position. [floor]: a floor change completed a
+/// transition leg (D24).
+enum AnchorSource { start, turn, sign, tap, floor }
 
 enum InstructionKind {
   straight,
@@ -21,6 +25,9 @@ enum InstructionKind {
   arrive,
   offRoute,
   rescan,
+
+  /// Take the stairs, escalator or lift to another floor (D24).
+  changeFloor,
 }
 
 enum ReaderKind { mlkit, gemma }
@@ -55,6 +62,7 @@ class Place {
     required this.name,
     this.aliases = const [],
     required this.kind,
+    this.floor = 0,
   });
 
   final String id;
@@ -62,18 +70,24 @@ class Place {
   final List<String> aliases;
   final PlaceKind kind;
 
+  /// The floor this node is on; 0 when the map has one floor (D24).
+  final int floor;
+
   factory Place.fromJson(Map<String, dynamic> json) => Place(
     id: json['id'] as String,
     name: json['name'] as String,
     aliases: [for (final a in (json['aliases'] as List? ?? const [])) a as String],
     kind: PlaceKind.values.byName(json['kind'] as String),
+    floor: (json['floor'] as num? ?? 0).toInt(),
   );
 
+  /// Leaves out `floor` when it is 0, so one-floor maps are written as before.
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'aliases': aliases,
     'kind': kind.name,
+    if (floor != 0) 'floor': floor,
   };
 }
 
@@ -84,6 +98,8 @@ class Corridor {
     required this.to,
     required this.steps,
     required this.heading,
+    this.kind = CorridorKind.walk,
+    this.floorDelta = 0,
   });
 
   final String id;
@@ -94,20 +110,34 @@ class Corridor {
   /// Degrees, counter-clockwise, relative to the heading at the start of the walk.
   final double heading;
 
+  /// [CorridorKind.walk] unless this corridor changes floor (D24).
+  final CorridorKind kind;
+
+  /// Floors gained going from `from` to `to`: `to.floor - from.floor`.
+  final int floorDelta;
+
+  bool get isTransition => kind != CorridorKind.walk;
+
   factory Corridor.fromJson(Map<String, dynamic> json) => Corridor(
     id: json['id'] as String,
     from: json['from'] as String,
     to: json['to'] as String,
     steps: (json['steps'] as num).toInt(),
     heading: (json['heading'] as num).toDouble(),
+    kind: CorridorKind.values.byName(json['kind'] as String? ?? 'walk'),
+    floorDelta: (json['floorDelta'] as num? ?? 0).toInt(),
   );
 
+  /// Leaves out `kind` and `floorDelta` at their defaults, so one-floor maps are
+  /// written as before.
   Map<String, dynamic> toJson() => {
     'id': id,
     'from': from,
     'to': to,
     'steps': steps,
     'heading': heading,
+    if (kind != CorridorKind.walk) 'kind': kind.name,
+    if (floorDelta != 0) 'floorDelta': floorDelta,
   };
 }
 
@@ -197,6 +227,8 @@ class Leg {
     required this.reversed,
     required this.heading,
     required this.steps,
+    this.kind = CorridorKind.walk,
+    this.floorDelta = 0,
   });
 
   final String corridorId;
@@ -207,6 +239,15 @@ class Leg {
   /// The heading actually walked (already reversed when [reversed]).
   final double heading;
   final int steps;
+
+  /// The corridor's kind (D24).
+  final CorridorKind kind;
+
+  /// Floors gained on this leg, as walked (already negated when [reversed]).
+  final int floorDelta;
+
+  /// A stairs, escalator or lift leg: the Tracker ignores steps and turns on it.
+  bool get isTransition => kind != CorridorKind.walk;
 }
 
 class RoutePlan {
@@ -224,6 +265,8 @@ class Position {
     required this.anchoredBy,
     this.offRoute = false,
     this.needsReplan = false,
+    this.orienting = false,
+    this.facing,
   });
 
   final int legIndex;
@@ -233,6 +276,13 @@ class Position {
 
   /// Set when an anchor lands on a place that isn't on the current route.
   final bool needsReplan;
+
+  /// True from the start of a route until the first step (D27).
+  final bool orienting;
+
+  /// While [orienting]: the direction the walker is assumed to face, in map
+  /// degrees, or null when unknown (D27).
+  final double? facing;
 }
 
 class Instruction {
@@ -274,6 +324,11 @@ abstract interface class Tracker {
   Position onTurn(TurnEvent e);
   Position anchor(String placeId);
   Position tapHere(String placeId);
+
+  /// [delta] floors moved: +1 up, -1 down (D24). Completes the next transition
+  /// leg once the floors moved reach its `floorDelta`. Comes from one tap in the
+  /// app (no barometer, like the iQOO 15) or from a FloorDetector.
+  Position onFloorChange(int delta);
 
   /// The app turns this on while the sign-scan screen is open.
   void pauseTurns(bool on);

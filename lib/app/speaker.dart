@@ -63,26 +63,27 @@ class AppSpeaker implements Speaker {
   /// Formats short, clear navigation-app-style speech text from Instruction.
   static String formatSpeech(Instruction i) {
     switch (i.kind) {
+      // D27: no step count (facing the first leg) and near a corner ("Get ready
+      // to turn left.", "Turn left at the corner.") speak the Guide's own text.
       case InstructionKind.straight:
+        if (i.steps == null) return i.text;
         return 'Walk straight.';
       case InstructionKind.turnLeft:
-        if (i.steps != null && i.steps! <= tuning.turnNowSteps) {
-          return 'Turn left now.';
-        }
-        return 'In ${i.steps ?? 0} steps, turn left.';
+        if (i.steps == null || i.steps! <= tuning.turnNowSteps) return i.text;
+        return 'In ${i.steps} steps, turn left.';
       case InstructionKind.turnRight:
-        if (i.steps != null && i.steps! <= tuning.turnNowSteps) {
-          return 'Turn right now.';
-        }
-        return 'In ${i.steps ?? 0} steps, turn right.';
+        if (i.steps == null || i.steps! <= tuning.turnNowSteps) return i.text;
+        return 'In ${i.steps} steps, turn right.';
       case InstructionKind.turnAround:
-        return 'Turn around.';
+        return i.text;
       case InstructionKind.arrive:
         return 'You have arrived at ${i.placeName ?? "your destination"}.';
       case InstructionKind.offRoute:
-        return 'You are off route. Scan a nearby sign.';
+        return i.text;
       case InstructionKind.rescan:
         return 'You may have passed the turn.';
+      case InstructionKind.changeFloor:
+        return i.text;
     }
   }
 

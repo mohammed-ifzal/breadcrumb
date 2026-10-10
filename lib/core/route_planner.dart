@@ -2,10 +2,13 @@
 library;
 
 import 'contracts.dart';
+import 'tuning.dart';
 
 /// Dijkstra on steps. Corridors can be walked either way; walking one from `to`
-/// to `from` gives a reversed leg with heading + 180. Throws [ArgumentError] for
-/// an unknown place or when there is no route.
+/// to `from` gives a reversed leg with heading + 180 and the floor change
+/// negated. A stairs, escalator or lift corridor costs [floorChangeCostSteps]
+/// more than its steps (D24); [RoutePlan.totalSteps] counts only steps. Throws
+/// [ArgumentError] for an unknown place or when there is no route.
 class DijkstraRoutePlanner implements RoutePlanner {
   @override
   RoutePlan plan(MapGraph map, String fromId, String toId) {
@@ -33,7 +36,7 @@ class DijkstraRoutePlanner implements RoutePlanner {
       done.add(here);
       for (final c in byNode[here] ?? const <Corridor>[]) {
         final next = c.from == here ? c.to : c.from;
-        final d = dist[here]! + c.steps;
+        final d = dist[here]! + c.steps + (c.isTransition ? floorChangeCostSteps : 0);
         if (!done.contains(next) && d < (dist[next] ?? d + 1)) {
           dist[next] = d;
           cameFrom[next] = (c, here);
@@ -55,10 +58,16 @@ class DijkstraRoutePlanner implements RoutePlanner {
           reversed: reversed,
           heading: reversed ? reversedHeading(c.heading) : c.heading,
           steps: c.steps,
+          kind: c.kind,
+          floorDelta: reversed ? -c.floorDelta : c.floorDelta,
         ),
       );
       node = prev;
     }
-    return RoutePlan(legs: legs, totalSteps: dist[toId]!, toId: toId);
+    return RoutePlan(
+      legs: legs,
+      totalSteps: legs.fold(0, (sum, leg) => sum + leg.steps),
+      toId: toId,
+    );
   }
 }

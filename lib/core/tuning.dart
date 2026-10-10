@@ -27,17 +27,23 @@ const double turnAroundAngle = 150;
 /// Say "turn now" this many steps before the end of a leg.
 const int turnNowSteps = 3;
 
-/// A turn snaps in the last 40% of a leg…
-const double snapZone = 0.4;
+/// A turn snaps in the last half of a leg… (D27; was 0.4)
+const double snapZone = 0.5;
 
-/// …or within this many steps of its end.
-const int snapSteps = 8;
+/// …or within this many steps of its end (D27; was 8). Off route, a matching
+/// turn within twice this of the next turning point snaps back on.
+const int snapSteps = 10;
 
 /// A turn this many steps after a node the position already moved past (by
 /// "I am here", a sign or a turn snap) is that node's turn, not off route (D26).
 const int lateTurnSteps = 3;
 
-/// 30% past a leg's length triggers a rescan prompt.
+/// Extra route cost, in steps, of each stairs, escalator or lift corridor, on
+/// top of its own steps (D24).
+const int floorChangeCostSteps = 20;
+
+/// Walking 30% of a run past its corner with no turn seen moves on to the next
+/// leg (D27; was a rescan prompt).
 const double overwalk = 0.3;
 
 /// Minimum fuzzy score for a place match.

@@ -125,6 +125,20 @@ class FakeTracker implements Tracker {
   @override
   void pauseTurns(bool on) => _paused = on;
 
+  /// Any floor change moves to the start of the next leg.
+  @override
+  Position onFloorChange(int delta) {
+    final route = _route;
+    if (route == null || _position.legIndex >= route.legs.length - 1) {
+      return _position;
+    }
+    return _position = Position(
+      legIndex: _position.legIndex + 1,
+      stepsAlong: 0,
+      anchoredBy: AnchorSource.floor,
+    );
+  }
+
   Position _snapTo(String placeId, AnchorSource source) {
     final route = _route;
     if (route != null) {
