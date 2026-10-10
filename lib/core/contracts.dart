@@ -28,7 +28,30 @@ enum InstructionKind {
 
   /// Take the stairs, escalator or lift to another floor (D24).
   changeFloor,
+
+  /// At the end of the final leg without enough evidence of arrival: "{place}
+  /// should be right here — tap I'm here to confirm" (D29).
+  arrivingConfirm,
+
+  /// Past the final leg plus the overwalk: "You may have passed {place}" (D29).
+  maybePassed,
+
+  /// Position confidence dropped below `confidenceAskBelow`: "Are you at {next
+  /// place}?", once per leg (D29).
+  confirmPlace,
 }
+
+/// What the walker is doing, from the motion sensors (D29). [handling]: the phone
+/// is being moved in the hand (picked up, put in a pocket, looked at), so yaw is
+/// not a body turn.
+enum MotionState { walking, still, handling }
+
+/// Where the phone is carried (D29).
+enum Placement { hand, pocket, unknown }
+
+/// What the phone can run (D29), from its total RAM: [full] runs Gemma, [basic]
+/// uses fuzzy matching and tap-a-place only.
+enum DeviceTier { full, basic }
 
 enum ReaderKind { mlkit, gemma }
 
@@ -200,6 +223,26 @@ class TurnEvent {
   final double angle;
 }
 
+/// The walker's motion state changed (D29).
+class MotionStateEvent {
+  const MotionStateEvent(this.state, this.tMs);
+
+  final MotionState state;
+
+  /// Milliseconds since the walk started.
+  final int tMs;
+}
+
+/// Where the phone is carried changed (D29).
+class PlacementEvent {
+  const PlacementEvent(this.placement, this.tMs);
+
+  final Placement placement;
+
+  /// Milliseconds since the walk started.
+  final int tMs;
+}
+
 class SignReading {
   const SignReading({required this.t, required this.text, required this.reader});
 
@@ -267,6 +310,7 @@ class Position {
     this.needsReplan = false,
     this.orienting = false,
     this.facing,
+    this.confidence = 1.0,
   });
 
   final int legIndex;
@@ -283,6 +327,11 @@ class Position {
   /// While [orienting]: the direction the walker is assumed to face, in map
   /// degrees, or null when unknown (D27).
   final double? facing;
+
+  /// How sure the Tracker is of [stepsAlong], 0 to 1 (D29). Decays every step,
+  /// recovers on a snapped corner, an "I'm here" tap or arrival. Always 1.0 when
+  /// `useConfidence` is off.
+  final double confidence;
 }
 
 class Instruction {
@@ -373,6 +422,27 @@ abstract interface class SensingSource {
   Future<void> startTrace(Map<String, Object?> meta);
   Future<void> stopTrace();
   void mark(String note);
+
+  /// Motion state changes: walking, still, handling (D29).
+  Stream<MotionStateEvent> motionStates();
+
+  /// Phone placement changes: hand, pocket, unknown (D29).
+  Stream<PlacementEvent> placements();
+
+  /// Total device RAM in MB, for [DeviceTier] (D29); 0 when unknown.
+  Future<int> totalRamMb();
+}
+
+/// Owner: Ifzal. Sits between the [SensingSource] and its consumers (Tracker,
+/// MapBuilder) and passes on only turns that walking confirms (D29). Feed it
+/// every step, raw turn and motion state; listen to [confirmed].
+abstract interface class TurnConfirmer {
+  void onStep(StepEvent e);
+  void onTurn(TurnEvent e);
+  void onMotionState(MotionStateEvent e);
+
+  /// Turns confirmed by `turnConfirmSteps` steps, with their net angle.
+  Stream<TurnEvent> get confirmed;
 }
 
 /// Owner: Teammate 3 (ML Kit) / Ifzal (Gemma, stretch).

@@ -83,6 +83,10 @@ class AppSpeaker implements Speaker {
       case InstructionKind.rescan:
         return 'You may have passed the turn.';
       case InstructionKind.changeFloor:
+      // D29: speak the Guide's own text.
+      case InstructionKind.arrivingConfirm:
+      case InstructionKind.maybePassed:
+      case InstructionKind.confirmPlace:
         return i.text;
     }
   }

@@ -182,6 +182,28 @@ void main() {
     expect(s.marks, ['arrived']);
   });
 
+  test('FakeSensingSource reports walking, in the hand, 12000 MB (D29)', () async {
+    final s = FakeSensingSource();
+    expect((await s.motionStates().first).state, MotionState.walking);
+    expect((await s.placements().first).placement, Placement.hand);
+    expect(await s.totalRamMb(), 12000);
+  });
+
+  test('FakeTurnConfirmer confirms every turn unchanged (D29)', () {
+    final c = FakeTurnConfirmer();
+    final out = <TurnEvent>[];
+    c.confirmed.listen(out.add);
+    c.onMotionState(const MotionStateEvent(MotionState.handling, 0));
+    c.onStep(const StepEvent(1));
+    c.onTurn(const TurnEvent(2, -90));
+    expect(out.single.angle, -90);
+  });
+
+  test('Position confidence defaults to 1.0 (D29)', () {
+    const p = Position(legIndex: 0, stepsAlong: 0, anchoredBy: AnchorSource.start);
+    expect(p.confidence, 1.0);
+  });
+
   test('FakeSignReader returns registered text only', () async {
     final r = FakeSignReader({'a.jpg': 'CAFE'});
     expect((await r.read('a.jpg'))?.text, 'CAFE');
