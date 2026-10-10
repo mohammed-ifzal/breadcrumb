@@ -6,6 +6,8 @@ import 'package:breadcrumb/app/screens/navigate_screen.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
 import 'package:breadcrumb/app/theme.dart';
 import 'package:breadcrumb/app/wiring.dart';
+import 'package:breadcrumb/core/contracts.dart';
+
 
 void main() {
   late Directory tempDir;
@@ -132,4 +134,28 @@ void main() {
     expect(find.widgetWithText(ElevatedButton, "I'm here"), findsOneWidget);
     expect(find.widgetWithText(ElevatedButton, 'Scan sign'), findsOneWidget);
   });
+
+  testWidgets('Navigate card hides steps line when steps == 0 (e.g. Turn around)', (tester) async {
+    Wiring.instance.guide = const _FixedInstructionGuide(
+      Instruction(
+        kind: InstructionKind.turnAround,
+        steps: 0,
+        text: 'Turn around, then walk straight.',
+      ),
+    );
+
+    await pumpScreen(tester, const NavigateScreen(destinationId: 'cafe'));
+
+    expect(find.text('Turn around, then walk straight.'), findsOneWidget);
+    expect(find.text('0 steps'), findsNothing);
+    expect(find.text('0 step'), findsNothing);
+  });
+}
+
+class _FixedInstructionGuide implements Guide {
+  final Instruction instruction;
+  const _FixedInstructionGuide(this.instruction);
+
+  @override
+  Instruction next(RoutePlan r, Position p) => instruction;
 }

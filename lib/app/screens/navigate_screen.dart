@@ -547,7 +547,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (stepsLeft != null) ...[
+                          if (stepsLeft != null && stepsLeft > 0) ...[
                             const SizedBox(height: 4),
                             Text(
                               stepsLeft == 1 ? '1 step' : '$stepsLeft steps',
