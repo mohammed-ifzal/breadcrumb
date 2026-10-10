@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/contracts.dart' as contracts;
 import '../../core/map_builder.dart' as recording;
 import '../../core/map_json.dart';
+import '../../core/tuning.dart' show useTurnConfirmer;
+import '../../core/turn_confirmer.dart' show confirmedEvents;
 import '../../sensing/sensing_source.dart';
 import '../../sensing/trace_recorder.dart';
 import '../widgets/trail_view.dart';
@@ -114,7 +116,13 @@ class _RecordScreenState extends State<RecordScreen> {
         _ownedSource = SensingSource(recorder: _trace);
       }
       _traceOpening = _beginTrace(name);
-      final events = widget.events ?? _traceSource!.events();
+      // D29: with useTurnConfirmer the MapBuilder sees the same confirmed turns
+      // as the Tracker in Navigate.
+      final events =
+          widget.events ??
+          (useTurnConfirmer
+              ? confirmedEvents(_traceSource!)
+              : _traceSource!.events());
       _subscription = events.listen(
         _onEvent,
         onError: _onSensorError,
