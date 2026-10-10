@@ -321,6 +321,19 @@ class _NavigateScreenState extends State<NavigateScreen> {
 
     final progress = totalSteps > 0 ? (stepsTaken / totalSteps).clamp(0.0, 1.0) : 0.0;
 
+    // Equal secondary buttons for "I am here" and "Scan sign".
+    final actionButton = ElevatedButton.styleFrom(
+      backgroundColor: BreadcrumbTheme.surface,
+      foregroundColor: BreadcrumbTheme.textPrimary,
+      side: const BorderSide(color: BreadcrumbTheme.border),
+      minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      shape: const RoundedRectangleBorder(borderRadius: BreadcrumbTheme.borderRadius),
+      textStyle: BreadcrumbTheme.button.copyWith(fontSize: 17),
+      elevation: 0,
+    );
+    final stepsLeft = _currentInstruction?.steps;
+
     return Scaffold(
       appBar: AppBar(
         title: GestureDetector(
@@ -341,180 +354,208 @@ class _NavigateScreenState extends State<NavigateScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (showSimulated)
-              Container(
-                width: double.infinity,
-                color: Colors.amber.shade800,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: const Text(
-                  'SIMULATED',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    letterSpacing: 2.0,
-                  ),
-                ),
-              ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Short screens (360x640 at font scale 1.3) get a smaller arrow, tighter
+          // spacing and a smaller trail card so everything fits without scrolling.
+          final compact = constraints.maxHeight < 700;
+          final gap = compact ? 12.0 : 20.0;
+          final arrowCircle = compact ? 88.0 : 120.0;
+          final trailHeight = constraints.maxHeight * (compact ? 0.32 : 0.40);
 
-            // Live instruction at 42pt (BreadcrumbTheme.liveInstruction)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-              child: Text(
-                _currentInstruction?.text ?? 'Calculating...',
-                style: BreadcrumbTheme.liveInstruction,
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            // Progress indicator
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 2.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  backgroundColor: BreadcrumbTheme.surfaceRaised,
-                  valueColor: const AlwaysStoppedAnimation<Color>(BreadcrumbTheme.accent),
-                ),
-              ),
-            ),
-
-            // Step count readout
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
-              child: Text(
-                '${_currentInstruction?.steps ?? 0} steps left on this leg',
-                style: BreadcrumbTheme.bodySecondary,
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            // Huge arrow icon
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: BreadcrumbTheme.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: BreadcrumbTheme.accentGlow,
-                    border: Border.all(color: BreadcrumbTheme.border),
-                  ),
-                  child: Icon(
-                    _getArrowIcon(_currentInstruction?.kind),
-                    size: 80,
-                    color: BreadcrumbTheme.accent,
-                  ),
-                ),
-              ),
-            ),
-
-            // Trail card at the bottom
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-              child: Container(
-                height: 140,
-                decoration: BoxDecoration(
-                  color: BreadcrumbTheme.surface,
-                  borderRadius: BreadcrumbTheme.borderRadius,
-                  border: Border.all(color: BreadcrumbTheme.border),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: TrailView(
-                  map: wiring.map,
-                  route: route,
-                  position: position,
-                ),
-              ),
-            ),
-
-            // Dev toggle debug buttons
-            if (_showDebugButtons && kDebugMode)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    const Text('DEBUG: ', style: TextStyle(fontWeight: FontWeight.bold, color: BreadcrumbTheme.textSecondary)),
-                    OutlinedButton(
-                      onPressed: _onStepDebug,
-                      child: const Text('+1 step'),
-                    ),
-                    OutlinedButton(
-                      onPressed: _onTurnLeftDebug,
-                      child: const Text('turn left'),
-                    ),
-                    OutlinedButton(
-                      onPressed: _onTurnRightDebug,
-                      child: const Text('turn right'),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Actions row: "I am here" & "Scan sign"
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: BreadcrumbTheme.primaryButton,
-                      onPressed: _onImHere,
-                      child: const Text('I am here'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: BreadcrumbTheme.surface,
-                        foregroundColor: BreadcrumbTheme.textPrimary,
-                        side: const BorderSide(color: BreadcrumbTheme.border),
-                        minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                        shape: const RoundedRectangleBorder(borderRadius: BreadcrumbTheme.borderRadius),
-                        textStyle: BreadcrumbTheme.button,
+          return SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (showSimulated)
+                  Container(
+                    width: double.infinity,
+                    color: Colors.amber.shade800,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: const Text(
+                      'SIMULATED',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        letterSpacing: 2.0,
                       ),
-                      onPressed: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ScanScreen(
-                              destinationId: widget.destinationId,
-                              currentRoute: _route,
-                              onReplan: (newRoute, newPosition) {
-                                setState(() {
-                                  _route = newRoute;
-                                  _position = newPosition;
-                                });
-                                _updateInstruction();
-                              },
-                            ),
-                          ),
-                        );
-                        _updateInstruction();
-                      },
-                      child: const Text('Scan sign'),
                     ),
                   ),
-                ],
-              ),
+
+                // Live instruction: 28 sp, bold, centred, at most two lines.
+                Padding(
+                  padding: EdgeInsets.fromLTRB(24, gap, 24, 0),
+                  child: Text(
+                    _currentInstruction?.text ?? 'Calculating...',
+                    style: BreadcrumbTheme.liveInstruction.copyWith(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      letterSpacing: -0.3,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+                // Distance pill ("12 steps"); hidden when the instruction has no count.
+                if (stepsLeft != null)
+                  Padding(
+                    padding: EdgeInsets.only(top: gap * 0.6),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: BreadcrumbTheme.accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: BreadcrumbTheme.accent.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Text(
+                          stepsLeft == 1 ? '1 step' : '$stepsLeft steps',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: BreadcrumbTheme.accent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Thin progress bar with rounded ends.
+                Padding(
+                  padding: EdgeInsets.fromLTRB(32, gap, 32, 0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 4,
+                      backgroundColor: BreadcrumbTheme.surfaceRaised,
+                      valueColor: const AlwaysStoppedAnimation<Color>(BreadcrumbTheme.accent),
+                    ),
+                  ),
+                ),
+
+                // Arrow in a soft teal circle.
+                Padding(
+                  padding: EdgeInsets.only(top: gap),
+                  child: Center(
+                    child: Container(
+                      width: arrowCircle,
+                      height: arrowCircle,
+                      decoration: BoxDecoration(
+                        color: BreadcrumbTheme.accent.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: BreadcrumbTheme.accent.withValues(alpha: 0.30),
+                        ),
+                      ),
+                      child: Icon(
+                        _getArrowIcon(_currentInstruction?.kind),
+                        size: arrowCircle * 0.6,
+                        color: BreadcrumbTheme.accent,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Trail card: the hero, about 40% of the screen.
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16, gap, 16, 0),
+                  child: Container(
+                    height: trailHeight,
+                    decoration: BoxDecoration(
+                      color: BreadcrumbTheme.surface,
+                      borderRadius: BreadcrumbTheme.borderRadius,
+                      border: Border.all(color: BreadcrumbTheme.border),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: TrailView(
+                      map: wiring.map,
+                      route: route,
+                      position: position,
+                    ),
+                  ),
+                ),
+
+                // Dev toggle debug buttons
+                if (_showDebugButtons && kDebugMode)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        const Text('DEBUG: ', style: TextStyle(fontWeight: FontWeight.bold, color: BreadcrumbTheme.textSecondary)),
+                        OutlinedButton(
+                          onPressed: _onStepDebug,
+                          child: const Text('+1 step'),
+                        ),
+                        OutlinedButton(
+                          onPressed: _onTurnLeftDebug,
+                          child: const Text('turn left'),
+                        ),
+                        OutlinedButton(
+                          onPressed: _onTurnRightDebug,
+                          child: const Text('turn right'),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Actions row: "I am here" & "Scan sign"
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16, gap, 16, gap),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          style: actionButton,
+                          onPressed: _onImHere,
+                          child: const Text('I am here'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: actionButton,
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ScanScreen(
+                                  destinationId: widget.destinationId,
+                                  currentRoute: _route,
+                                  onReplan: (newRoute, newPosition) {
+                                    setState(() {
+                                      _route = newRoute;
+                                      _position = newPosition;
+                                    });
+                                    _updateInstruction();
+                                  },
+                                ),
+                              ),
+                            );
+                            _updateInstruction();
+                          },
+                          child: const Text('Scan sign'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
