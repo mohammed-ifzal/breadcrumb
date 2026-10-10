@@ -5,7 +5,7 @@ acceleration are sampled alongside the gyroscope; each gyro callback emits the l
 acceleration magnitude and gyro projected onto unit gravity, converted to degrees per
 second. The sampling period requests 50 Hz; device delivery may vary. Kotlin performs
 no step/turn detection. Subscription cancellation and activity pause unregister all
-listeners. Required motion sensor failures are stream errors. The optional step sensor is isolated: registration/permission or step-event delivery failure emits stepDetector:false once and leaves all motion listeners running.
+listeners. Required gyro/accelerometer failures are stream errors. Dedicated gravity is optional; absence or failure uses the accelerometer estimate. The optional step sensor is isolated: registration/permission or step-event delivery failure emits stepDetector:false once and leaves all motion listeners running.
 
 `StepDetector.onMotion(t, accel)` detects a local peak on its descending sample, using
 the first timestamp of a plateau and tuning's peak threshold/minimum gap. It is enabled
@@ -81,3 +81,55 @@ org.gradle.daemon=false
 The captured build log is temporary and is deleted after diagnosis; it is not committed.
 The existing flutter_tts built-in-Kotlin compatibility message was a warning, not the
 cause of this failure. Physical step/turn calibration still requires a phone walk.
+
+## Optional raw sensors (t2/robust-sensing)
+
+SensingSource.events() additionally broadcasts GravitySample, ProximitySample,
+LightSample and DeviceInfo from lib/sensing/raw_events.dart. Navigation and record
+consumers continue selecting StepEvent/TurnEvent; auxiliary events do not gate,
+fuse or suppress detection. A malformed optional packet reports a decoding error
+without poisoning the motion capability needed by startTrace.
+
+Raw native/JSONL shapes (t is milliseconds since the stream started):
+
+```json
+{"type":"gravity","t":20,"x":0.0,"y":0.0,"z":9.8,"source":"sensor"}
+{"type":"proximity","t":21,"near":true,"cm":0.0}
+{"type":"light","t":22,"lux":12.5}
+{"type":"info","t":0,"totalRamMb":8192}
+{"type":"info","gravityAvailable":false,"gravitySource":"accelerometer","gravityLowPassEnabled":true}
+{"type":"info","proximityAvailable":false}
+{"type":"info","lightAvailable":false}
+```
+
+Gravity vectors are m/s² in Android device axes and accompany each motion sample
+at the gyro rate (requested about 50 Hz). TYPE_GRAVITY is preferred. Its failure
+unregisters only that sensor and enables an accelerometer estimate. Proximity uses
+the sensor's own maximumRange for its native near/far label, preserving raw cm;
+there is no hardcoded near-distance threshold. Light is sent only when changed,
+at most one delivery every 200 ms (5 Hz), even if the main thread was delayed.
+Each optional missing/registration/data/delivery failure sends its false flag once
+per stream session; gyro, accel and steps remain registered. Pause/cancel removes
+all listeners and the single pending light flush. RAM uses ActivityManager's
+physical totalMem / 1024² once per native stream session, not available memory.
+
+Only these ADDITIVE tuning constants are new:
+
+- gravityFallbackLowPassEnabled = true: only when native gravity is absent/failed.
+- gravityFallbackLowPassAlpha = 0.8: previous-vector weight; valid range [0, 1).
+- lightCoalescingEnabled = true: retain the latest intervening lux change.
+  False drops intervening changes; both modes retain the mandatory 5 Hz cap.
+
+SensingSource constructor overrides are for controlled experiments. Options travel
+to Kotlin in the EventChannel listen arguments; Kotlin defines no new step/turn,
+proximity-distance or lux thresholds. Legacy clients without options receive an
+unfiltered accelerometer fallback. The selected options are saved in the trace's
+meta.rawSensorFilters. Startup RAM/capability info is cached and written as one
+info snapshot immediately after meta when tracing starts, so the one-time RAM
+notice is not lost; subsequent raw packets are recorded without alteration.
+The existing TraceRecorder already accepts raw JSON maps and needs no code change.
+
+This checkout has only spike_walk_talha.jsonl; expected_turns.json and the later
+labelled walks are absent. The spike regression verifies unchanged detected turn
+angles/timestamps with auxiliary gravity samples interleaved; it is not a substitute
+for retesting the absent labelled walks. No trace or expected label is invented.

@@ -57,3 +57,13 @@ const int accelPeakMinGapMs = 300;
 
 /// Longest wait for Gemma to choose a destination before giving up (null).
 const int gemmaTimeoutMs = 20000;
+
+/// Apply a low-pass only when native gravity is missing or fails. No step/turn gate.
+const bool gravityFallbackLowPassEnabled = true;
+
+/// Previous-vector weight for the optional native accelerometer gravity estimate.
+const double gravityFallbackLowPassAlpha = 0.8;
+
+/// Preserve the latest changed lux sample during the mandatory 5 Hz transport cap.
+/// False drops intervening light changes instead; the cap remains in both modes.
+const bool lightCoalescingEnabled = true;
