@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../ai/alias_suggester.dart';
 import '../../core/contracts.dart' as contracts;
 import '../../core/map_builder.dart' as recording;
 import '../../core/map_json.dart';
@@ -12,6 +13,7 @@ import '../../core/turn_confirmer.dart' show confirmedEvents;
 import '../../sensing/sensing_source.dart';
 import '../../sensing/trace_recorder.dart';
 import '../widgets/trail_view.dart';
+import '../wiring.dart';
 
 /// Saves a finished recording to the D22 location, replacing the previous map.
 /// The optional directory lookup allows disk tests without a platform plugin.
@@ -42,6 +44,7 @@ class RecordScreen extends StatefulWidget {
     this.save,
     this.traceRecorder,
     this.sensingSource,
+    this.aliasSuggester,
   });
 
   final contracts.MapBuilder? mapBuilder;
@@ -51,6 +54,10 @@ class RecordScreen extends StatefulWidget {
 
   /// Injected sources remain caller-owned; their walk trace is stopped here.
   final contracts.SensingSource? sensingSource;
+
+  /// D30: suggests aliases after "Mark place". Null: Gemma on the full tier,
+  /// none on the basic tier (decided at each mark).
+  final AliasSuggester? aliasSuggester;
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -89,6 +96,7 @@ class _RecordScreenState extends State<RecordScreen> {
   String? _saveError;
   String? _sensorError;
   String? _marked;
+  final _aliasesById = <String, List<String>>{};
 
   @override
   void initState() {
@@ -177,7 +185,9 @@ class _RecordScreenState extends State<RecordScreen> {
       _builder.addPlace(name, const []);
       _stepsAtLastMark = _steps;
       _traceMark(name);
-      _map!.value = _builder.snapshot();
+      final snapshot = _builder.snapshot();
+      _map!.value = snapshot;
+      unawaited(_suggestAliases(name, snapshot.places));
       _placeName.clear();
       setState(() => _marked = 'Marked place: $name');
     } catch (error) {
@@ -204,7 +214,8 @@ class _RecordScreenState extends State<RecordScreen> {
           _traceMark('End of walk');
           _map!.value = _builder.snapshot();
         }
-        _finished = _builder.finish();
+        // D30: aliases that arrived by now; a late reply is dropped.
+        _finished = applyAliases(_builder.finish(), _aliasesById);
       }
       _map!.value = _finished!;
       // Persistence must not wait on platform stream teardown.
@@ -361,6 +372,34 @@ class _RecordScreenState extends State<RecordScreen> {
       }
     } catch (error) {
       _traceError(error);
+    }
+  }
+
+  /// D30: asks for aliases in the background. Nothing on the basic tier, an
+  /// error or a timeout; the walk never waits for it.
+  Future<void> _suggestAliases(
+    String name,
+    List<contracts.Place> places,
+  ) async {
+    final marked = places.where(
+      (p) => p.name == name && p.kind != contracts.PlaceKind.junction,
+    );
+    if (marked.isEmpty) return;
+    final id = marked.last.id;
+    final wiring = Wiring.instance;
+    final suggester =
+        widget.aliasSuggester ??
+        AliasSuggester(
+          model: wiring.aiStatus.value.tier == contracts.DeviceTier.full
+              ? wiring.gemmaService
+              : null,
+        );
+    if (suggester.model == null) return;
+    try {
+      final aliases = await suggester.suggest(name, places);
+      if (aliases.isNotEmpty && _finished == null) _aliasesById[id] = aliases;
+    } catch (_) {
+      // Aliases are optional; the place is already marked.
     }
   }
 

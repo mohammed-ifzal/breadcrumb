@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:breadcrumb/ai/destination_resolver.dart';
+import 'package:breadcrumb/ai/device_tier.dart';
 import 'package:breadcrumb/ai/gemma_service.dart';
 import 'package:breadcrumb/ai/speech_input.dart';
 import 'package:breadcrumb/core/contracts.dart';
@@ -36,6 +37,14 @@ class AiStatus {
   bool get isLoading => state == AiState.loading;
   bool get isReady => state == AiState.ready;
   bool get isUnavailable => state == AiState.unavailable;
+
+  /// D30: ready is the full tier; unavailable (low RAM or Gemma didn't load)
+  /// is the basic tier, PlaceMatcher over names and aliases; null while loading.
+  DeviceTier? get tier => switch (state) {
+    AiState.ready => DeviceTier.full,
+    AiState.unavailable => DeviceTier.basic,
+    AiState.loading => null,
+  };
 
   @override
   String toString() => 'AiStatus($state, reason: $reason)';
@@ -264,6 +273,24 @@ class Wiring {
     });
 
     try {
+      // D30: below fullTierMinRamMb the phone stays on the basic tier and never
+      // loads Gemma; 0 (unknown) lets the load decide.
+      int ramMb;
+      try {
+        ramMb = await Future.any([sensingSource.totalRamMb(), timeoutCompleter.future.then((_) => 0)]);
+      } on TimeoutException {
+        rethrow;
+      } catch (_) {
+        ramMb = 0;
+      }
+      if (!ramAllowsGemma(ramMb)) {
+        _warmAiTimer?.cancel();
+        _warmAiTimer = null;
+        aiStatus.value = AiStatus.unavailable('$ramMb MB RAM');
+        isAiReady.value = false;
+        return false;
+      }
+
       final loadFuture = gemmaLoader != null
           ? gemmaLoader!()
           : (!gemmaService.isLoaded ? gemmaService.load() : Future<void>.value());
