@@ -73,7 +73,7 @@ void main() {
   });
 
   group('BUG 2 Regressions', () {
-    testWidgets('BUG 2b: full walk of route with left and right turn vibrates exactly once per turn at turnNowSteps and once on arrival', (tester) async {
+    testWidgets('BUG 2b: full walk of route with left and right turn vibrates exactly once per turn at the corner and once on arrival', (tester) async {
       final wiring = Wiring.instance;
       wiring.currentPlaceId = 'cafe';
 
@@ -101,18 +101,18 @@ void main() {
       }
       expect(recordedPatterns, isEmpty);
 
-      // Step 7 on Leg 0: steps along 7, stepsLeft = 3 (<= turnNowSteps 3): FIRST turn vibration fires!
-      wiring.emitSimulatedEvent(const StepEvent(700));
-      await tester.pump();
-      expect(recordedPatterns.length, 1);
-      expect(recordedPatterns.last, equals([0, 100, 100, 100])); // two short pulses for turnLeft
-
-      // Steps 8, 9, 10: remaining steps of leg 0: does NOT vibrate again
-      for (int i = 8; i <= 10; i++) {
+      // Steps 7, 8, 9 on Leg 0: "Get ready to turn left" (stepsLeft 3..1): no vibration yet!
+      for (int i = 7; i <= 9; i++) {
         wiring.emitSimulatedEvent(StepEvent(100 * i));
         await tester.pump();
       }
+      expect(recordedPatterns, isEmpty);
+
+      // Step 10 on Leg 0: stepsLeft = 0, "Turn left at the corner": FIRST turn vibration fires!
+      wiring.emitSimulatedEvent(const StepEvent(1000));
+      await tester.pump();
       expect(recordedPatterns.length, 1);
+      expect(recordedPatterns.last, equals([0, 100, 100, 100])); // two short pulses for turnLeft
 
       // Turn left (+90) into Leg 1 (j1 -> j2, 20 steps heading 0)
       wiring.emitSimulatedEvent(const TurnEvent(1100, 90.0));
@@ -126,18 +126,18 @@ void main() {
       }
       expect(recordedPatterns.length, 1);
 
-      // Step 17 on Leg 1: steps along 17, stepsLeft = 3 (<= turnNowSteps 3): SECOND turn vibration fires!
-      wiring.emitSimulatedEvent(const StepEvent(2800));
+      // Steps 17, 18, 19 on Leg 1: "Get ready to turn right": no vibration yet!
+      for (int i = 17; i <= 19; i++) {
+        wiring.emitSimulatedEvent(StepEvent(1100 + 100 * i));
+        await tester.pump();
+      }
+      expect(recordedPatterns.length, 1);
+
+      // Step 20 on Leg 1: stepsLeft = 0, "Turn right at the corner": SECOND turn vibration fires!
+      wiring.emitSimulatedEvent(const StepEvent(3100));
       await tester.pump();
       expect(recordedPatterns.length, 2);
       expect(recordedPatterns.last, equals([0, 300])); // one long pulse for turnRight
-
-      // Steps 18, 19, 20: does NOT vibrate again
-      for (int i = 18; i <= 20; i++) {
-        wiring.emitSimulatedEvent(StepEvent(2800 + 100 * (i - 17)));
-        await tester.pump();
-      }
-      expect(recordedPatterns.length, 2);
 
       // Turn right (-90) into Leg 2 (j2 -> stage, 12 steps heading 270)
       wiring.emitSimulatedEvent(const TurnEvent(3200, -90.0));

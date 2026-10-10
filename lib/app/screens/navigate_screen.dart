@@ -151,14 +151,13 @@ class _NavigateScreenState extends State<NavigateScreen> {
     final wiring = Wiring.instance;
     final newInstruction = wiring.guide.next(route, position);
 
-    // BUG 2b: Vibrate turnLeft/turnRight exactly ONCE per leg when steps <= tuning.turnNowSteps.
+    // BUG 2b: Vibrate turnLeft/turnRight exactly ONCE per leg, at "Turn left/right at
+    // the corner" (steps == 0, D27), not at "Get ready to turn".
     // Arrive vibrates once on arrival. Straight never vibrates.
     final currentLeg = position.legIndex;
     final isTurnKind = newInstruction.kind == InstructionKind.turnLeft ||
         newInstruction.kind == InstructionKind.turnRight;
-    final isTurnNow = isTurnKind &&
-        newInstruction.steps != null &&
-        newInstruction.steps! <= tuning.turnNowSteps;
+    final isTurnNow = isTurnKind && newInstruction.steps == 0;
 
     if (isTurnNow) {
       if (_vibratedTurnLegIndex != currentLeg) {
