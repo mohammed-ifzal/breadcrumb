@@ -1,3 +1,4 @@
+import 'package:breadcrumb/app/widgets/trail_view.dart';
 import 'dart:async';
 
 import 'package:breadcrumb/app/screens/destination_list_screen.dart';
@@ -113,4 +114,57 @@ void main() {
     // Stop the simulation timer before the test ends.
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('Navigate fits at 411x891 with textScaler 1.3 without overflow', (tester) async {
+    Wiring.instance.currentPlaceId = 'entrance';
+    tester.view.physicalSize = const Size(411 * 3, 891 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(MaterialApp(
+      theme: BreadcrumbTheme.themeData,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.3)),
+        child: child!,
+      ),
+      home: const NavigateScreen(destinationId: 'cafe'),
+    ));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    // Huge arrow, instruction, trail card, and actions visible
+    expect(find.byType(TrailView), findsOneWidget);
+    expect(find.text('I am here'), findsOneWidget);
+    expect(find.text('Scan sign'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Navigate fits at 360x640 with textScaler 1.3 without overflow and scrolls', (tester) async {
+    Wiring.instance.currentPlaceId = 'entrance';
+    tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(MaterialApp(
+      theme: BreadcrumbTheme.themeData,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.3)),
+        child: child!,
+      ),
+      home: const NavigateScreen(destinationId: 'cafe'),
+    ));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(TrailView), findsOneWidget);
+
+    // Scroll down to see action buttons on 360x640 with large text
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -300));
+    await tester.pump();
+
+    expect(find.text('I am here'), findsOneWidget);
+    expect(find.text('Scan sign'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
 }
