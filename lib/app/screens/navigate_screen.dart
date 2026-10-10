@@ -19,7 +19,12 @@ class _NavigateScreenState extends State<NavigateScreen> {
   Position? _position;
   Instruction? _currentInstruction;
   Timer? _timer;
+  StreamSubscription<Object>? _sensorSubscription;
   bool _isSimulating = false;
+  bool _showDebugButtons = false;
+  bool _usedSimulation = false;
+  int? _vibratedTurnLegIndex;
+  bool _vibratedArrival = false;
   String? _errorMessage;
   String? _alreadyTherePlace;
   int _simulatedTimestamp = 0;
@@ -27,10 +32,26 @@ class _NavigateScreenState extends State<NavigateScreen> {
   @override
   void initState() {
     super.initState();
+    _sensorSubscription = Wiring.instance.sensorEvents().listen((event) {
+      if (!mounted) return;
+      if (event is StepEvent) {
+        setState(() {
+          _position = Wiring.instance.tracker.onStep(event);
+          _updateInstruction();
+        });
+      } else if (event is TurnEvent) {
+        setState(() {
+          _position = Wiring.instance.tracker.onTurn(event);
+          _updateInstruction();
+        });
+      }
+    });
     _startNavigation();
   }
 
   void _startNavigation() {
+    _vibratedTurnLegIndex = null;
+    _vibratedArrival = false;
     final wiring = Wiring.instance;
     final startPlaceId = wiring.effectiveCurrentPlaceId;
 
@@ -65,6 +86,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
     _updateInstruction();
 
     _isSimulating = true;
+    _usedSimulation = true;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final currentPos = _position;
       final currentRoute = _route;
@@ -82,16 +104,16 @@ class _NavigateScreenState extends State<NavigateScreen> {
       _simulatedTimestamp += 500;
 
       if (currentPos.stepsAlong < currentLeg.steps) {
-        _position = wiring.tracker.onStep(StepEvent(_simulatedTimestamp));
+        wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
       } else {
         if (currentPos.legIndex + 1 < currentRoute.legs.length) {
           final nextLeg = currentRoute.legs[currentPos.legIndex + 1];
           final turnAngle = turnBetween(currentLeg.heading, nextLeg.heading);
           if (turnAngle.abs() >= tuning.straightTolerance) {
-            _position = wiring.tracker.onTurn(TurnEvent(_simulatedTimestamp, turnAngle));
+            wiring.emitSimulatedEvent(TurnEvent(_simulatedTimestamp, turnAngle));
           } else {
             // Straight boundary: carry on with step
-            _position = wiring.tracker.onStep(StepEvent(_simulatedTimestamp));
+            wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
           }
         } else {
           // Finished route
@@ -99,14 +121,15 @@ class _NavigateScreenState extends State<NavigateScreen> {
           return;
         }
       }
-
-      _updateInstruction();
     });
   }
 
   void _stopSimulation() {
     _timer?.cancel();
     _timer = null;
+    if (mounted) {
+      _updateInstruction();
+    }
     if (_isSimulating && mounted) {
       setState(() {
         _isSimulating = false;
@@ -122,45 +145,83 @@ class _NavigateScreenState extends State<NavigateScreen> {
     final wiring = Wiring.instance;
     final newInstruction = wiring.guide.next(route, position);
 
-    if (_currentInstruction?.text != newInstruction.text) {
-      wiring.speaker.speak(newInstruction);
-      wiring.speaker.vibrate(newInstruction.kind);
+    // BUG 2b: Vibrate turnLeft/turnRight exactly ONCE per leg when steps <= tuning.turnNowSteps.
+    // Arrive vibrates once on arrival. Straight never vibrates.
+    final currentLeg = position.legIndex;
+    final isTurnKind = newInstruction.kind == InstructionKind.turnLeft ||
+        newInstruction.kind == InstructionKind.turnRight;
+    final isTurnNow = isTurnKind &&
+        newInstruction.steps != null &&
+        newInstruction.steps! <= tuning.turnNowSteps;
+
+    if (isTurnNow) {
+      if (_vibratedTurnLegIndex != currentLeg) {
+        _vibratedTurnLegIndex = currentLeg;
+        wiring.speaker.vibrate(newInstruction.kind);
+      }
+    } else if (newInstruction.kind == InstructionKind.arrive) {
+      if (!_vibratedArrival) {
+        _vibratedArrival = true;
+        wiring.speaker.vibrate(InstructionKind.arrive);
+      }
     }
+
+    // BUG 4: speaker manages text formatting, cooldown, and stopping previous speech
+    wiring.speaker.speak(newInstruction);
 
     setState(() {
       _currentInstruction = newInstruction;
     });
   }
 
+  /// BUG 3: "I am here" advances to the node at the end of the current leg (the next waypoint),
+  /// rather than resetting to the start place.
+  void _onImHere() {
+    final wiring = Wiring.instance;
+    final route = _route;
+    final position = _position;
+    if (route == null || position == null || route.legs.isEmpty) return;
+
+    final legIndex = position.legIndex.clamp(0, route.legs.length - 1);
+    final leg = route.legs[legIndex];
+    final corridor = wiring.map.corridors.cast<Corridor?>().firstWhere(
+      (c) => c?.id == leg.corridorId,
+      orElse: () => null,
+    );
+    if (corridor == null) return;
+
+    final endNodeId = leg.reversed ? corridor.from : corridor.to;
+
+    setState(() {
+      _position = wiring.tracker.tapHere(endNodeId);
+      _updateInstruction();
+    });
+  }
+
   void _onStepDebug() {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
-    setState(() {
-      _position = wiring.tracker.onStep(StepEvent(_simulatedTimestamp));
-      _updateInstruction();
-    });
+    _usedSimulation = true;
+    wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
   }
 
   void _onTurnLeftDebug() {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
-    setState(() {
-      _position = wiring.tracker.onTurn(TurnEvent(_simulatedTimestamp, 90.0));
-      _updateInstruction();
-    });
+    _usedSimulation = true;
+    wiring.emitSimulatedEvent(TurnEvent(_simulatedTimestamp, 90.0));
   }
 
   void _onTurnRightDebug() {
     final wiring = Wiring.instance;
     _simulatedTimestamp += 500;
-    setState(() {
-      _position = wiring.tracker.onTurn(TurnEvent(_simulatedTimestamp, -90.0));
-      _updateInstruction();
-    });
+    _usedSimulation = true;
+    wiring.emitSimulatedEvent(TurnEvent(_simulatedTimestamp, -90.0));
   }
 
   @override
   void dispose() {
+    _sensorSubscription?.cancel();
     _timer?.cancel();
     super.dispose();
   }
@@ -237,12 +298,20 @@ class _NavigateScreenState extends State<NavigateScreen> {
     }
 
     final progress = totalSteps > 0 ? (stepsTaken / totalSteps).clamp(0.0, 1.0) : 0.0;
+    final showSimulated = _isSimulating || _usedSimulation;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Navigating'),
+        title: GestureDetector(
+          onLongPress: kDebugMode
+              ? () {
+                  setState(() => _showDebugButtons = !_showDebugButtons);
+                }
+              : null,
+          child: const Text('Navigating'),
+        ),
         actions: [
-          if (_isSimulating)
+          if (showSimulated)
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: Center(
@@ -268,7 +337,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
       ),
       body: Column(
         children: [
-          if (_isSimulating)
+          if (showSimulated)
             Container(
               width: double.infinity,
               color: Colors.amber.shade800,
@@ -321,7 +390,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
               ),
             ),
           ),
-          if (kDebugMode)
+          if (_showDebugButtons && kDebugMode)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
               child: Row(
@@ -349,12 +418,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _position = wiring.tracker.tapHere(wiring.effectiveCurrentPlaceId);
-                    _updateInstruction();
-                  });
-                },
+                onPressed: _onImHere,
                 child: const Text('I am here'),
               ),
               ElevatedButton(
