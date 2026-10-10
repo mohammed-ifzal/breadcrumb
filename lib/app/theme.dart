@@ -104,9 +104,10 @@ class BreadcrumbTheme {
     backgroundColor: surface,
     side: const BorderSide(color: border),
     minimumSize: const Size(minTouch, minTouch),
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    // Tighter than the primary button so rows of secondary actions fit 360 dp.
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
     shape: const RoundedRectangleBorder(borderRadius: borderRadius),
-    textStyle: button,
+    textStyle: button.copyWith(fontSize: 17),
   );
 
   // Names used by the t3/real-sensors screens.
