@@ -37,6 +37,10 @@ const int snapSteps = 8;
 /// "I am here", a sign or a turn snap) is that node's turn, not off route (D26).
 const int lateTurnSteps = 3;
 
+/// Extra route cost, in steps, of each stairs, escalator or lift corridor, on
+/// top of its own steps (D24).
+const int floorChangeCostSteps = 20;
+
 /// 30% past a leg's length triggers a rescan prompt.
 const double overwalk = 0.3;
 

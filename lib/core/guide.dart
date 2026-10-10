@@ -21,9 +21,10 @@ class RouteGuide implements Guide {
     }
     final last = r.legs.length - 1;
     final i = p.legIndex.clamp(0, last < 0 ? 0 : last);
-    if (r.legs.isEmpty || (i == last && p.stepsAlong >= r.legs[last].steps)) {
+    if (r.legs.isEmpty || (i == last && p.stepsAlong >= legLength(r.legs[last]))) {
       return _arrive(r);
     }
+    if (r.legs[i].isTransition) return _changeFloor(r.legs[i]);
 
     // Distance to the next turn, or to the destination, across straight-on joins.
     final j = runEnd(r, i);
@@ -45,8 +46,11 @@ class RouteGuide implements Guide {
       );
     }
 
-    final turn = turnBetween(r.legs[j].heading, r.legs[j + 1].heading);
     final now = steps <= turnNowSteps;
+    final next = r.legs[j + 1];
+    if (next.isTransition) return _changeFloor(next, steps: steps);
+
+    final turn = turnBetween(r.legs[j].heading, next.heading);
     if (turn.abs() > turnAroundAngle) {
       return now
           ? const Instruction(kind: InstructionKind.turnAround, text: 'Turn around.')
@@ -63,6 +67,26 @@ class RouteGuide implements Guide {
       kind: left ? InstructionKind.turnLeft : InstructionKind.turnRight,
       steps: steps,
       text: now ? 'Turn $side now.' : 'In about $steps steps, turn $side.',
+    );
+  }
+
+  /// "Take the stairs up to Floor 1." on the leg and in the last [turnNowSteps]
+  /// before it; "In about N steps, take ..." further away (D24).
+  Instruction _changeFloor(Leg leg, {int? steps}) {
+    final c = map.corridors.firstWhere((c) => c.id == leg.corridorId);
+    final floor = map.places.firstWhere((p) => p.id == (leg.reversed ? c.from : c.to)).floor;
+    final way = leg.floorDelta > 0
+        ? ' up'
+        : leg.floorDelta < 0
+        ? ' down'
+        : '';
+    final take = 'the ${leg.kind.name}$way to Floor $floor.';
+    return Instruction(
+      kind: InstructionKind.changeFloor,
+      steps: steps,
+      text: steps == null || steps <= turnNowSteps
+          ? 'Take $take'
+          : 'In about $steps steps, take $take',
     );
   }
 

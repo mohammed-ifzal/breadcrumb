@@ -14,6 +14,17 @@ import 'package:speech_to_text/speech_to_text.dart';
 const String speechLocaleEnglish = 'en_IN';
 const String speechLocaleHindi = 'hi_IN';
 
+/// English (US), tried once when the en_IN pack is missing.
+const String speechLocaleEnglishFallback = 'en_US';
+
+/// The locale to retry once with after a listen in [localeId] ended with
+/// [error], or null for no retry. Only en_IN with a missing pack falls back,
+/// to en_US, which is often installed when en_IN is not.
+String? speechFallbackLocale(String localeId, String? error) =>
+    localeId == speechLocaleEnglish && error == 'error_language_unavailable'
+    ? speechLocaleEnglishFallback
+    : null;
+
 /// A recogniser error as a sentence a person can act on, or the code itself
 /// when there is nothing more useful to say.
 String describeSpeechError(String error) => switch (error) {
@@ -158,7 +169,8 @@ class SpeechInput {
 
   /// Listens once in [localeId] and returns the final text, or null for
   /// silence, an error, no recogniser, or nothing within [listenFor] plus a
-  /// grace period.
+  /// grace period. If en_IN fails because its pack is missing, listens once
+  /// more in en_US ([speechFallbackLocale]).
   ///
   /// [pauseFor] only starts counting once the first words are heard:
   /// speech_to_text starts its pause timer when `listen` is called and only
@@ -169,9 +181,22 @@ class SpeechInput {
     Duration listenFor = const Duration(seconds: 10),
     Duration pauseFor = const Duration(seconds: 2),
   }) async {
-    lastError = null;
     lastEvents.clear();
     _listenStartedAt = DateTime.now();
+    final text = await _listenIn(localeId, listenFor, pauseFor);
+    final retry = text == null
+        ? speechFallbackLocale(localeId, lastError)
+        : null;
+    if (retry == null) return text;
+    return _listenIn(retry, listenFor, pauseFor);
+  }
+
+  Future<String?> _listenIn(
+    String localeId,
+    Duration listenFor,
+    Duration pauseFor,
+  ) async {
+    lastError = null;
     _event('listen $localeId');
     if (!await init()) {
       lastError ??= 'speech recogniser not available';

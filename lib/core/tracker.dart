@@ -14,6 +14,9 @@ class RouteTracker implements Tracker {
   bool _paused = false;
   Position _position = _origin;
 
+  /// Floors moved towards the next transition leg so far (D24).
+  int _floorsMoved = 0;
+
   static const _origin = Position(
     legIndex: 0,
     stepsAlong: 0,
@@ -27,27 +30,69 @@ class RouteTracker implements Tracker {
   void setRoute(RoutePlan r) {
     _route = r;
     _position = _origin;
+    _floorsMoved = 0;
   }
 
   @override
   void pauseTurns(bool on) => _paused = on;
 
+  bool get _onTransition {
+    final route = _route;
+    final i = _position.legIndex;
+    return route != null && i < route.legs.length && route.legs[i].isTransition;
+  }
+
   /// One step along the current leg. At the end of a leg that joins the next one
-  /// straight on (a place marked mid-corridor), carry on into the next leg.
+  /// straight on (a place marked mid-corridor), carry on into the next leg. At
+  /// the end of a leg before stairs, an escalator or a lift, move onto it; steps
+  /// on it are ignored (D24).
   @override
   Position onStep(StepEvent e) {
+    if (_onTransition) return _position;
     var leg = _position.legIndex;
     var along = _position.stepsAlong + 1;
     final route = _route;
     if (route != null) {
       while (leg < route.legs.length - 1 &&
           along >= route.legs[leg].steps &&
-          isStraightJoin(route, leg)) {
+          (isStraightJoin(route, leg) || route.legs[leg + 1].isTransition)) {
         along -= route.legs[leg].steps;
         leg++;
+        if (route.legs[leg].isTransition) {
+          along = 0;
+          break;
+        }
       }
     }
     return _position = _copy(legIndex: leg, stepsAlong: along);
+  }
+
+  /// Completes the next transition leg (the current leg or the first one after
+  /// it) once the floors moved in its direction reach its `floorDelta`: the
+  /// position moves to the start of the leg after it, or to arrival when it is
+  /// the last leg. Floor changes the other way, or with no transition ahead,
+  /// are ignored (D24).
+  @override
+  Position onFloorChange(int delta) {
+    final route = _route;
+    if (route == null || delta == 0) return _position;
+    var k = _position.legIndex;
+    while (k < route.legs.length && !route.legs[k].isTransition) {
+      k++;
+    }
+    if (k >= route.legs.length) return _position;
+    final need = route.legs[k].floorDelta;
+    if (need == 0 || delta.sign != need.sign) return _position;
+
+    _floorsMoved += delta;
+    if (_floorsMoved.abs() < need.abs()) return _position;
+    _floorsMoved = 0;
+    final last = route.legs.length - 1;
+    return _position = Position(
+      legIndex: k == last ? last : k + 1,
+      stepsAlong: k == last ? legLength(route.legs[last]) : 0,
+      anchoredBy: AnchorSource.floor,
+    );
   }
 
   /// A turn in the expected direction near the next turning point snaps to the
@@ -57,17 +102,18 @@ class RouteTracker implements Tracker {
   ///
   /// Turns after arriving are ignored, and so is the turn at a node the position
   /// already moved past ("I am here", a sign or a turn snap) when it comes within
-  /// [lateTurnSteps] of that node in the expected direction (D26).
+  /// [lateTurnSteps] of that node in the expected direction (D26). Turns on a
+  /// stairs, escalator or lift leg are ignored (D24).
   @override
   Position onTurn(TurnEvent e) {
     final route = _route;
-    if (_paused || route == null || route.legs.isEmpty || _position.offRoute) {
+    if (_paused || route == null || route.legs.isEmpty || _position.offRoute || _onTransition) {
       return _position;
     }
 
     final i = _position.legIndex;
     final last = route.legs.length - 1;
-    if (i >= last && _position.stepsAlong >= route.legs[last].steps) {
+    if (i >= last && _position.stepsAlong >= legLength(route.legs[last])) {
       return _position;
     }
     if (i > 0 && _position.stepsAlong <= lateTurnSteps) {
@@ -116,6 +162,7 @@ class RouteTracker implements Tracker {
       throw ArgumentError('Unknown place $placeId');
     }
     final route = _route;
+    _floorsMoved = 0;
     if (route == null || route.legs.isEmpty) {
       return _position = _copy(anchoredBy: source, needsReplan: true);
     }
@@ -133,7 +180,7 @@ class RouteTracker implements Tracker {
     final last = route.legs.length - 1;
     return _position = Position(
       legIndex: k > last ? last : k,
-      stepsAlong: k > last ? route.legs[last].steps : 0,
+      stepsAlong: k > last ? legLength(route.legs[last]) : 0,
       anchoredBy: source,
     );
   }

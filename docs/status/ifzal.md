@@ -3,6 +3,20 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct, Session A2: D24 floors + speech fallback (branch ifzal/floors, PR open)
+PR #13 (t3/ai-status) closed: "Moving into t3/polish per Teammate 3."
+D24 in lib/core: Place.floor, Corridor/Leg kind + floorDelta (optional, old maps load and are
+written unchanged), decodeMap checks floorDelta, planner +floorChangeCostSteps (20) per
+transition, Guide changeFloor ("Take the stairs up to Floor 1."), Tracker.onFloorChange (new
+interface method; steps/turns ignored on stairs/lift legs). Tests: test/core/floors_test.dart.
+lib/ai/speech_input.dart: en_IN error_language_unavailable -> one retry in en_US (fake recogniser test).
+T3 paths touched only to compile: speaker.dart (changeFloor case speaks i.text), scan_screen_test.dart stub.
+analyze clean, 281 tests green. Not tried on the iQOO.
+Next (T3): Navigate's simulate loop spins on a transition leg (steps ignored): emit onFloorChange
+there; optionally a "Took the stairs" button (I am here already completes it); changeFloor icon.
+Loop re-test notes were not pasted into the session, so no loop fix in this PR.
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct 14:40, merge round 4: PR #12 merged, #11 closed
 PR #12 (ifzal/loop-fixes) merged e3156fe: temp-branch merge of origin/main (already up to date),
 analyze clean, 255 tests green, CI green. D25 (90-degree snap) and D26 (late/arrival turns) are on main.

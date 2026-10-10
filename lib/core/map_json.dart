@@ -7,8 +7,8 @@ import 'dart:convert';
 import 'contracts.dart';
 
 /// Parses map JSON text and checks that it hangs together. Throws
-/// [FormatException] on a bad version, an unknown start or a corridor that points
-/// at an unknown place.
+/// [FormatException] on a bad version, an unknown start, a corridor that points
+/// at an unknown place, or a `floorDelta` that doesn't fit its places' floors.
 MapGraph decodeMap(String source) {
   final MapGraph map;
   try {
@@ -22,13 +22,20 @@ MapGraph decodeMap(String source) {
   if (map.version != 1) {
     throw FormatException('Unsupported map version ${map.version}');
   }
-  final ids = {for (final p in map.places) p.id};
-  if (!ids.contains(map.start)) {
+  final floors = {for (final p in map.places) p.id: p.floor};
+  if (!floors.containsKey(map.start)) {
     throw FormatException('Start "${map.start}" is not a place');
   }
   for (final c in map.corridors) {
-    if (!ids.contains(c.from) || !ids.contains(c.to)) {
+    final from = floors[c.from];
+    final to = floors[c.to];
+    if (from == null || to == null) {
       throw FormatException('Corridor ${c.id} joins an unknown place');
+    }
+    // D24: floorDelta matches the floors it joins, and only stairs, escalators
+    // and lifts change floor.
+    if (c.floorDelta != to - from || (c.floorDelta != 0 && !c.isTransition)) {
+      throw FormatException('Corridor ${c.id} floorDelta does not fit its places');
     }
   }
   return map;
