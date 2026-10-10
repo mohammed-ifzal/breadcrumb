@@ -12,6 +12,8 @@ import 'package:breadcrumb/core/route_planner.dart';
 import 'package:breadcrumb/core/place_matcher.dart';
 import 'package:breadcrumb/core/tracker.dart';
 import 'package:breadcrumb/core/guide.dart';
+import 'package:breadcrumb/core/turn_confirmer.dart';
+import 'package:breadcrumb/core/tuning.dart' as tuning;
 import 'package:breadcrumb/sensing/sensing_source.dart' as real_sensing;
 import 'package:breadcrumb/app/speaker.dart';
 import 'package:breadcrumb/perception/mlkit_sign_reader.dart';
@@ -101,6 +103,11 @@ class Wiring {
   MapGraph _activeMap = defaultDemoMap;
   MapGraph get map => _activeMap;
 
+  /// Whether [map] represents the bundled demo map.
+  bool get isDemoMap =>
+      map.name == defaultDemoMap.name ||
+      map.name.toLowerCase().contains('demo');
+
   set map(MapGraph newMap) {
     _activeMap = newMap;
     _loadedMapJson = null;
@@ -161,6 +168,10 @@ class Wiring {
   /// while also admitting simulated events for testing.
   late Stream<Object> Function() sensorEvents;
 
+  /// D29: with `useTurnConfirmer`, real sensor turns pass only once walking
+  /// confirms them (simulated events are not filtered).
+  bool useTurnConfirmer = tuning.useTurnConfirmer;
+
   Stream<Object> _createSensorEventsStream() {
     final controller = StreamController<Object>.broadcast();
     StreamSubscription<Object>? subReal;
@@ -168,7 +179,10 @@ class Wiring {
 
     controller.onListen = () {
       try {
-        subReal = sensingSource.events().listen(
+        final real = useTurnConfirmer
+            ? confirmedEvents(sensingSource)
+            : sensingSource.events();
+        subReal = real.listen(
           controller.add,
           onError: (Object error, StackTrace stack) {
             // In widget tests without native mock, ignore missing plugin errors

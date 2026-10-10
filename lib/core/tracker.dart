@@ -7,9 +7,17 @@ import 'route_runs.dart';
 import 'tuning.dart';
 
 class RouteTracker implements Tracker {
-  RouteTracker(this.map);
+  RouteTracker(
+    this.map, {
+    this.confidenceOn = useConfidence,
+    this.arrivalGuardOn = useArrivalGuard,
+  });
 
   final MapGraph map;
+
+  /// D29 flags; default to `useConfidence` and `useArrivalGuard`.
+  final bool confidenceOn;
+  final bool arrivalGuardOn;
   RoutePlan? _route;
   bool _paused = false;
   Position _position = _origin;
@@ -22,6 +30,17 @@ class RouteTracker implements Tracker {
 
   /// The assumed facing while orienting, in map degrees; null when unknown.
   double? _facing;
+
+  /// How sure the position is (D29); reported only when [confidenceOn].
+  double _confidence = 1;
+
+  /// Arrival guard (D29): whether the position is on the final run, whether it
+  /// got there with evidence (a turn, an anchor, the route start) rather than an
+  /// overwalk, the steps left to the destination then, and the steps walked since.
+  bool _inFinal = false;
+  bool _finalEvidence = true;
+  int _finalNeed = 0;
+  int _finalWalked = 0;
 
   static const _origin = Position(
     legIndex: 0,
@@ -41,6 +60,8 @@ class RouteTracker implements Tracker {
     _floorsMoved = 0;
     _orienting = true;
     _facing = _arrivalFacing(r);
+    _confidence = 1;
+    _inFinal = false;
     _set(_origin);
   }
 
@@ -66,10 +87,14 @@ class RouteTracker implements Tracker {
   /// A corner is passed only by a turn, or by walking more than [overwalk] of the
   /// run past it with no turn seen: then the position moves to the start of the
   /// next leg, so the real turn, if it comes late, is absorbed (D26, D27).
+  /// Each counted step lowers the confidence (D29).
   @override
   Position onStep(StepEvent e) {
     _orienting = false;
     if (_onTransition) return _set(_position);
+    _confidence *= confidenceDecayPerStep;
+    if (_inFinal) _finalWalked++;
+    var overwalked = false;
     var leg = _position.legIndex;
     var along = _position.stepsAlong + 1;
     final route = _route;
@@ -90,10 +115,11 @@ class RouteTracker implements Tracker {
         if (along - run > run * overwalk) {
           leg = j + 1;
           along = 0;
+          overwalked = true;
         }
       }
     }
-    return _set(_copy(legIndex: leg, stepsAlong: along));
+    return _set(_copy(legIndex: leg, stepsAlong: along), evidence: !overwalked);
   }
 
   /// Completes the next transition leg (the current leg or the first one after
@@ -116,6 +142,8 @@ class RouteTracker implements Tracker {
     _floorsMoved += delta;
     if (_floorsMoved.abs() < need.abs()) return _position;
     _floorsMoved = 0;
+    _confidence = 1;
+    _inFinal = false;
     final last = route.legs.length - 1;
     return _set(
       Position(
@@ -169,7 +197,7 @@ class RouteTracker implements Tracker {
     final toTurn = run - _position.stepsAlong;
     final near = toTurn <= snapSteps || toTurn <= run * snapZone;
 
-    if (near && _isRightWay(e.angle, needed)) return _set(_afterTurn(j));
+    if (near && _isRightWay(e.angle, needed)) return _set(_cornerSnap(j));
     return _set(_copy(offRoute: true));
   }
 
@@ -182,11 +210,15 @@ class RouteTracker implements Tracker {
     final needed = turnBetween(route.legs[j].heading, route.legs[j + 1].heading);
     final toTurn = stepsBetween(route, i, j) - _position.stepsAlong;
     if (toTurn.abs() > 2 * snapSteps || !_isRightWay(e.angle, needed)) return null;
-    return _afterTurn(j);
+    return _cornerSnap(j);
   }
 
-  static Position _afterTurn(int j) =>
-      Position(legIndex: j + 1, stepsAlong: 0, anchoredBy: AnchorSource.turn);
+  /// The start of the leg after turning point [j]. A snapped corner is evidence,
+  /// so confidence goes back up to [confidenceCornerReset] (never down, D29).
+  Position _cornerSnap(int j) {
+    if (_confidence < confidenceCornerReset) _confidence = confidenceCornerReset;
+    return Position(legIndex: j + 1, stepsAlong: 0, anchoredBy: AnchorSource.turn);
+  }
 
   static bool _isRightWay(double angle, double needed) =>
       needed.abs() > turnAroundAngle
@@ -209,6 +241,8 @@ class RouteTracker implements Tracker {
     }
     final route = _route;
     _floorsMoved = 0;
+    _confidence = 1;
+    _inFinal = false;
     if (route == null || route.legs.isEmpty) {
       return _set(_copy(anchoredBy: source, needsReplan: true));
     }
@@ -238,16 +272,48 @@ class RouteTracker implements Tracker {
     return leg.reversed ? c.to : c.from;
   }
 
-  /// Stores [p] as the position, carrying the orientation phase and facing.
-  Position _set(Position p) => _position = Position(
-    legIndex: p.legIndex,
-    stepsAlong: p.stepsAlong,
-    anchoredBy: p.anchoredBy,
-    offRoute: p.offRoute,
-    needsReplan: p.needsReplan,
-    orienting: _orienting,
-    facing: _orienting ? _facing : null,
-  );
+  /// Stores [p] as the position, carrying the orientation phase, facing and
+  /// confidence, and applies the arrival guard (D29). [evidence] is false when
+  /// [p] was reached by an overwalk.
+  Position _set(Position p, {bool evidence = true}) {
+    final unconfirmed = _arrivalCheck(p, evidence);
+    return _position = Position(
+      legIndex: p.legIndex,
+      stepsAlong: p.stepsAlong,
+      anchoredBy: p.anchoredBy,
+      offRoute: p.offRoute,
+      needsReplan: p.needsReplan,
+      orienting: _orienting,
+      facing: _orienting ? _facing : null,
+      confidence: confidenceOn ? _confidence : 1,
+      unconfirmedArrival: arrivalGuardOn && unconfirmed,
+    );
+  }
+
+  /// Tracks entry into the final run and returns true when [p] is at or past
+  /// the destination without the arrival guard met. A met arrival restores full
+  /// confidence (D29).
+  bool _arrivalCheck(Position p, bool evidence) {
+    final route = _route;
+    if (route == null || route.legs.isEmpty) return false;
+    final last = route.legs.length - 1;
+    final i = p.legIndex.clamp(0, last);
+    if (runEnd(route, i) != last) {
+      _inFinal = false;
+      return false;
+    }
+    if (!_inFinal) {
+      _inFinal = true;
+      _finalEvidence = evidence;
+      final need = stepsBetween(route, i, last) - p.stepsAlong;
+      _finalNeed = need < 0 ? 0 : need;
+      _finalWalked = 0;
+    }
+    if (i < last || p.stepsAlong < legLength(route.legs[last])) return false;
+    final met = _finalEvidence && _finalWalked >= arrivalMinFraction * _finalNeed;
+    if (met || !arrivalGuardOn) _confidence = 1;
+    return !met;
+  }
 
   Position _copy({
     int? legIndex,

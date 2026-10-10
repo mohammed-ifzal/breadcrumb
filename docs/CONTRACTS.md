@@ -132,12 +132,15 @@ detector) or `"accel"` (the Dart `StepDetector` fallback).
 | `MapGraph` | `version`, `name`, `start`, `places`, `corridors`; `fromJson`, `toJson` |
 | `StepEvent` | `t` |
 | `TurnEvent` | `t`, `angle` (double, total angle of the completed turn) |
+| `MotionStateEvent` | `state` (walking / still / handling), `tMs` (D29) |
+| `PlacementEvent` | `placement` (hand / pocket / unknown), `tMs` (D29) |
+| `DeviceTier` | enum: full / basic; full when `totalRamMb()` >= `fullTierMinRamMb` (D29) |
 | `SignReading` | `t`, `text`, `reader` (mlkit / gemma) |
 | `PlaceMatch` | `placeId`, `score` (0–1) |
 | `Leg` | `corridorId`, `reversed`, `heading`, `steps`, `kind` (default walk), `floorDelta` (as walked: negated when reversed; default 0), `isTransition` (D24) |
 | `RoutePlan` | ordered `legs`, `totalSteps`, `toId` |
-| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool), `orienting` (bool, default false), `facing` (double?, assumed facing while orienting, null = unknown) (D27) |
-| `Instruction` | `kind` (straight, turnLeft, turnRight, turnAround, arrive, offRoute, rescan, changeFloor), `steps` (int?), `placeName` (String?), `text` |
+| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool), `orienting` (bool, default false), `facing` (double?, assumed facing while orienting, null = unknown) (D27), `confidence` (double 0-1, default 1.0, D29), `unconfirmedArrival` (bool, default false: at or past the destination without the arrival guard met, D29) |
+| `Instruction` | `kind` (straight, turnLeft, turnRight, turnAround, arrive, offRoute, rescan, changeFloor, arrivingConfirm, maybePassed, confirmPlace (D29)), `steps` (int?), `placeName` (String?), `text` |
 
 ## Interfaces (one owner each)
 
@@ -150,7 +153,8 @@ detector) or `"accel"` (the Dart `StepDetector` fallback).
 | `StepDetector` | pure Dart; peaks in `accel`, used only when there's no hardware detector | Teammate 2 |
 | `TurnDetector` | pure Dart; `motion` samples to `TurnEvent` (rules below) | Teammate 2 |
 | `MapBuilder` | `start(placeName)`, `onStep`, `onTurn`, `addPlace(name, aliases)`, `MapGraph snapshot()`, `MapGraph finish()`. Each turn creates a junction, each place splits the current corridor. `snapshot()` (D19) returns the map so far plus the open corridor ending at a temporary node `"_here"` (kind junction); pure Dart. The record screen calls it after every step, turn and mark and pushes it to `TrailView` via `ValueNotifier<MapGraph>`; `TrailView` draws `"_here"` as the moving dot. | Teammate 2 |
-| `SensingSource` | `Stream<Object> events()` (StepEvent or TurnEvent), `startTrace(meta)`, `stopTrace()`, `mark(note)` | Teammate 2 |
+| `SensingSource` | `Stream<Object> events()` (StepEvent or TurnEvent), `startTrace(meta)`, `stopTrace()`, `mark(note)`, `Stream<MotionStateEvent> motionStates()`, `Stream<PlacementEvent> placements()`, `Future<int> totalRamMb()` (0 = unknown) (D29) | Teammate 2 |
+| `TurnConfirmer` | `onStep(StepEvent)`, `onTurn(TurnEvent)`, `onMotionState(MotionStateEvent)`, `Stream<TurnEvent> confirmed` (rules below, D29) | Ifzal |
 | `SignReader` | `Future<SignReading?> read(String imagePath)`; `MlKitSignReader` is required, `GemmaSignReader` is a stretch goal | Teammate 3 / Ifzal |
 | `DestinationResolver` | `Future<PlaceMatch?> resolve(String utterance, MapGraph map)`: fuzzy match first, Gemma fallback, always validated | Ifzal |
 | `Speaker` | `speak(Instruction i)`, `vibrate(InstructionKind k)` | Teammate 3 |
@@ -166,6 +170,16 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
    `|total|` ≥ `turnMinAngle`, emit one `TurnEvent` with the total angle (so a real turn
    reports about 90, not 60).
 3. Reset the total either way.
+
+**TurnConfirmer (D29, `useTurnConfirmer`)**
+
+1. A raw turn is a candidate. It is passed on only once `turnConfirmSteps` steps follow
+   it within `turnConfirmWindowMs`.
+2. Its angle is the net of every candidate since the last confirmed walking heading, so
+   a sidestep and back (+90, -90) nets ~0 and is dropped (< `turnMinAngle`).
+3. Candidates that arrive during `MotionState.handling`, or with no following steps in
+   the window, are dropped. Handling while a candidate waits drops it too.
+4. It sits between the `SensingSource` and both the Tracker and the MapBuilder.
 
 **Tracker**
 
@@ -188,6 +202,14 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
   point needs, within 2 × `snapSteps` of it (before or after), snaps position to the
   start of the leg after it and clears `offRoute`. Other turns are ignored.
 - Turns after arriving (last leg, its steps done) are ignored (D26).
+- **Confidence (D29, `useConfidence`).** x `confidenceDecayPerStep` on every counted
+  step; up to `confidenceCornerReset` on a snapped corner (never lowered); 1.0 on
+  `tapHere`, `anchor`, a completed floor change and arrival.
+- **Arrival guard (D29, `useArrivalGuard`).** Arrival needs the final run (the legs
+  after the last turning point) to be reached with evidence (a turn snap, an anchor, a
+  floor change or the route start; not an overwalk) and at least `arrivalMinFraction` of
+  its remaining steps walked since. At or past the end without that, the position sets
+  `unconfirmedArrival`. `tapHere` / `anchor` on the destination always arrive.
 - A turn within `lateTurnSteps` after a node the position already moved past (by
   `tapHere`, `anchor` or a turn snap), in the direction that node needs, is that node's
   turn: the position stays and it is not `offRoute` (D26).
@@ -217,6 +239,12 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
   `turnAroundAngle`) → "Turn around, then walk straight." (`turnAround`); at least
   `straightTolerance` off → "Turn left/right, then walk straight." (`turnLeft` /
   `turnRight`, no steps). Within `straightTolerance` → the normal instruction.
+- **Confirm place (D29).** When `Position.confidence` < `confidenceAskBelow`: "Are you
+  at {place}?" (`confirmPlace`), once per leg, about the node at the end of the current
+  leg (the one the app's "I'm here" taps); a junction is "the next corner".
+- **Arrival guard (D29).** When `Position.unconfirmedArrival`, instead of arrival: "{place}
+  should be right here — tap I'm here to confirm" (`arrivingConfirm`); further than
+  `overwalk` x the leg past it: "You may have passed {place}" (`maybePassed`).
 - Off route → "Looks like you went off the path. Go back to the last corner or tap I'm
   here." The Guide no longer gives `rescan` (D27); the Scan sign button stays.
 - Before a transition, `changeFloor` replaces the turn: "In about {steps} steps, take
@@ -268,6 +296,18 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `accelPeakThreshold` | 11.5 | m/s² peak needed to count a step (fallback only) |
 | `accelPeakMinGapMs` | 300 | Minimum ms between fallback step peaks |
 | `gemmaTimeoutMs` | 20000 | Longest wait for Gemma to choose a destination; then `null` |
+| `useTurnConfirmer` | false | Flag: TurnConfirmer between sensing and Tracker / MapBuilder (D29) |
+| `turnConfirmSteps` | 2 | Steps that must follow a raw turn to confirm it (D29) |
+| `turnConfirmWindowMs` | 8000 | ...within this many ms (D29; 4000 missed all 3 turns of the spike walk, which pauses after each turn) |
+| `useConfidence` | false | Flag: position confidence and "Are you at...?" (D29) |
+| `confidenceDecayPerStep` | 0.98 | Confidence x this per step (D29) |
+| `confidenceCornerReset` | 0.9 | Confidence after a snapped corner (D29) |
+| `confidenceAskBelow` | 0.5 | Ask "Are you at {place}?" below this (D29) |
+| `useArrivalGuard` | false | Flag: arrival guard (D29) |
+| `arrivalMinFraction` | 0.7 | Fraction of the final leg needed before arrival (D29) |
+| `stillAfterMs` | 1500 | No step for this long -> `MotionState.still` (T2, D29) |
+| `handlingRotationMin` | 120 | deg/s of non-yaw rotation -> `MotionState.handling` (T2, D29) |
+| `fullTierMinRamMb` | 8000 | Total RAM for `DeviceTier.full` (D29) |
 
 ## Instruction text (English; Hindi strings are a stretch goal)
 
@@ -279,6 +319,9 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | turnAround | "Turn around." |
 | arrive | "{placeName} is here." |
 | offRoute | "Looks like you went off the path. Go back to the last corner or tap I'm here." (D27) |
+| confirmPlace | "Are you at {place}?" / "Are you at the next corner?" (D29) |
+| arrivingConfirm | "{place} should be right here — tap I'm here to confirm." (D29) |
+| maybePassed | "You may have passed {place}." (D29) |
 | rescan | No longer given by the Guide (D27); kept in the enum. |
 | changeFloor | "In about {steps} steps, take the stairs up to Floor 1." Then "Take the stairs up to Floor 1." (D24) |
 
