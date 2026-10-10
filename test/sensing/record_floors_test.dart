@@ -197,6 +197,9 @@ void main() {
       );
       source.controller.add(const contracts.StepEvent(20));
       source.controller.add(const contracts.TurnEvent(40, 90));
+      // D29: with useTurnConfirmer the turn counts once two steps follow it.
+      source.controller.add(const contracts.StepEvent(500));
+      source.controller.add(const contracts.StepEvent(1000));
       await tester.pumpAndSettle();
       final notifier = tester
           .widget<TrailView>(find.byType(TrailView))

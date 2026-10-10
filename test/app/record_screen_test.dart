@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:breadcrumb/ai/alias_suggester.dart';
 import 'package:breadcrumb/app/screens/record_debug_main.dart';
 import 'package:breadcrumb/app/screens/record_screen.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
@@ -562,6 +563,40 @@ void main() {
       await directory.delete(recursive: true);
     }
   });
+
+  for (final full in [true, false]) {
+    testWidgets('D30: Mark place stores suggested aliases on save '
+        '(${full ? 'full' : 'basic'} tier)', (tester) async {
+      final events = StreamController<Object>.broadcast(sync: true);
+      addTearDown(events.close);
+      contracts.MapGraph? saved;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RecordScreen(
+            traceRecorder: MemoryWalkTrace(),
+            events: events.stream,
+            save: (map) async {
+              saved = map;
+              return '/maps/latest.json';
+            },
+            aliasSuggester: AliasSuggester(model: full ? _FakeAliases() : null),
+          ),
+        ),
+      );
+      await start(tester);
+      events.add(const contracts.StepEvent(20));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('place-name')));
+      await tester.enterText(find.byKey(const ValueKey('place-name')), 'Cafe');
+      await tester.pump();
+      await tap(tester, 'record-mark');
+      events.add(const contracts.StepEvent(40));
+      await tester.pumpAndSettle();
+      await tap(tester, 'record-stop');
+      final cafe = saved!.places.firstWhere((p) => p.name == 'Cafe');
+      expect(cafe.aliases, full ? ['coffee', 'chai'] : isEmpty);
+    });
+  }
 }
 
 class CountingBuilder extends MapBuilder {
@@ -617,4 +652,9 @@ class MemoryWalkTrace extends TraceRecorder {
     state.value = const TraceState(path: path);
     if (failStop) throw const FileSystemException('trace close failed');
   }
+}
+
+class _FakeAliases implements AliasModel {
+  @override
+  Future<String?> suggestAliases(String placeName) async => 'coffee\nchai';
 }
