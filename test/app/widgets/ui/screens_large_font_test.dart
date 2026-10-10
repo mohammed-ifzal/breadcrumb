@@ -39,11 +39,16 @@ void main() {
   setUp(() {
     originalResolver = Wiring.instance.destinationResolver;
     Wiring.instance.currentPlaceId = null;
+    // Prevent warmAi from starting a long-running timer in widget tests.
+    Wiring.instance.resetAiForTesting();
+    Wiring.instance.aiStatus.value = const AiStatus.ready();
+    Wiring.instance.isAiReady.value = true;
   });
 
   tearDown(() {
     Wiring.instance.destinationResolver = originalResolver;
     Wiring.instance.currentPlaceId = null;
+    Wiring.instance.resetAiForTesting();
   });
 
   testWidgets('Home fits at font scale 1.3 and shows wordmark, tagline, cards and pills',
@@ -83,7 +88,7 @@ void main() {
     expect(find.text('Where do you want to go?'), findsWidgets);
     expect(find.text('MARKED PLACES'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'where can I get coffee');
+    await tester.enterText(find.byType(TextField), 'I need some snacks');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Submit'));
     await tester.pump();
     expect(find.text('Thinking...'), findsOneWidget);
