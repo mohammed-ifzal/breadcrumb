@@ -58,6 +58,36 @@ const int accelPeakMinGapMs = 300;
 /// Longest wait for Gemma to choose a destination before giving up (null).
 const int gemmaTimeoutMs = 20000;
 
+/// Apply a low-pass only when native gravity is missing or fails. No step/turn gate.
+const bool gravityFallbackLowPassEnabled = true;
+
+/// Previous-vector weight for the optional native accelerometer gravity estimate.
+const double gravityFallbackLowPassAlpha = 0.8;
+
+/// Preserve the latest changed lux sample during the mandatory 5 Hz transport cap.
+/// False drops intervening light changes instead; the cap remains in both modes.
+const bool lightCoalescingEnabled = true;
+
+/// Rapid gravity direction change used only by the separate motion classifier.
+const double handlingGravityDeg = 35;
+const int handlingWindowMs = 600;
+
+/// Linger after the latest excessive angle, rather than delaying handling entry.
+const int handlingHoldMs = 1200;
+
+const int boutMinSteps = 3;
+const int boutMinGapMs = 250;
+const int boutMaxGapMs = 1500;
+
+const bool useBoutGating = true;
+const bool useHandlingGate = true;
+const bool usePlacement = true;
+
+const double pocketLuxMax = 10;
+
+/// Pocket requires continuous near-and-dark for MORE than this many ms.
+const int pocketHoldMs = 2000;
+
 // ---------------------------------------------------------------------------
 // D29: robust core. Each feature has a flag, so it can be switched off on the
 // phone if it misbehaves.
