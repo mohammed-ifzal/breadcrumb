@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:breadcrumb/app/screens/destination_list_screen.dart';
 import 'package:breadcrumb/app/screens/home_screen.dart';
 import 'package:breadcrumb/app/screens/navigate_screen.dart';
+import 'package:breadcrumb/app/screens/record_screen.dart';
 import 'package:breadcrumb/app/theme.dart';
 import 'package:breadcrumb/app/wiring.dart';
 import 'package:breadcrumb/core/contracts.dart';
@@ -55,8 +56,20 @@ void main() {
     expect(find.text('Offline'), findsOneWidget);
     expect(find.text('AI on-device'), findsOneWidget);
     expect(find.text('Navigate'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Map a route'), 200);
-    expect(find.text('Map a route'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Record a trail'), 200);
+    expect(find.text('Record a trail'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Home "Record a trail" card opens the record screen', (tester) async {
+    await _pumpPhone(tester, const HomeScreen());
+    await tester.pump();
+
+    await tester.scrollUntilVisible(find.text('Record a trail'), 200);
+    await tester.tap(find.text('Record a trail'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RecordScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

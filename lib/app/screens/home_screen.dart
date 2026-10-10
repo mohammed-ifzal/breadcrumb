@@ -3,6 +3,7 @@ import '../theme.dart';
 import '../widgets/ui/ui.dart';
 import '../wiring.dart';
 import 'destination_list_screen.dart';
+import 'record_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -66,11 +67,14 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             ActionCard(
               icon: Icons.directions_walk_rounded,
-              title: 'Map a route',
+              title: 'Record a trail',
               subtitle: 'Walk it once and mark places. The trail draws as you go.',
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Map a route (Coming Soon)')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RecordScreen(),
+                  ),
                 );
               },
             ),
