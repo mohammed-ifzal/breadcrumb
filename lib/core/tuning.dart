@@ -3,10 +3,10 @@
 library;
 
 /// deg/s above which the phone is turning.
-const double turnRateMin = 25;
+const double turnRateMin = 15;
 
 /// ms the rate must stay below [turnRateMin] to finish a turn.
-const int turnSettleMs = 500;
+const int turnSettleMs = 300;
 
 /// Minimum total degrees to count as a turn.
 const double turnMinAngle = 60;

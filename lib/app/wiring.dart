@@ -101,6 +101,11 @@ class Wiring {
   MapGraph _activeMap = defaultDemoMap;
   MapGraph get map => _activeMap;
 
+  /// Whether [map] represents the bundled demo map.
+  bool get isDemoMap =>
+      map.name == defaultDemoMap.name ||
+      map.name.toLowerCase().contains('demo');
+
   set map(MapGraph newMap) {
     _activeMap = newMap;
     _loadedMapJson = null;

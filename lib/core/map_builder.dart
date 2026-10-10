@@ -15,6 +15,7 @@ class MapBuilder implements contracts.MapBuilder {
   final _corridors = <contracts.Corridor>[];
   String? _from;
   int _steps = 0;
+  int _floor = 0;
   double _heading = 0;
   int _junctions = 0;
   int _namedPlaces = 0;
@@ -28,6 +29,7 @@ class MapBuilder implements contracts.MapBuilder {
     _corridors.clear();
     _from = 'p0';
     _steps = 0;
+    _floor = 0;
     _heading = 0;
     _junctions = 0;
     _namedPlaces = 0;
@@ -58,6 +60,22 @@ class MapBuilder implements contracts.MapBuilder {
     _heading = contracts.normalizeHeading(_heading + angle);
   }
 
+  /// Completes a manual D24 transition, keeping prior walking on its old floor.
+  /// The transition has zero steps: this tap reports arrival on another floor,
+  /// rather than assigning preceding horizontal steps to stairs or a lift.
+  /// This concrete capability does not change the shared MapBuilder interface.
+  void changeFloor(int delta, contracts.CorridorKind kind) {
+    if (!_active) return;
+    if (delta == 0 || kind == contracts.CorridorKind.walk) {
+      throw ArgumentError(
+        'A floor change needs a nonzero delta and transition kind',
+      );
+    }
+    if (_steps > 0) _closeAt(_junction());
+    _floor += delta;
+    _closeAt(_junction(), kind: kind, floorDelta: delta);
+  }
+
   @override
   void addPlace(String name, List<String> aliases) {
     if (!_active) return;
@@ -68,6 +86,7 @@ class MapBuilder implements contracts.MapBuilder {
         name: name,
         aliases: List<String>.unmodifiable(aliases),
         kind: contracts.PlaceKind.place,
+        floor: _floor,
       ),
     );
   }
@@ -83,10 +102,11 @@ class MapBuilder implements contracts.MapBuilder {
     return _map(
       [
         ..._places,
-        const contracts.Place(
+        contracts.Place(
           id: contracts.hereId,
           name: 'You are here',
           kind: contracts.PlaceKind.junction,
+          floor: _floor,
         ),
       ],
       [
@@ -117,10 +137,15 @@ class MapBuilder implements contracts.MapBuilder {
       id: 'j$_junctions',
       name: name ?? 'Junction $_junctions',
       kind: contracts.PlaceKind.junction,
+      floor: _floor,
     );
   }
 
-  void _closeAt(contracts.Place place) {
+  void _closeAt(
+    contracts.Place place, {
+    contracts.CorridorKind kind = contracts.CorridorKind.walk,
+    int floorDelta = 0,
+  }) {
     _corridors.add(
       contracts.Corridor(
         id: 'c${_corridors.length + 1}',
@@ -128,6 +153,8 @@ class MapBuilder implements contracts.MapBuilder {
         to: place.id,
         steps: _steps,
         heading: _heading,
+        kind: kind,
+        floorDelta: floorDelta,
       ),
     );
     _places.add(place);

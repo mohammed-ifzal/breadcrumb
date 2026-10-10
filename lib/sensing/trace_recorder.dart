@@ -139,6 +139,28 @@ class TraceRecorder {
     await _closing;
   }
 
+  /// Complete the initial meta after the endpoint is known, preserving all rows.
+  /// File errors use the same once-per-trace failure handling as streaming writes.
+  Future<void> finalizeMetadata(Map<String, Object?> fields) async {
+    await stop();
+    final path = state.value.path;
+    if (_failed || path == null) return;
+    try {
+      final file = File(path);
+      final contents = await file.readAsString();
+      final newline = contents.indexOf('\n');
+      final first = newline < 0 ? contents : contents.substring(0, newline);
+      final meta = Map<String, Object?>.from(jsonDecode(first) as Map);
+      final tail = newline < 0 ? '' : contents.substring(newline + 1);
+      await file.writeAsString(
+        '${jsonEncode({...meta, ...fields, 'type': 'meta'})}\n$tail',
+        flush: true,
+      );
+    } catch (error) {
+      _fail(error);
+    }
+  }
+
   Future<void> dispose() async {
     await stop();
     state.dispose();

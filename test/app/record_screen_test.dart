@@ -7,6 +7,7 @@ import 'package:breadcrumb/app/widgets/trail_view.dart';
 import 'package:breadcrumb/core/contracts.dart' as contracts;
 import 'package:breadcrumb/core/map_builder.dart';
 import 'package:breadcrumb/core/map_json.dart';
+import 'package:breadcrumb/sensing/trace_recorder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -28,6 +29,128 @@ Future<void> start(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('every walk opens a trace, records marks and closes at Stop', (
+    tester,
+  ) async {
+    final trace = MemoryWalkTrace();
+    final events = StreamController<Object>.broadcast(sync: true);
+    addTearDown(events.close);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RecordScreen(
+          traceRecorder: trace,
+          events: events.stream,
+          save: (_) async => '/maps/latest.json',
+        ),
+      ),
+    );
+    await start(tester);
+    expect(trace.starts, 1);
+    expect(trace.rows.first['type'], 'meta');
+    events.add(const contracts.StepEvent(20));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('place-name')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('place-name')), 'Desk');
+    await tester.pump();
+    await tap(tester, 'record-mark');
+    events.add(const contracts.StepEvent(40));
+    await tester.pumpAndSettle();
+    await tap(tester, 'record-stop');
+    expect(trace.stops, 1);
+    expect(trace.state.value.recording, isFalse);
+    expect(trace.rows.where((r) => r['type'] == 'mark').map((r) => r['note']), [
+      'Desk',
+      'End of walk',
+    ]);
+    expect(find.text('Trace file: ${MemoryWalkTrace.path}'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(trace.stops, 1);
+  });
+  testWidgets('map save failure still closes the trace and shows its path', (
+    tester,
+  ) async {
+    final trace = MemoryWalkTrace();
+    final events = StreamController<Object>.broadcast(sync: true);
+    addTearDown(events.close);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RecordScreen(
+          traceRecorder: trace,
+          events: events.stream,
+          save: (_) async => throw const FileSystemException('map disk full'),
+        ),
+      ),
+    );
+    await start(tester);
+    await tap(tester, 'record-stop');
+    expect(trace.stops, 1);
+    expect(trace.state.value.recording, isFalse);
+    expect(find.textContaining('map disk full'), findsOneWidget);
+    expect(find.text('Trace file: ${MemoryWalkTrace.path}'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
+  testWidgets(
+    'trace failures log once and never stop live counts or map saving',
+    (tester) async {
+      final trace = MemoryWalkTrace(failWrite: true, failStop: true);
+      final events = StreamController<Object>.broadcast(sync: true);
+      addTearDown(events.close);
+      final messages = <String>[];
+      final previous = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) messages.add(message);
+      };
+      addTearDown(() => debugPrint = previous);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RecordScreen(
+            traceRecorder: trace,
+            events: events.stream,
+            save: (_) async => '/maps/latest.json',
+          ),
+        ),
+      );
+      await start(tester);
+      events.add(const contracts.StepEvent(20));
+      events.add(const contracts.StepEvent(40));
+      await tester.pumpAndSettle();
+      expect(find.text('Steps: 2'), findsOneWidget);
+      await tap(tester, 'record-stop');
+      expect(find.text('Saved map: /maps/latest.json'), findsOneWidget);
+      expect(
+        messages.where((m) => m.contains('Trace recording failed')),
+        hasLength(1),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      debugPrint = previous;
+    },
+  );
+  testWidgets('leaving an active walk also closes its trace', (tester) async {
+    final trace = MemoryWalkTrace();
+    final events = StreamController<Object>.broadcast(sync: true);
+    addTearDown(events.close);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RecordScreen(
+          traceRecorder: trace,
+          events: events.stream,
+          save: (_) async => '/maps/latest.json',
+        ),
+      ),
+    );
+    await start(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(trace.stops, 1);
+    expect(trace.state.value.recording, isFalse);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'start precedes snapshot; every step, turn and mark publishes a map',
     (tester) async {
@@ -37,6 +160,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: RecordScreen(
+            traceRecorder: MemoryWalkTrace(),
             mapBuilder: builder,
             events: events.stream,
             save: (_) async => '/maps/latest.json',
@@ -115,6 +239,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: RecordScreen(
+            traceRecorder: MemoryWalkTrace(),
             events: events.stream,
             save: (map) {
               saves++;
@@ -169,6 +294,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: RecordScreen(
+            traceRecorder: MemoryWalkTrace(),
             mapBuilder: builder,
             events: events.stream,
             save: (_) async {
@@ -211,6 +337,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: RecordScreen(
+            traceRecorder: MemoryWalkTrace(),
             events: events.stream,
             save: (map) async {
               savedMap = map;
@@ -258,6 +385,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: RecordScreen(
+          traceRecorder: MemoryWalkTrace(),
           events: events.stream,
           save: (map) async {
             savedMap = map;
@@ -291,6 +419,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: RecordScreen(
+          traceRecorder: MemoryWalkTrace(),
           events: events.stream,
           save: (_) async => '/maps/latest.json',
         ),
@@ -317,6 +446,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: RecordScreen(
+          traceRecorder: MemoryWalkTrace(),
           events: events.stream,
           save: (_) async => '/maps/latest.json',
         ),
@@ -353,6 +483,7 @@ void main() {
             child: child!,
           ),
           home: RecordScreen(
+            traceRecorder: MemoryWalkTrace(),
             events: events.stream,
             save: (_) async => '/documents/maps/latest.json',
           ),
@@ -453,5 +584,37 @@ class CountingBuilder extends MapBuilder {
   contracts.MapGraph finish() {
     finishCalls++;
     return super.finish();
+  }
+}
+
+class MemoryWalkTrace extends TraceRecorder {
+  MemoryWalkTrace({this.failWrite = false, this.failStop = false});
+  static const path = '/documents/traces/walk.jsonl';
+  final bool failWrite, failStop;
+  int starts = 0, stops = 0;
+  final rows = <Map<String, Object?>>[];
+  @override
+  Future<void> start(Map<String, Object?> meta) async {
+    starts++;
+    rows.add({...meta, 'type': 'meta'});
+    state.value = const TraceState(recording: true, path: path);
+  }
+
+  @override
+  void record(Map<String, Object?> event) {
+    if (failWrite) throw const FileSystemException('trace disk full');
+    if (state.value.recording) rows.add(Map.of(event));
+  }
+
+  @override
+  Future<void> finalizeMetadata(Map<String, Object?> fields) async {
+    if (rows.isNotEmpty) rows[0].addAll(fields);
+  }
+
+  @override
+  Future<void> stop() async {
+    stops++;
+    state.value = const TraceState(path: path);
+    if (failStop) throw const FileSystemException('trace close failed');
   }
 }

@@ -1,0 +1,18 @@
+{
+  "turns_walk1_talha.jsonl": [
+    90,
+    -90,
+    -90
+  ],
+  "turns_walk2_talha.jsonl": [
+    90,
+    -90,
+    -90
+  ],
+  "spike_walk_talha.jsonl": [
+    -90,
+    90,
+    -90
+  ],
+  "straight_walk_talha.jsonl": []
+}

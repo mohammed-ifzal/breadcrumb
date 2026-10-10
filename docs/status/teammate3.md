@@ -3,6 +3,12 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+
+## 2026-10-10 16:32 — t3/map-screen: Floor map screen + route preview
+- Added MapScreen (full-screen TrailView, summary stats, route preview with turn count, Start→Navigate). Entry points from Home + DestinationList. TrailView markers compacted.
+- 10 new widget tests (map_screen_test); fixed ambiguous ElevatedButton finder in destination_resolver_ui_test. flutter analyze clean, flutter test 284/284 green.
+- Files: +map_screen.dart, ~home_screen, ~destination_list_screen, ~trail_view, ~wiring (isDemoMap), +map_screen_test, ~destination_resolver_ui_test.
+
 ## Sat 10 Oct, 14:50
 Done: Tasks 1-4: high-contrast legible trail labels (>= 4.5:1), trail view polish (rounded teal corridors, glowing route, kind markers, subtle grid, pulsing position dot with animate flag), ported 3-state AI status and fuzzy-first destination search, and restyled Navigate screen with PR #10 widgets (42pt instruction, huge arrow, trail card, zero overflow at text scale 1.3); 274 tests green, flutter analyze clean.
 Next: Test PR #14 on-device; await D24 decision for Task 5 multi-floor UI.
