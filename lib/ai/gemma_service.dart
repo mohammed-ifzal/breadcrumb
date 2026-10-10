@@ -11,6 +11,7 @@ import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../core/contracts.dart';
+import 'alias_suggester.dart';
 import 'destination_resolver.dart';
 
 /// D18 (option A): pushed with adb, survives reinstalls.
@@ -48,7 +49,7 @@ const String gemmaSystemInstruction =
     '$choosePlaceTool with its ID. If no place fits, do not call the tool; '
     'reply with the single word none.';
 
-class GemmaService implements PlaceChooser {
+class GemmaService implements PlaceChooser, AliasModel {
   GemmaService({this.reuseChat = true});
 
   /// Keep one chat (system instruction and `choose_place` tool) per set of
@@ -173,6 +174,32 @@ class GemmaService implements PlaceChooser {
       if (chat != null) await _drop(chat);
       turn.complete();
       rethrow;
+    }
+  }
+
+  /// One plain session (no tool) for [aliasPrompt]. The engine holds one live
+  /// conversation, so a kept `choose_place` chat is closed first; the next
+  /// place question opens a new one.
+  @override
+  Future<String?> suggestAliases(String placeName) async {
+    final model = _model;
+    if (model == null) throw StateError('Gemma is not loaded');
+    final previous = _idle;
+    final turn = Completer<void>();
+    _idle = turn.future;
+    await previous;
+    try {
+      final kept = _chat;
+      if (kept != null) await _drop(kept);
+      final session = await model.createSession(topK: 1, maxOutputTokens: 96);
+      try {
+        await session.addQueryChunk(Message(text: aliasPrompt(placeName), isUser: true));
+        return await session.getResponse();
+      } finally {
+        await session.close();
+      }
+    } finally {
+      turn.complete();
     }
   }
 

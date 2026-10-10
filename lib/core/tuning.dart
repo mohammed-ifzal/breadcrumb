@@ -132,3 +132,16 @@ const double handlingRotationMin = 120;
 
 /// Total RAM (MB) at or above which the device is DeviceTier.full.
 const int fullTierMinRamMb = 8000;
+
+// ---------------------------------------------------------------------------
+// D30: aliases and device tier.
+// ---------------------------------------------------------------------------
+
+/// At most this many aliases Gemma suggests for a marked place.
+const int maxAliases = 8;
+
+/// Words in one suggested alias, at most.
+const int maxAliasWords = 3;
+
+/// Longest wait for Gemma's alias suggestions before the place keeps none.
+const int aliasSuggestTimeoutMs = 15000;
