@@ -69,6 +69,25 @@ corridor). Navigate's "You are at" defaults to the loaded map's last place: the 
 with `kind: place` in `nodes` order (walk order). A selector lists every place so the user
 can change it.
 
+**Floors (D24).** All optional, so maps without them load unchanged and one-floor maps
+are written without them:
+
+- A place may have `"floor": 1` (int, default 0). Junctions have floors too.
+- A corridor may have `"kind"`: `walk` (default), `stairs`, `escalator` or `lift`, and
+  `"floorDelta"` (int, default 0) = `to`'s floor − `from`'s floor. Anything but `walk`
+  is a **transition**. `decodeMap` throws `FormatException` when `floorDelta` doesn't
+  match the floors, or when a `walk` corridor changes floor.
+
+```json
+{"id": "c2", "from": "stairs_foot", "to": "stairs_top", "steps": 12, "heading": 0,
+ "kind": "stairs", "floorDelta": 1}
+```
+
+**The iQOO 15 has no barometer**, so on this phone floor changes are manual: one tap
+completes the transition ("I am here" on a transition leg taps the node at its top, or
+the app calls `onFloorChange` with the leg's `floorDelta`). Where a barometer exists, a
+`FloorDetector` (not built yet) would call `onFloorChange` automatically.
+
 ## Sensor stream and trace files
 
 Kotlin (EventChannel `breadcrumb/sensing`, one broadcast stream, events sent on the main
@@ -108,25 +127,25 @@ detector) or `"accel"` (the Dart `StepDetector` fallback).
 
 | Shape | Fields |
 | --- | --- |
-| `Place` | `id`, `name`, `aliases` (list), `kind` (start / junction / place) |
-| `Corridor` | `id`, `from`, `to`, `steps` (int), `heading` (double) |
+| `Place` | `id`, `name`, `aliases` (list), `kind` (start / junction / place), `floor` (int, default 0, D24) |
+| `Corridor` | `id`, `from`, `to`, `steps` (int), `heading` (double), `kind` (walk / stairs / escalator / lift, default walk), `floorDelta` (int, default 0); `isTransition` = kind isn't walk (D24) |
 | `MapGraph` | `version`, `name`, `start`, `places`, `corridors`; `fromJson`, `toJson` |
 | `StepEvent` | `t` |
 | `TurnEvent` | `t`, `angle` (double, total angle of the completed turn) |
 | `SignReading` | `t`, `text`, `reader` (mlkit / gemma) |
 | `PlaceMatch` | `placeId`, `score` (0–1) |
-| `Leg` | `corridorId`, `reversed`, `heading`, `steps` |
+| `Leg` | `corridorId`, `reversed`, `heading`, `steps`, `kind` (default walk), `floorDelta` (as walked: negated when reversed; default 0), `isTransition` (D24) |
 | `RoutePlan` | ordered `legs`, `totalSteps`, `toId` |
-| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap), `offRoute` (bool), `needsReplan` (bool) |
-| `Instruction` | `kind` (straight, turnLeft, turnRight, turnAround, arrive, offRoute, rescan), `steps` (int?), `placeName` (String?), `text` |
+| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool) |
+| `Instruction` | `kind` (straight, turnLeft, turnRight, turnAround, arrive, offRoute, rescan, changeFloor), `steps` (int?), `placeName` (String?), `text` |
 
 ## Interfaces (one owner each)
 
 | Interface | Methods | Owner |
 | --- | --- | --- |
-| `RoutePlanner` | `RoutePlan plan(MapGraph map, String fromId, String toId)`: Dijkstra on steps, corridors usable both ways | Ifzal |
+| `RoutePlanner` | `RoutePlan plan(MapGraph map, String fromId, String toId)`: Dijkstra on steps, corridors usable both ways; a transition costs its steps + `floorChangeCostSteps`; `totalSteps` counts steps only (D24) | Ifzal |
 | `PlaceMatcher` | `PlaceMatch? match(String text, MapGraph map)` (rules below) | Ifzal |
-| `Tracker` | constructor `Tracker(MapGraph map)`; `setRoute(RoutePlan r)`; `Position onStep(StepEvent e)`; `Position onTurn(TurnEvent e)`; `Position anchor(String placeId)`; `Position tapHere(String placeId)`; `pauseTurns(bool on)` | Ifzal |
+| `Tracker` | constructor `Tracker(MapGraph map)`; `setRoute(RoutePlan r)`; `Position onStep(StepEvent e)`; `Position onTurn(TurnEvent e)`; `Position anchor(String placeId)`; `Position tapHere(String placeId)`; `Position onFloorChange(int delta)` (D24); `pauseTurns(bool on)` | Ifzal |
 | `Guide` | `Instruction next(RoutePlan r, Position p)` | Ifzal |
 | `StepDetector` | pure Dart; peaks in `accel`, used only when there's no hardware detector | Teammate 2 |
 | `TurnDetector` | pure Dart; `motion` samples to `TurnEvent` (rules below) | Teammate 2 |
@@ -163,6 +182,16 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
   `rescan` instruction.
 - `anchor(placeId)` moves position to that place. If the place isn't on the current
   route, it sets `needsReplan`; the app then plans again from that place.
+- **Transitions (D24).** A stairs, escalator or lift leg always ends a straight run.
+  Walking to the end of the leg before it moves position onto it (`stepsAlong` 0); a
+  turn near its foot in the right direction snaps onto it, like any turn. On a
+  transition leg, steps and turns are ignored. `onFloorChange(delta)` (+1 up, −1 down)
+  counts floors towards the next transition (the current leg or the first one after
+  it); when they reach its `floorDelta`, position moves to the start of the leg after it
+  (`anchoredBy: floor`), or to arrival if it is the last leg. A floor change the other
+  way, or with no transition ahead, is ignored. `tapHere` / `anchor` on the node at the
+  top also completes it. A 0-step transition counts as 1 step long, so standing at its
+  foot is never arrival.
 
 **Guide**
 
@@ -171,6 +200,10 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 - If `|turn|` > `turnAroundAngle`, say "turn around".
 - When the steps left on a leg are at most `turnNowSteps`, say "turn left now" or
   "turn right now".
+- Before a transition, `changeFloor` replaces the turn: "In about {steps} steps, take
+  the {kind} {up/down} to Floor {N}.", then "Take the {kind} {up/down} to Floor {N}."
+  within `turnNowSteps` and on the transition leg. {N} is the floor of the node at its
+  top (D24).
 
 **PlaceMatcher**
 
@@ -209,6 +242,7 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `snapZone` | 0.4 | A turn snaps in the last 40% of a leg… |
 | `snapSteps` | 8 | …or within this many steps of its end |
 | `lateTurnSteps` | 3 | A turn this many steps after a node the position already moved past is that node's turn (D26) |
+| `floorChangeCostSteps` | 20 | Extra route cost of each stairs, escalator or lift corridor (D24) |
 | `overwalk` | 0.3 | 30% past a leg's length triggers a rescan prompt |
 | `matchThreshold` | 0.8 | Minimum fuzzy score for a place match |
 | `accelPeakThreshold` | 11.5 | m/s² peak needed to count a step (fallback only) |
@@ -225,5 +259,6 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | arrive | "{placeName} is here." |
 | offRoute | "That turn wasn't on the route. Scan a nearby sign to re-locate." |
 | rescan | "You may have passed the turn. Point the camera at a sign." |
+| changeFloor | "In about {steps} steps, take the stairs up to Floor 1." Then "Take the stairs up to Floor 1." (D24) |
 
 Vibration: left = two short pulses, right = one long pulse, arrive = three short pulses.
