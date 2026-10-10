@@ -58,7 +58,9 @@ has its own heading frame.
 `MapBuilder.finish().toJson()` to `<app documents>/maps/latest.json` (path_provider's
 application documents directory), replacing the previous file. Navigate loads
 `maps/latest.json` if it exists and parses; otherwise it loads the bundled demo map from
-`assets/maps/`. Only the app layer does this file I/O; `lib/core/` stays pure.
+`assets/maps/`. Navigate re-reads the file every time it opens, so a map saved after app
+start is used without a restart; an unchanged file keeps the "You are at" choice. Only
+the app layer does this file I/O; `lib/core/` stays pure.
 
 **End of walk and the start place (D23).** When the walker taps Stop, the record screen
 calls `addPlace('End of walk', [])` and then `finish()`, so every recorded map ends at a
@@ -153,6 +155,10 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 - A turn in the expected direction near the end of a leg (last `snapZone` fraction or
   within `snapSteps`) snaps position to the start of the next leg.
 - A turn in the wrong direction sets `offRoute`.
+- Turns after arriving (last leg, its steps done) are ignored (D26).
+- A turn within `lateTurnSteps` after a node the position already moved past (by
+  `tapHere`, `anchor` or a turn snap), in the direction that node needs, is that node's
+  turn: the position stays and it is not `offRoute` (D26).
 - Walking more than `overwalk` past a leg's length gives a "may have passed the turn"
   `rescan` instruction.
 - `anchor(placeId)` moves position to that place. If the place isn't on the current
@@ -196,12 +202,13 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `turnSettleMs` | 500 | ms the rate must stay below `turnRateMin` to finish a turn |
 | `turnMinAngle` | 60 | Minimum total degrees to count as a turn |
 | `maxMotionGapMs` | 200 | Motion samples with a bigger gap (ms) reset turn integration |
-| `turnSnapDegrees` | 45 | `MapBuilder` rounds each recorded turn angle to the nearest multiple |
+| `turnSnapDegrees` | 90 | `MapBuilder` rounds each recorded turn angle to the nearest multiple (D25; was 45) |
 | `straightTolerance` | 30 | Leg-to-leg changes smaller than this are "straight on" |
 | `turnAroundAngle` | 150 | Changes larger than this are "turn around" |
 | `turnNowSteps` | 3 | Say "turn now" this many steps before the end of a leg |
 | `snapZone` | 0.4 | A turn snaps in the last 40% of a leg… |
 | `snapSteps` | 8 | …or within this many steps of its end |
+| `lateTurnSteps` | 3 | A turn this many steps after a node the position already moved past is that node's turn (D26) |
 | `overwalk` | 0.3 | 30% past a leg's length triggers a rescan prompt |
 | `matchThreshold` | 0.8 | Minimum fuzzy score for a place match |
 | `accelPeakThreshold` | 11.5 | m/s² peak needed to count a step (fallback only) |

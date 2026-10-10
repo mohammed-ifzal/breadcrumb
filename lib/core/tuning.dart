@@ -15,7 +15,8 @@ const double turnMinAngle = 60;
 const int maxMotionGapMs = 200;
 
 /// MapBuilder rounds each recorded turn angle to the nearest multiple of this.
-const double turnSnapDegrees = 45;
+/// 90: corridors at the venue are orthogonal (D25).
+const double turnSnapDegrees = 90;
 
 /// Leg-to-leg changes smaller than this are "straight on".
 const double straightTolerance = 30;
@@ -31,6 +32,10 @@ const double snapZone = 0.4;
 
 /// …or within this many steps of its end.
 const int snapSteps = 8;
+
+/// A turn this many steps after a node the position already moved past (by
+/// "I am here", a sign or a turn snap) is that node's turn, not off route (D26).
+const int lateTurnSteps = 3;
 
 /// 30% past a leg's length triggers a rescan prompt.
 const double overwalk = 0.3;

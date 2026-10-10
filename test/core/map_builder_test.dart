@@ -34,7 +34,8 @@ void main() {
         builder.onTurn(contracts.TurnEvent(100, angle));
       }
       final map = builder.snapshot();
-      expect(map.corridors.map((c) => c.heading), [0, 90, 180, 90, 270, 315]);
+      // D25: 90-degree snapping, so 44 rounds to straight on.
+      expect(map.corridors.map((c) => c.heading), [0, 90, 180, 90, 270, 270]);
       expect(
         map.places.where(
           (p) =>
@@ -45,6 +46,18 @@ void main() {
       );
     },
   );
+
+  test('D25: the turns walked on the iQOO loop snap to right angles', () {
+    final builder = MapBuilder()..start('team groza table');
+    for (final angle in [-63.0, 108.0, -60.0, -78.0, 75.0, 66.0]) {
+      walk(builder, 3);
+      builder.onTurn(contracts.TurnEvent(100, angle));
+    }
+    expect(
+      builder.snapshot().corridors.map((c) => c.heading),
+      [0, 270, 0, 270, 180, 270, 0],
+    );
+  });
 
   for (final sign in [1, -1]) {
     test('half-way snapping rounds away from zero for sign $sign', () {

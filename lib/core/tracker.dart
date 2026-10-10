@@ -54,6 +54,10 @@ class RouteTracker implements Tracker {
   /// start of the leg after it. A turn in the wrong direction, far from the
   /// turning point, or where the route goes straight on sets [Position.offRoute].
   /// Once off route, turns are ignored until an anchor or a new route.
+  ///
+  /// Turns after arriving are ignored, and so is the turn at a node the position
+  /// already moved past ("I am here", a sign or a turn snap) when it comes within
+  /// [lateTurnSteps] of that node in the expected direction (D26).
   @override
   Position onTurn(TurnEvent e) {
     final route = _route;
@@ -62,16 +66,25 @@ class RouteTracker implements Tracker {
     }
 
     final i = _position.legIndex;
+    final last = route.legs.length - 1;
+    if (i >= last && _position.stepsAlong >= route.legs[last].steps) {
+      return _position;
+    }
+    if (i > 0 && _position.stepsAlong <= lateTurnSteps) {
+      final passed = turnBetween(route.legs[i - 1].heading, route.legs[i].heading);
+      if (passed.abs() >= straightTolerance && _isRightWay(e.angle, passed)) {
+        return _position;
+      }
+    }
+
     final j = runEnd(route, i);
-    if (j == route.legs.length - 1) return _position = _copy(offRoute: true);
+    if (j == last) return _position = _copy(offRoute: true);
 
     final needed = turnBetween(route.legs[j].heading, route.legs[j + 1].heading);
     final run = stepsBetween(route, i, j);
     final toTurn = run - _position.stepsAlong;
     final near = toTurn <= snapSteps || toTurn <= run * snapZone;
-    final rightWay = needed.abs() > turnAroundAngle
-        ? e.angle.abs() > turnAroundAngle
-        : e.angle.sign == needed.sign;
+    final rightWay = _isRightWay(e.angle, needed);
 
     if (near && rightWay) {
       return _position = Position(
@@ -82,6 +95,11 @@ class RouteTracker implements Tracker {
     }
     return _position = _copy(offRoute: true);
   }
+
+  static bool _isRightWay(double angle, double needed) =>
+      needed.abs() > turnAroundAngle
+          ? angle.abs() > turnAroundAngle
+          : angle.sign == needed.sign;
 
   @override
   Position anchor(String placeId) => _snapTo(placeId, AnchorSource.sign);
