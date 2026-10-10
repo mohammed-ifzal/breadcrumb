@@ -311,6 +311,7 @@ class Position {
     this.orienting = false,
     this.facing,
     this.confidence = 1.0,
+    this.unconfirmedArrival = false,
   });
 
   final int legIndex;
@@ -332,6 +333,12 @@ class Position {
   /// recovers on a snapped corner, an "I'm here" tap or arrival. Always 1.0 when
   /// `useConfidence` is off.
   final double confidence;
+
+  /// At or past the end of the route, but the arrival guard is not met (D29):
+  /// the final run was reached by an overwalk, not a turn or an anchor, or too
+  /// few of its steps were walked. The Guide asks for "I'm here" instead of
+  /// announcing arrival. Always false when `useArrivalGuard` is off.
+  final bool unconfirmedArrival;
 }
 
 class Instruction {

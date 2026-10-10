@@ -139,7 +139,7 @@ detector) or `"accel"` (the Dart `StepDetector` fallback).
 | `PlaceMatch` | `placeId`, `score` (0–1) |
 | `Leg` | `corridorId`, `reversed`, `heading`, `steps`, `kind` (default walk), `floorDelta` (as walked: negated when reversed; default 0), `isTransition` (D24) |
 | `RoutePlan` | ordered `legs`, `totalSteps`, `toId` |
-| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool), `orienting` (bool, default false), `facing` (double?, assumed facing while orienting, null = unknown) (D27), `confidence` (double 0-1, default 1.0, D29) |
+| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool), `orienting` (bool, default false), `facing` (double?, assumed facing while orienting, null = unknown) (D27), `confidence` (double 0-1, default 1.0, D29), `unconfirmedArrival` (bool, default false: at or past the destination without the arrival guard met, D29) |
 | `Instruction` | `kind` (straight, turnLeft, turnRight, turnAround, arrive, offRoute, rescan, changeFloor, arrivingConfirm, maybePassed, confirmPlace (D29)), `steps` (int?), `placeName` (String?), `text` |
 
 ## Interfaces (one owner each)
@@ -202,10 +202,14 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
   point needs, within 2 × `snapSteps` of it (before or after), snaps position to the
   start of the leg after it and clears `offRoute`. Other turns are ignored.
 - Turns after arriving (last leg, its steps done) are ignored (D26).
-- **Confidence (D29, `useConfidence`).** x `confidenceDecayPerStep` on every step;
-  `confidenceCornerReset` on a snapped corner; 1.0 on `tapHere` and arrival.
-- **Arrival guard (D29, `useArrivalGuard`).** Arrival needs steps on the final leg >=
-  `arrivalMinFraction` x its length and every turn on it consumed.
+- **Confidence (D29, `useConfidence`).** x `confidenceDecayPerStep` on every counted
+  step; up to `confidenceCornerReset` on a snapped corner (never lowered); 1.0 on
+  `tapHere`, `anchor`, a completed floor change and arrival.
+- **Arrival guard (D29, `useArrivalGuard`).** Arrival needs the final run (the legs
+  after the last turning point) to be reached with evidence (a turn snap, an anchor, a
+  floor change or the route start; not an overwalk) and at least `arrivalMinFraction` of
+  its remaining steps walked since. At or past the end without that, the position sets
+  `unconfirmedArrival`. `tapHere` / `anchor` on the destination always arrive.
 - A turn within `lateTurnSteps` after a node the position already moved past (by
   `tapHere`, `anchor` or a turn snap), in the direction that node needs, is that node's
   turn: the position stays and it is not `offRoute` (D26).
@@ -236,8 +240,9 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
   `straightTolerance` off → "Turn left/right, then walk straight." (`turnLeft` /
   `turnRight`, no steps). Within `straightTolerance` → the normal instruction.
 - **Confirm place (D29).** When `Position.confidence` < `confidenceAskBelow`: "Are you
-  at {next place}?" (`confirmPlace`), once per leg.
-- **Arrival guard (D29).** At the end of the final leg without the guard met: "{place}
+  at {place}?" (`confirmPlace`), once per leg, about the node at the end of the current
+  leg (the one the app's "I'm here" taps); a junction is "the next corner".
+- **Arrival guard (D29).** When `Position.unconfirmedArrival`, instead of arrival: "{place}
   should be right here — tap I'm here to confirm" (`arrivingConfirm`); further than
   `overwalk` x the leg past it: "You may have passed {place}" (`maybePassed`).
 - Off route → "Looks like you went off the path. Go back to the last corner or tap I'm
@@ -293,7 +298,7 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `gemmaTimeoutMs` | 20000 | Longest wait for Gemma to choose a destination; then `null` |
 | `useTurnConfirmer` | false | Flag: TurnConfirmer between sensing and Tracker / MapBuilder (D29) |
 | `turnConfirmSteps` | 2 | Steps that must follow a raw turn to confirm it (D29) |
-| `turnConfirmWindowMs` | 4000 | ...within this many ms (D29) |
+| `turnConfirmWindowMs` | 8000 | ...within this many ms (D29; 4000 missed all 3 turns of the spike walk, which pauses after each turn) |
 | `useConfidence` | false | Flag: position confidence and "Are you at...?" (D29) |
 | `confidenceDecayPerStep` | 0.98 | Confidence x this per step (D29) |
 | `confidenceCornerReset` | 0.9 | Confidence after a snapped corner (D29) |
@@ -314,7 +319,7 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | turnAround | "Turn around." |
 | arrive | "{placeName} is here." |
 | offRoute | "Looks like you went off the path. Go back to the last corner or tap I'm here." (D27) |
-| confirmPlace | "Are you at {place}?" (D29) |
+| confirmPlace | "Are you at {place}?" / "Are you at the next corner?" (D29) |
 | arrivingConfirm | "{place} should be right here — tap I'm here to confirm." (D29) |
 | maybePassed | "You may have passed {place}." (D29) |
 | rescan | No longer given by the Guide (D27); kept in the enum. |

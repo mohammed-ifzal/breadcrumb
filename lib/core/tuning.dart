@@ -70,8 +70,10 @@ const bool useTurnConfirmer = false;
 /// A raw turn counts only once this many steps follow it…
 const int turnConfirmSteps = 2;
 
-/// …within this many ms of it; otherwise it is dropped.
-const int turnConfirmWindowMs = 4000;
+/// …within this many ms of it; otherwise it is dropped. 8000: in the spike
+/// walk the tester paused after each turn and the second step came 5.1-5.5 s
+/// later (D29 replay sweep: 6000 is the smallest window with 0 missed).
+const int turnConfirmWindowMs = 8000;
 
 /// Track position confidence and ask "Are you at {place}?" when it drops (D29).
 const bool useConfidence = false;

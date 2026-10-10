@@ -11,6 +11,10 @@ class RouteGuide implements Guide {
 
   final MapGraph map;
 
+  /// The route and legs "Are you at …?" was already asked on (D29).
+  RoutePlan? _askedRoute;
+  final _askedLegs = <int>{};
+
   @override
   Instruction next(RoutePlan r, Position p) {
     if (p.offRoute) {
@@ -22,13 +26,16 @@ class RouteGuide implements Guide {
     final last = r.legs.length - 1;
     final i = p.legIndex.clamp(0, last < 0 ? 0 : last);
     if (r.legs.isEmpty || (i == last && p.stepsAlong >= legLength(r.legs[last]))) {
-      return _arrive(r);
+      return p.unconfirmedArrival && r.legs.isNotEmpty
+          ? _unconfirmedArrival(r, p.stepsAlong - legLength(r.legs[last]))
+          : _arrive(r);
     }
     if (r.legs[i].isTransition) return _changeFloor(r.legs[i]);
     if (p.orienting) {
       final face = _orient(r, i, p.facing);
       if (face != null) return face;
     }
+    if (p.confidence < confidenceAskBelow && _firstAsk(r, i)) return _confirmPlace(r.legs[i]);
 
     // Distance to the next turn, or to the destination, across straight-on joins.
     final j = runEnd(r, i);
@@ -69,6 +76,46 @@ class RouteGuide implements Guide {
           : now
           ? 'Get ready to turn $side.'
           : 'In about $steps steps, turn $side.',
+    );
+  }
+
+  /// True the first time it is called for leg [i] of [r] (D29).
+  bool _firstAsk(RoutePlan r, int i) {
+    if (!identical(r, _askedRoute)) {
+      _askedRoute = r;
+      _askedLegs.clear();
+    }
+    return _askedLegs.add(i);
+  }
+
+  /// "Are you at {place}?" about the node at the end of [leg], the node the
+  /// app's "I'm here" taps; a junction is "the next corner" (D29).
+  Instruction _confirmPlace(Leg leg) {
+    final c = map.corridors.firstWhere((c) => c.id == leg.corridorId);
+    final end = map.places.firstWhere((p) => p.id == (leg.reversed ? c.from : c.to));
+    final where = end.kind == PlaceKind.junction ? 'the next corner' : end.name;
+    return Instruction(
+      kind: InstructionKind.confirmPlace,
+      placeName: end.name,
+      text: 'Are you at $where?',
+    );
+  }
+
+  /// At the end of the route without the arrival guard met (D29): ask for
+  /// "I'm here"; more than [overwalk] of the final leg beyond it, warn.
+  Instruction _unconfirmedArrival(RoutePlan r, int past) {
+    final name = map.places.firstWhere((p) => p.id == r.toId).name;
+    if (past > legLength(r.legs.last) * overwalk) {
+      return Instruction(
+        kind: InstructionKind.maybePassed,
+        placeName: name,
+        text: 'You may have passed $name.',
+      );
+    }
+    return Instruction(
+      kind: InstructionKind.arrivingConfirm,
+      placeName: name,
+      text: "$name should be right here — tap I'm here to confirm.",
     );
   }
 
