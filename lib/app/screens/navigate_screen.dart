@@ -23,6 +23,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
   bool _isSimulating = false;
   bool _showDebugButtons = false;
   bool _usedSimulation = false;
+  int? _vibratedTurnLegIndex;
+  bool _vibratedArrival = false;
   String? _errorMessage;
   String? _alreadyTherePlace;
   int _simulatedTimestamp = 0;
@@ -48,6 +50,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
   }
 
   void _startNavigation() {
+    _vibratedTurnLegIndex = null;
+    _vibratedArrival = false;
     final wiring = Wiring.instance;
     final startPlaceId = wiring.effectiveCurrentPlaceId;
 
@@ -140,11 +144,26 @@ class _NavigateScreenState extends State<NavigateScreen> {
 
     final wiring = Wiring.instance;
     final newInstruction = wiring.guide.next(route, position);
-    final oldKind = _currentInstruction?.kind;
 
-    // BUG 2: vibrate only once per new instruction kind
-    if (oldKind != newInstruction.kind) {
-      wiring.speaker.vibrate(newInstruction.kind);
+    // BUG 2b: Vibrate turnLeft/turnRight exactly ONCE per leg when steps <= tuning.turnNowSteps.
+    // Arrive vibrates once on arrival. Straight never vibrates.
+    final currentLeg = position.legIndex;
+    final isTurnKind = newInstruction.kind == InstructionKind.turnLeft ||
+        newInstruction.kind == InstructionKind.turnRight;
+    final isTurnNow = isTurnKind &&
+        newInstruction.steps != null &&
+        newInstruction.steps! <= tuning.turnNowSteps;
+
+    if (isTurnNow) {
+      if (_vibratedTurnLegIndex != currentLeg) {
+        _vibratedTurnLegIndex = currentLeg;
+        wiring.speaker.vibrate(newInstruction.kind);
+      }
+    } else if (newInstruction.kind == InstructionKind.arrive) {
+      if (!_vibratedArrival) {
+        _vibratedArrival = true;
+        wiring.speaker.vibrate(InstructionKind.arrive);
+      }
     }
 
     // BUG 4: speaker manages text formatting, cooldown, and stopping previous speech

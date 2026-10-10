@@ -53,7 +53,7 @@ class Wiring {
     matcher: FuzzyPlaceMatcher(),
     chooser: GemmaService(),
   );
-  final Speaker speaker = AppSpeaker();
+  Speaker speaker = AppSpeaker();
 
   final StreamController<Object> _simulatedEventsController = StreamController<Object>.broadcast();
 

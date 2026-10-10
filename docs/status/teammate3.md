@@ -3,6 +3,11 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct, 08:20
+Done: BUG 2b vibration timing fixed — turns vibrate exactly once per leg when steps <= turnNowSteps ("turn now"), arrive once on arrival, straight never; per-leg state maintained in navigate_screen. 131 tests green, analyze clean.
+Next: Physical on-device check of vibration pulse timing at turning thresholds.
+Blocked: Teammate 2 PR #2 (SensingSource) for live sensor stream.
+
 ## Sat 10 Oct, 04:00
 Done: COMMIT 1 (SIMULATED stays on arrival, debug buttons behind dev toggle), COMMIT 2 (bugs 1-4 fixed with regression tests: zero-leg guard, turn vibrations, mid-route "I am here", concise speech), COMMIT 3 (sensorEvents stream in wiring), COMMIT 4 (destination resolver box with thinking state). 129 tests green, analyze clean.
 Next: On-device phone checks for speech clarity/calm rate, physical vibration patterns, and Gemma resolver response.

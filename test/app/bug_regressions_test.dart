@@ -1,7 +1,9 @@
+// ignore_for_file: avoid_print, prefer_interpolation_to_compose_strings
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/tracker.dart';
+import 'package:breadcrumb/core/guide.dart';
 import 'package:breadcrumb/app/wiring.dart';
 import 'package:breadcrumb/app/speaker.dart';
 import 'package:breadcrumb/app/screens/destination_list_screen.dart';
@@ -60,6 +62,136 @@ void main() {
   });
 
   group('BUG 2 Regressions', () {
+    testWidgets('BUG 2b: full walk of route with left and right turn vibrates exactly once per turn at turnNowSteps and once on arrival', (tester) async {
+      final wiring = Wiring.instance;
+      wiring.currentPlaceId = 'cafe';
+
+      final recordedPatterns = <List<int>>[];
+      final originalSpeaker = wiring.speaker;
+      wiring.speaker = AppSpeaker(
+        customVibrate: (pattern, duration) async {
+          recordedPatterns.add(pattern);
+        },
+      );
+
+      // Route: cafe -> stage (has left turn at j1, right turn at j2, arrival at stage)
+      await tester.pumpWidget(const MaterialApp(
+        home: NavigateScreen(destinationId: 'stage'),
+      ));
+      await tester.pump();
+
+      // At start (stepsLeft = 10, > turnNowSteps 3): no vibration yet!
+      expect(recordedPatterns, isEmpty);
+
+      // Walk 6 steps on Leg 0 (steps along: 6, steps left: 4 > 3): still no vibration!
+      for (int i = 0; i < 6; i++) {
+        wiring.emitSimulatedEvent(StepEvent(100 * (i + 1)));
+        await tester.pump();
+      }
+      expect(recordedPatterns, isEmpty);
+
+      // Step 7 on Leg 0: steps along 7, stepsLeft = 3 (<= turnNowSteps 3): FIRST turn vibration fires!
+      wiring.emitSimulatedEvent(const StepEvent(700));
+      await tester.pump();
+      expect(recordedPatterns.length, 1);
+      expect(recordedPatterns.last, equals([0, 100, 100, 100])); // two short pulses for turnLeft
+
+      // Steps 8, 9, 10: remaining steps of leg 0: does NOT vibrate again
+      for (int i = 8; i <= 10; i++) {
+        wiring.emitSimulatedEvent(StepEvent(100 * i));
+        await tester.pump();
+      }
+      expect(recordedPatterns.length, 1);
+
+      // Turn left (+90) into Leg 1 (j1 -> j2, 20 steps heading 0)
+      wiring.emitSimulatedEvent(const TurnEvent(1100, 90.0));
+      await tester.pump();
+      expect(recordedPatterns.length, 1);
+
+      // Walk 16 steps along Leg 1 (steps along 16, steps left: 4 > 3): no vibration!
+      for (int i = 1; i <= 16; i++) {
+        wiring.emitSimulatedEvent(StepEvent(1100 + 100 * i));
+        await tester.pump();
+      }
+      expect(recordedPatterns.length, 1);
+
+      // Step 17 on Leg 1: steps along 17, stepsLeft = 3 (<= turnNowSteps 3): SECOND turn vibration fires!
+      wiring.emitSimulatedEvent(const StepEvent(2800));
+      await tester.pump();
+      expect(recordedPatterns.length, 2);
+      expect(recordedPatterns.last, equals([0, 300])); // one long pulse for turnRight
+
+      // Steps 18, 19, 20: does NOT vibrate again
+      for (int i = 18; i <= 20; i++) {
+        wiring.emitSimulatedEvent(StepEvent(2800 + 100 * (i - 17)));
+        await tester.pump();
+      }
+      expect(recordedPatterns.length, 2);
+
+      // Turn right (-90) into Leg 2 (j2 -> stage, 12 steps heading 270)
+      wiring.emitSimulatedEvent(const TurnEvent(3200, -90.0));
+      await tester.pump();
+      expect(recordedPatterns.length, 2);
+
+      // Walk 11 steps along Leg 2 (straight towards stage): straight NEVER vibrates!
+      for (int i = 1; i <= 11; i++) {
+        wiring.emitSimulatedEvent(StepEvent(3200 + 100 * i));
+        await tester.pump();
+      }
+      expect(recordedPatterns.length, 2);
+
+      // Step 12: arrival!
+      wiring.emitSimulatedEvent(const StepEvent(4400));
+      await tester.pump();
+      expect(recordedPatterns.length, 3);
+      expect(recordedPatterns.last, equals([0, 100, 100, 100, 100, 100])); // three short pulses for arrive
+
+      // Reset
+      wiring.speaker = originalSpeaker;
+      wiring.currentPlaceId = null;
+    });
+
+    test('walk real planned routes step by step and print steps left, kind, text', () {
+      final wiring = Wiring.instance;
+
+      void walkRoute(String from, String to, String title) {
+        print('=== $title ($from -> $to) ===');
+        final route = wiring.planner.plan(wiring.map, from, to);
+        final tracker = RouteTracker(wiring.map);
+        final guide = RouteGuide(wiring.map);
+        tracker.setRoute(route);
+        tracker.anchor(from);
+
+        var pos = tracker.position;
+        var instr = guide.next(route, pos);
+        print('[Start] leg=${pos.legIndex} stepsAlong=${pos.stepsAlong} | stepsLeft=${instr.steps}, kind=${instr.kind.name}, text="' + instr.text + '"');
+
+        int t = 1000;
+        for (int legIdx = 0; legIdx < route.legs.length; legIdx++) {
+          final leg = route.legs[legIdx];
+          for (int s = 0; s < leg.steps; s++) {
+            t += 500;
+            pos = tracker.onStep(StepEvent(t));
+            instr = guide.next(route, pos);
+            print('[Leg $legIdx step ${s + 1}/${leg.steps}] leg=${pos.legIndex} stepsAlong=${pos.stepsAlong} | stepsLeft=${instr.steps}, kind=${instr.kind.name}, text="' + instr.text + '"');
+          }
+          if (legIdx + 1 < route.legs.length) {
+            final nextLeg = route.legs[legIdx + 1];
+            final angle = turnBetween(leg.heading, nextLeg.heading);
+            if (angle.abs() >= 30) {
+              t += 500;
+              pos = tracker.onTurn(TurnEvent(t, angle));
+              instr = guide.next(route, pos);
+              print('[Turn $angle°] leg=${pos.legIndex} stepsAlong=${pos.stepsAlong} | stepsLeft=${instr.steps}, kind=${instr.kind.name}, text="' + instr.text + '"');
+            }
+          }
+        }
+      }
+
+      walkRoute('entrance', 'cafe', 'Entrance to Cafe (Left turn)');
+      walkRoute('entrance', 'stage', 'Entrance to Stage (Right turn)');
+    });
+
     test('fake vibrator records two short pulses for left turn, one long for right turn, three short for arrive', () async {
       final recordedPatterns = <List<int>>[];
       final recordedDurations = <int>[];
