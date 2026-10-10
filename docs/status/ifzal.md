@@ -13,8 +13,8 @@ iQOO benchmark (names-only demo map): matcher 45/120, + aliases 63/120, + Gemma 
 Not wired (other owners' paths, see PR): T2 record_screen calls suggest after Mark place;
 T3 wiring.warmAi uses AiTierGate + destinationResolverFor, chip shows aiChipLabel(tier).
 Open: Gemma aliases name the place, not what's there (no coffee/tea/show); RAM 0 (T2 stub)
-lets the load decide. PR #23 still open.
-Next: merge this PR; T2/T3 wire it; merge PR #23 and walk the loop with D29 flags.
+lets the load decide. PR #25 open, CI green, not merged. PR #23 still open.
+Next: merge PR #25; T2/T3 wire it (code in the PR body); merge PR #23 and walk the loop with D29 flags.
 Blocked: nothing. Last commit: this handoff.
 
 ## Sat 10 Oct 16:40, merge round 5: PR #16 and #14 merged
