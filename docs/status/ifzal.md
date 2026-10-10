@@ -12,8 +12,9 @@ useTurnConfirmer. All D29 flags are false on main.
 Replay (4 traces, 9 labelled turns): confirmer off 0 missed / 0 false, on 0 / 0 at
 turnConfirmWindowMs 8000 (was 4000: missed all 3 spike-walk turns). Synthetic straight
 walk + 3 sidesteps + 2 handlings: off passes 8 false turns, on 0. analyze clean, 404 green.
-iQOO: debug APK installed and launched, no FATAL / E/flutter. Flags not walked on the phone.
-Next: merge the Step 1-4 PR; walk the loop with the flags on, then flip them in tuning.dart.
+iQOO: debug APK installed and launched, no FATAL / E/flutter.
+In progress: PR #23 (Steps 1-4) open, CI green, not merged; flags not walked on the phone.
+Next: merge PR #23; walk the loop with the flags on, then flip them in tuning.dart.
 T2: real motionStates()/placements()/totalRamMb() (stubs return empty / 0).
 Blocked: nothing. Last commit: this handoff.
 
