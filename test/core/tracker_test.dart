@@ -1,6 +1,8 @@
 import 'package:breadcrumb/core/contracts.dart';
+import 'package:breadcrumb/core/guide.dart';
 import 'package:breadcrumb/core/route_planner.dart';
 import 'package:breadcrumb/core/tracker.dart';
+import 'package:breadcrumb/core/tuning.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'test_maps.dart';
@@ -194,5 +196,62 @@ void main() {
     tracker.onStep(const StepEvent(1));
     tracker.onTurn(const TurnEvent(2, 90));
     expect(tracker.anchor('food_counter').needsReplan, isTrue);
+  });
+
+  // D26: the bug seen on the iQOO. "I am here" moves the position past a
+  // junction before the person physically turns there, and at the destination
+  // the person turns to face the place; neither turn is off route.
+  test('"I am here" at each node, turning after each tap, ends on arrival', () {
+    final tracker = trackerFor('start', 'stage_side');
+    final guide = RouteGuide(demoMap);
+    final route = planner.plan(demoMap, 'start', 'stage_side');
+
+    tracker.tapHere('j1');
+    var p = turn(tracker, 90); // the left turn at j1, made after the tap
+    expect((p.legIndex, p.stepsAlong, p.offRoute), (1, 0, false));
+
+    tracker.tapHere('food_counter');
+    p = tracker.tapHere('j2');
+    p = turn(tracker, -90); // the right turn at j2
+    expect((p.legIndex, p.stepsAlong, p.offRoute), (3, 0, false));
+
+    p = tracker.tapHere('stage_side');
+    expect(guide.next(route, p).text, 'Stage side is here.');
+
+    p = turn(tracker, 90); // turning to face the place
+    expect(p.offRoute, isFalse);
+    final i = guide.next(route, p);
+    expect(i.kind, InstructionKind.arrive);
+    expect(i.text, 'Stage side is here.');
+  });
+
+  test('after arriving by steps, turns are ignored', () {
+    final tracker = trackerFor('j2', 'stage_side');
+    walk(tracker, 6);
+    final p = turn(tracker, -90);
+    expect((p.legIndex, p.stepsAlong, p.offRoute), (0, 6, false));
+  });
+
+  test('a late turn after a turn snap is absorbed, not counted twice', () {
+    final tracker = trackerFor('start', 'stage_side');
+    walk(tracker, 11);
+    expect(turn(tracker, 60).legIndex, 1); // detector splits the turn in two
+    final p = turn(tracker, 30);
+    expect((p.legIndex, p.stepsAlong, p.offRoute), (1, 0, false));
+  });
+
+  test('the late-turn window is lateTurnSteps and needs the right direction', () {
+    final wrongWay = trackerFor('start', 'stage_side');
+    wrongWay.tapHere('j1');
+    expect(turn(wrongWay, -90).offRoute, isTrue, reason: 'j1 needs a left');
+
+    final tooLate = trackerFor('start', 'stage_side');
+    tooLate.tapHere('j1');
+    walk(tooLate, lateTurnSteps + 1);
+    expect(turn(tooLate, 90).offRoute, isTrue);
+
+    final straightOn = trackerFor('j1', 'stage_side');
+    straightOn.tapHere('food_counter'); // c2 -> c3 is straight on: no turn to absorb
+    expect(turn(straightOn, 90).offRoute, isTrue);
   });
 }
