@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/tuning.dart' as tuning;
+import 'package:breadcrumb/app/theme.dart';
+import 'package:breadcrumb/app/widgets/ui/ui.dart';
 import 'package:breadcrumb/app/wiring.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
 import 'scan_screen.dart';
@@ -91,39 +93,39 @@ class _NavigateScreenState extends State<NavigateScreen> {
       _isSimulating = true;
       _usedSimulation = true;
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final currentPos = _position;
-      final currentRoute = _route;
-      if (currentPos == null || currentRoute == null) {
-        _stopSimulation();
-        return;
-      }
-
-      if (currentPos.legIndex >= currentRoute.legs.length) {
-        _stopSimulation();
-        return;
-      }
-
-      final currentLeg = currentRoute.legs[currentPos.legIndex];
-      _simulatedTimestamp += 500;
-
-      if (currentPos.stepsAlong < currentLeg.steps) {
-        wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
-      } else {
-        if (currentPos.legIndex + 1 < currentRoute.legs.length) {
-          final nextLeg = currentRoute.legs[currentPos.legIndex + 1];
-          final turnAngle = turnBetween(currentLeg.heading, nextLeg.heading);
-          if (turnAngle.abs() >= tuning.straightTolerance) {
-            wiring.emitSimulatedEvent(TurnEvent(_simulatedTimestamp, turnAngle));
-          } else {
-            // Straight boundary: carry on with step
-            wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
-          }
-        } else {
-          // Finished route
+        final currentPos = _position;
+        final currentRoute = _route;
+        if (currentPos == null || currentRoute == null) {
           _stopSimulation();
           return;
         }
-      }
+
+        if (currentPos.legIndex >= currentRoute.legs.length) {
+          _stopSimulation();
+          return;
+        }
+
+        final currentLeg = currentRoute.legs[currentPos.legIndex];
+        _simulatedTimestamp += 500;
+
+        if (currentPos.stepsAlong < currentLeg.steps) {
+          wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
+        } else {
+          if (currentPos.legIndex + 1 < currentRoute.legs.length) {
+            final nextLeg = currentRoute.legs[currentPos.legIndex + 1];
+            final turnAngle = turnBetween(currentLeg.heading, nextLeg.heading);
+            if (turnAngle.abs() >= tuning.straightTolerance) {
+              wiring.emitSimulatedEvent(TurnEvent(_simulatedTimestamp, turnAngle));
+            } else {
+              // Straight boundary: carry on with step
+              wiring.emitSimulatedEvent(StepEvent(_simulatedTimestamp));
+            }
+          } else {
+            // Finished route
+            _stopSimulation();
+            return;
+          }
+        }
       });
     }
   }
@@ -149,14 +151,13 @@ class _NavigateScreenState extends State<NavigateScreen> {
     final wiring = Wiring.instance;
     final newInstruction = wiring.guide.next(route, position);
 
-    // BUG 2b: Vibrate turnLeft/turnRight exactly ONCE per leg when steps <= tuning.turnNowSteps.
+    // BUG 2b: Vibrate turnLeft/turnRight exactly ONCE per leg, at "Turn left/right at
+    // the corner" (steps == 0, D27), not at "Get ready to turn".
     // Arrive vibrates once on arrival. Straight never vibrates.
     final currentLeg = position.legIndex;
     final isTurnKind = newInstruction.kind == InstructionKind.turnLeft ||
         newInstruction.kind == InstructionKind.turnRight;
-    final isTurnNow = isTurnKind &&
-        newInstruction.steps != null &&
-        newInstruction.steps! <= tuning.turnNowSteps;
+    final isTurnNow = isTurnKind && newInstruction.steps == 0;
 
     if (isTurnNow) {
       if (_vibratedTurnLegIndex != currentLeg) {
@@ -232,6 +233,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final showSimulated = _isSimulating || _usedSimulation;
+
     if (_errorMessage != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Navigation Error')),
@@ -241,11 +244,11 @@ class _NavigateScreenState extends State<NavigateScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const Icon(Icons.error_outline, size: 64, color: BreadcrumbTheme.danger),
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage!,
-                  style: const TextStyle(fontSize: 20),
+                  style: BreadcrumbTheme.title,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -262,18 +265,33 @@ class _NavigateScreenState extends State<NavigateScreen> {
 
     if (_alreadyTherePlace != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Arrived')),
+        appBar: AppBar(
+          title: const Text('Arrived'),
+          actions: [
+            if (showSimulated)
+              const Padding(
+                padding: EdgeInsets.only(right: 16.0),
+                child: Center(
+                  child: StatusPill.simulated(),
+                ),
+              ),
+          ],
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+                if (showSimulated) ...[
+                  const StatusPill.simulated(),
+                  const SizedBox(height: 16),
+                ],
+                const Icon(Icons.check_circle_outline, size: 64, color: BreadcrumbTheme.accent),
                 const SizedBox(height: 16),
                 Text(
                   "You're already at $_alreadyTherePlace",
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: BreadcrumbTheme.heading,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -302,7 +320,6 @@ class _NavigateScreenState extends State<NavigateScreen> {
     }
 
     final progress = totalSteps > 0 ? (stepsTaken / totalSteps).clamp(0.0, 1.0) : 0.0;
-    final showSimulated = _isSimulating || _usedSimulation;
 
     return Scaffold(
       appBar: AppBar(
@@ -316,76 +333,102 @@ class _NavigateScreenState extends State<NavigateScreen> {
         ),
         actions: [
           if (showSimulated)
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0),
+            const Padding(
+              padding: EdgeInsets.only(right: 16.0),
               child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade900,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'SIMULATED',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
+                child: StatusPill.simulated(),
               ),
             ),
         ],
       ),
-      body: Column(
-        children: [
-          if (showSimulated)
-            Container(
-              width: double.infinity,
-              color: Colors.amber.shade800,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: const Text(
-                'SIMULATED',
+      body: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showSimulated)
+              Container(
+                width: double.infinity,
+                color: Colors.amber.shade800,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: const Text(
+                  'SIMULATED',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+              ),
+
+            // Live instruction at 42pt (BreadcrumbTheme.liveInstruction)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              child: Text(
+                _currentInstruction?.text ?? 'Calculating...',
+                style: BreadcrumbTheme.liveInstruction,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  letterSpacing: 2.0,
+              ),
+            ),
+
+            // Progress indicator
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 2.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: BreadcrumbTheme.surfaceRaised,
+                  valueColor: const AlwaysStoppedAnimation<Color>(BreadcrumbTheme.accent),
                 ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              _currentInstruction?.text ?? 'Calculating...',
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+
+            // Step count readout
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+              child: Text(
+                '${_currentInstruction?.steps ?? 0} steps left on this leg',
+                style: BreadcrumbTheme.bodySecondary,
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 10,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              '${_currentInstruction?.steps ?? 0} steps left on this leg',
-              style: const TextStyle(fontSize: 20),
+
+            // Huge arrow icon
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: BreadcrumbTheme.surface,
+                    shape: BoxShape.circle,
+                    boxShadow: BreadcrumbTheme.accentGlow,
+                    border: Border.all(color: BreadcrumbTheme.border),
+                  ),
+                  child: Icon(
+                    _getArrowIcon(_currentInstruction?.kind),
+                    size: 80,
+                    color: BreadcrumbTheme.accent,
+                  ),
+                ),
+              ),
             ),
-          ),
-          Icon(
-            _getArrowIcon(_currentInstruction?.kind),
-            size: 100,
-            color: Colors.blue,
-          ),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(border: Border.all()),
-              child: ClipRect(
+
+            // Trail card at the bottom
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+              child: Container(
+                height: 140,
+                decoration: BoxDecoration(
+                  color: BreadcrumbTheme.surface,
+                  borderRadius: BreadcrumbTheme.borderRadius,
+                  border: Border.all(color: BreadcrumbTheme.border),
+                ),
+                clipBehavior: Clip.antiAlias,
                 child: TrailView(
                   map: wiring.map,
                   route: route,
@@ -393,81 +436,102 @@ class _NavigateScreenState extends State<NavigateScreen> {
                 ),
               ),
             ),
-          ),
-          if (_showDebugButtons && kDebugMode)
+
+            // Dev toggle debug buttons
+            if (_showDebugButtons && kDebugMode)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    const Text('DEBUG: ', style: TextStyle(fontWeight: FontWeight.bold, color: BreadcrumbTheme.textSecondary)),
+                    OutlinedButton(
+                      onPressed: _onStepDebug,
+                      child: const Text('+1 step'),
+                    ),
+                    OutlinedButton(
+                      onPressed: _onTurnLeftDebug,
+                      child: const Text('turn left'),
+                    ),
+                    OutlinedButton(
+                      onPressed: _onTurnRightDebug,
+                      child: const Text('turn right'),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Actions row: "I am here" & "Scan sign"
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('DEBUG: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                  OutlinedButton(
-                    onPressed: _onStepDebug,
-                    child: const Text('+1 step'),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: BreadcrumbTheme.primaryButton,
+                      onPressed: _onImHere,
+                      child: const Text('I am here'),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: _onTurnLeftDebug,
-                    child: const Text('turn left'),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: _onTurnRightDebug,
-                    child: const Text('turn right'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: BreadcrumbTheme.surface,
+                        foregroundColor: BreadcrumbTheme.textPrimary,
+                        side: const BorderSide(color: BreadcrumbTheme.border),
+                        minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                        shape: const RoundedRectangleBorder(borderRadius: BreadcrumbTheme.borderRadius),
+                        textStyle: BreadcrumbTheme.button,
+                      ),
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ScanScreen(
+                              destinationId: widget.destinationId,
+                              currentRoute: _route,
+                              onReplan: (newRoute, newPosition) {
+                                setState(() {
+                                  _route = newRoute;
+                                  _position = newPosition;
+                                });
+                                _updateInstruction();
+                              },
+                            ),
+                          ),
+                        );
+                        _updateInstruction();
+                      },
+                      child: const Text('Scan sign'),
+                    ),
                   ),
                 ],
               ),
             ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                onPressed: _onImHere,
-                child: const Text('I am here'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ScanScreen(
-                        destinationId: widget.destinationId,
-                        currentRoute: _route,
-                        onReplan: (newRoute, newPosition) {
-                          setState(() {
-                            _route = newRoute;
-                            _position = newPosition;
-                          });
-                          _updateInstruction();
-                        },
-                      ),
-                    ),
-                  );
-                  _updateInstruction();
-                },
-                child: const Text('Scan sign'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   IconData _getArrowIcon(InstructionKind? kind) {
-    if (kind == null) return Icons.arrow_upward;
+    if (kind == null) return Icons.arrow_upward_rounded;
     switch (kind) {
       case InstructionKind.turnLeft:
-        return Icons.turn_left;
+        return Icons.turn_left_rounded;
       case InstructionKind.turnRight:
-        return Icons.turn_right;
+        return Icons.turn_right_rounded;
       case InstructionKind.turnAround:
-        return Icons.u_turn_left;
+        return Icons.u_turn_left_rounded;
       case InstructionKind.arrive:
-        return Icons.flag;
+        return Icons.flag_rounded;
       default:
-        return Icons.arrow_upward;
+        return Icons.arrow_upward_rounded;
     }
   }
 }

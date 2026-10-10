@@ -1,3 +1,4 @@
+import 'package:breadcrumb/app/widgets/trail_view.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -16,6 +17,7 @@ void main() {
   final wiring = Wiring.instance;
 
   setUp(() async {
+    TrailView.defaultAnimate = false;
     documents = await Directory.systemTemp.createTemp('breadcrumb-reload-');
     wiring.documentsDirectory = () async => documents;
     wiring.map = Wiring.defaultDemoMap;
@@ -23,6 +25,7 @@ void main() {
   });
 
   tearDown(() async {
+    TrailView.defaultAnimate = true;
     wiring.documentsDirectory = getApplicationDocumentsDirectory;
     wiring.map = Wiring.defaultDemoMap;
     wiring.currentPlaceId = null;
