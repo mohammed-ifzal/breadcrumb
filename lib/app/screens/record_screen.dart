@@ -32,11 +32,20 @@ typedef RecordMapSave = Future<String> Function(contracts.MapGraph map);
 /// Permissions are granted by the app shell. An injected stream remains owned by
 /// its caller; this screen owns and closes only its default sensing source.
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key, this.mapBuilder, this.events, this.save});
+  const RecordScreen({
+    super.key,
+    this.mapBuilder,
+    this.events,
+    this.save,
+    this.sensingSource,
+  });
 
   final contracts.MapBuilder? mapBuilder;
   final Stream<Object>? events;
   final RecordMapSave? save;
+
+  /// Injected sources remain caller-owned; their walk trace is stopped here.
+  final contracts.SensingSource? sensingSource;
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -50,6 +59,12 @@ class _RecordScreenState extends State<RecordScreen> {
   ValueNotifier<contracts.MapGraph>? _map;
   StreamSubscription<Object>? _subscription;
   SensingSource? _ownedSource;
+  contracts.SensingSource? _traceSource;
+  Future<void>? _startingTrace;
+  final _pendingTraceMarks = <String>[];
+  bool _traceReady = false;
+  bool _traceFailed = false;
+  bool _floorChanging = false;
   Future<void>? _closingSensors;
   contracts.MapGraph? _finished;
   final _turns = <double>[];
@@ -82,7 +97,11 @@ class _RecordScreenState extends State<RecordScreen> {
         _recording = true;
         _sensorError = null;
       });
-      final events = widget.events ?? (_ownedSource = SensingSource()).events();
+      final source =
+          widget.sensingSource ??
+          (widget.events == null ? (_ownedSource = SensingSource()) : null);
+      _traceSource = source;
+      final events = widget.events ?? source!.events();
       _subscription = events.listen(
         _onEvent,
         onError: _onSensorError,
@@ -95,8 +114,131 @@ class _RecordScreenState extends State<RecordScreen> {
           });
         },
       );
+      if (source != null) _startingTrace = _beginTrace(source, name);
     } catch (error) {
       _onSensorError(error);
+    }
+  }
+
+  Future<void> _beginTrace(contracts.SensingSource source, String name) async {
+    try {
+      await source.startTrace({'map': name, 'walker': 'record', 'from': 'p0'});
+      _traceReady = true;
+      for (final note in _pendingTraceMarks) {
+        _writeTraceMark(source, note);
+      }
+    } catch (error) {
+      _traceFailure(error);
+    } finally {
+      _pendingTraceMarks.clear();
+    }
+  }
+
+  void _traceFailure(Object error) {
+    if (_traceFailed) return;
+    _traceFailed = true;
+    debugPrint('Record trace failed: $error');
+  }
+
+  void _writeTraceMark(contracts.SensingSource source, String note) {
+    if (_traceFailed) return;
+    try {
+      source.mark(note);
+    } catch (error) {
+      _traceFailure(error);
+    }
+  }
+
+  void _traceMark(String note) {
+    final source = _traceSource;
+    if (source == null || _traceFailed) return;
+    if (_traceReady) {
+      _writeTraceMark(source, note);
+    } else {
+      _pendingTraceMarks.add(note);
+    }
+  }
+
+  Future<void> _changeFloor() async {
+    final builder = _builder;
+    if (!_recording || _floorChanging || builder is! recording.MapBuilder) {
+      return;
+    }
+    setState(() => _floorChanging = true);
+    try {
+      final delta = await showDialog<int>(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: const Text('Change floor'),
+          content: const Text('Which direction?'),
+          actions: [
+            TextButton(
+              key: const ValueKey('floor-cancel'),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              key: const ValueKey('floor-down'),
+              onPressed: () => Navigator.pop(context, -1),
+              child: const Text('Down'),
+            ),
+            TextButton(
+              key: const ValueKey('floor-up'),
+              onPressed: () => Navigator.pop(context, 1),
+              child: const Text('Up'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || !_recording || delta == null) return;
+      final kind = await showDialog<contracts.CorridorKind>(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: const Text('Choose transport'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final kind in [
+                contracts.CorridorKind.stairs,
+                contracts.CorridorKind.escalator,
+                contracts.CorridorKind.lift,
+              ])
+                TextButton(
+                  key: ValueKey('floor-${kind.name}'),
+                  onPressed: () => Navigator.pop(context, kind),
+                  child: Text(
+                    '${kind.name[0].toUpperCase()}${kind.name.substring(1)}',
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              key: const ValueKey('floor-cancel'),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || !_recording || kind == null) return;
+      final from = _map!.value.places.last.floor;
+      builder.changeFloor(delta, kind);
+      // A floor transition moves away from a previously marked position even
+      // without horizontal steps; D23 must add the endpoint on the new floor.
+      _stepsAtLastMark = null;
+      _map!.value = builder.snapshot();
+      _traceMark(
+        'Floor change: ${delta > 0 ? 'up' : 'down'} via ${kind.name} (Floor $from -> Floor ${from + delta})',
+      );
+      setState(() {});
+    } catch (error) {
+      _onSensorError(error);
+    } finally {
+      if (mounted) setState(() => _floorChanging = false);
     }
   }
 
@@ -128,6 +270,7 @@ class _RecordScreenState extends State<RecordScreen> {
     if (!_recording || name.isEmpty) return;
     try {
       _builder.addPlace(name, const []);
+      _traceMark(name);
       _stepsAtLastMark = _steps;
       _map!.value = _builder.snapshot();
       _placeName.clear();
@@ -152,6 +295,7 @@ class _RecordScreenState extends State<RecordScreen> {
         // place at zero distance. Otherwise make the endpoint selectable.
         if (_stepsAtLastMark != _steps) {
           _builder.addPlace('End of walk', const []);
+          _traceMark('End of walk');
           _stepsAtLastMark = _steps;
           _map!.value = _builder.snapshot();
         }
@@ -165,6 +309,7 @@ class _RecordScreenState extends State<RecordScreen> {
     } catch (error) {
       if (mounted) setState(() => _saveError = 'Could not save map: $error');
     } finally {
+      unawaited(_releaseSensors());
       if (mounted) setState(() => _saving = false);
     }
   }
@@ -174,15 +319,27 @@ class _RecordScreenState extends State<RecordScreen> {
   Future<void> _closeSensors() async {
     final subscription = _subscription;
     _subscription = null;
+    // Trace closure proceeds independently of platform subscription teardown.
+    final closingTrace = _closeTrace();
     try {
       await subscription?.cancel();
     } catch (error) {
       debugPrint('Record subscription cleanup failed: $error');
     }
+    await closingTrace;
     try {
       await _ownedSource?.dispose();
     } catch (error) {
       debugPrint('Record sensing cleanup failed: $error');
+    }
+  }
+
+  Future<void> _closeTrace() async {
+    try {
+      await _startingTrace;
+      await _traceSource?.stopTrace();
+    } catch (error) {
+      _traceFailure(error);
     }
   }
 
@@ -261,6 +418,20 @@ class _RecordScreenState extends State<RecordScreen> {
                           ? 'Last turn: none'
                           : 'Last turn: ${_formatTurn(_turns.last)}',
                     ),
+                    Text(
+                      'Current floor: ${_map!.value.places.last.floor}',
+                      key: const ValueKey('current-floor'),
+                    ),
+                    if (_recording)
+                      OutlinedButton.icon(
+                        key: const ValueKey('record-floor'),
+                        onPressed:
+                            _floorChanging || _builder is! recording.MapBuilder
+                            ? null
+                            : _changeFloor,
+                        icon: const Icon(Icons.swap_vert),
+                        label: const Text('Change floor'),
+                      ),
                     if (_turns.length > 1) ...[
                       const Text('Recent turns, newest first:'),
                       for (final angle in _turns.reversed.take(3))
