@@ -16,7 +16,7 @@ class RouteGuide implements Guide {
     if (p.offRoute) {
       return const Instruction(
         kind: InstructionKind.offRoute,
-        text: "That turn wasn't on the route. Scan a nearby sign to re-locate.",
+        text: "Looks like you went off the path. Go back to the last corner or tap I'm here.",
       );
     }
     final last = r.legs.length - 1;
@@ -25,6 +25,10 @@ class RouteGuide implements Guide {
       return _arrive(r);
     }
     if (r.legs[i].isTransition) return _changeFloor(r.legs[i]);
+    if (p.orienting) {
+      final face = _orient(r, i, p.facing);
+      if (face != null) return face;
+    }
 
     // Distance to the next turn, or to the destination, across straight-on joins.
     final j = runEnd(r, i);
@@ -35,14 +39,6 @@ class RouteGuide implements Guide {
         kind: InstructionKind.straight,
         steps: steps,
         text: 'Walk straight, about $steps steps.',
-      );
-    }
-
-    final leg = r.legs[i];
-    if (j == i && p.stepsAlong - leg.steps > leg.steps * overwalk) {
-      return const Instruction(
-        kind: InstructionKind.rescan,
-        text: 'You may have passed the turn. Point the camera at a sign.',
       );
     }
 
@@ -61,13 +57,54 @@ class RouteGuide implements Guide {
             );
     }
 
+    // Step counts drift, so near the corner it says "get ready" and only "at the
+    // corner" once the counted steps run out (D27).
     final left = turn > 0;
     final side = left ? 'left' : 'right';
     return Instruction(
       kind: left ? InstructionKind.turnLeft : InstructionKind.turnRight,
       steps: steps,
-      text: now ? 'Turn $side now.' : 'In about $steps steps, turn $side.',
+      text: steps == 0
+          ? 'Turn $side at the corner.'
+          : now
+          ? 'Get ready to turn $side.'
+          : 'In about $steps steps, turn $side.',
     );
+  }
+
+  /// Before the first step (D27): turn the walker to face leg [i]. Null when the
+  /// assumed [facing] already points along it (within [straightTolerance]).
+  Instruction? _orient(RoutePlan r, int i, double? facing) {
+    if (facing == null) {
+      return Instruction(
+        kind: InstructionKind.straight,
+        text: 'Face ${_nextPlaceName(r, i)} and start walking.',
+      );
+    }
+    final turn = turnBetween(facing, r.legs[i].heading);
+    if (turn.abs() < straightTolerance) return null;
+    if (turn.abs() > turnAroundAngle) {
+      return const Instruction(
+        kind: InstructionKind.turnAround,
+        text: 'Turn around, then walk straight.',
+      );
+    }
+    final left = turn > 0;
+    return Instruction(
+      kind: left ? InstructionKind.turnLeft : InstructionKind.turnRight,
+      text: 'Turn ${left ? 'left' : 'right'}, then walk straight.',
+    );
+  }
+
+  /// The first named place (not a junction) the route reaches from leg [i] on.
+  String _nextPlaceName(RoutePlan r, int i) {
+    for (var k = i; k < r.legs.length; k++) {
+      final leg = r.legs[k];
+      final c = map.corridors.firstWhere((c) => c.id == leg.corridorId);
+      final end = map.places.firstWhere((p) => p.id == (leg.reversed ? c.from : c.to));
+      if (end.kind != PlaceKind.junction) return end.name;
+    }
+    return map.places.firstWhere((p) => p.id == r.toId).name;
   }
 
   /// "Take the stairs up to Floor 1." on the leg and in the last [turnNowSteps]

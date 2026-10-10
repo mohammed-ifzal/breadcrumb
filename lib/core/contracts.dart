@@ -265,6 +265,8 @@ class Position {
     required this.anchoredBy,
     this.offRoute = false,
     this.needsReplan = false,
+    this.orienting = false,
+    this.facing,
   });
 
   final int legIndex;
@@ -274,6 +276,13 @@ class Position {
 
   /// Set when an anchor lands on a place that isn't on the current route.
   final bool needsReplan;
+
+  /// True from the start of a route until the first step (D27).
+  final bool orienting;
+
+  /// While [orienting]: the direction the walker is assumed to face, in map
+  /// degrees, or null when unknown (D27).
+  final double? facing;
 }
 
 class Instruction {
