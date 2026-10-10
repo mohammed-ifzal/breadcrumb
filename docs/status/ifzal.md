@@ -3,6 +3,18 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 14:10, loop fixes (branch ifzal/loop-fixes, PR open)
+Missing places cause: Home's initState was the only reloadActiveMap() call. App started 13:08:44,
+maps/ first written 13:24, latest.json 13:26, so Navigate kept the demo map. Fix: DestinationListScreen
+reloads on open; Wiring skips an unchanged file (keeps "You are at"). Start/place/End of walk filters were fine.
+D25 turnSnapDegrees 45 -> 90. D26 Tracker: turns ignored after arrival; a turn within lateTurnSteps (3)
+after a node already passed by tap/sign/snap, right direction, is absorbed (fixes "I am here" -> offRoute).
+Files touched for T3: lib/app/wiring.dart, lib/app/screens/destination_list_screen.dart,
+test/app/latest_map_reload_test.dart (new). For T2: test/core/map_builder_test.dart (44 deg now -> 0; iQOO angles case).
+analyze clean, 255 tests green. Installed on iQOO: Navigate shows team groza table / washroom / food counter.
+Next: Ifzal re-records the loop and navigates it in aeroplane mode; check End of walk + arrival on device.
+Blocked: GitHub unreachable at 13:50 (pull/push failed); main not re-pulled. Last commit: this handoff.
+
 ## Sat 10 Oct 13:10, merge round 3: PR #9, #8, #10 merged
 PR #9 (T3 real sensors + sign scan, head 9f040b9) merged 40f16af: analyze clean, 201 tests, CI green.
 PR #8 (T2 record, cf0404a) merged 0cf4c60: 231 tests, CI green. Ownership note: T2 added two new
