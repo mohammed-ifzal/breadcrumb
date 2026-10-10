@@ -45,7 +45,25 @@ without new evidence.
 | Spike | Result | Numbers | Fallback chosen |
 | --- | --- | --- | --- |
 | Gemma 4 on the iQOO | **Pass** (10 Oct, aeroplane mode, `flutter_edge_ai` 2.1.1 + `flutter_edge_ai_litertlm` 1.10.1, D20). Loads from the D18 path (option A works, option B not needed). Backend **GPU** (OpenCL), no CPU fallback. Presets: "where can I get coffee" -> Food counter via Gemma, **pass** (first prompt version gave null; the system prompt now says a request may ask for something you can get at a place); "take me back to the stage" -> Stage side via Gemma, **pass**; "मुझे खाने की जगह जाना है" -> Food counter via Gemma, **pass**; "take me to the moon" -> null, **pass**. | Load 2758 ms + warm-up 539 ms (screen on; the very first load also compiles GPU programs and took far longer, with the screen asleep). Answers: coffee 6059 ms, stage 5739 ms, Hindi 5264 ms, moon 4118 ms. About 4 s of each is `createConversation` building the tool grammar; generation is 0.3-1.3 s. | Not needed; tap-a-place stays as the UI fallback when the answer is null |
-| Step detector present? | | steps counted / real steps | |
-| Turn detection | | angles seen for 90-degree turns | |
+| Step detector present? | Yes; hardware-only displayed count | Slow: 20 / 20 / 20 for 20 real steps; fast: reported 10–15% undercount | Accel fallback only when hardware is unavailable |
+| Turn detection | Left/right and sway trials pass (Talha reported) | Left: +89, +88, +91 degrees; right: -88, -87, -88.4 degrees; ~20-degree sway: no false turn | None |
 | ML Kit on signs | | signs read correctly / total | |
 | Offline speech recogniser | | | |
+
+### Talha's physical sensing spike — 10 Oct 2026
+
+- Phone: iQOO I2501 (Android `ro.product.model`); adb device `10BFBJ1L2J001GG`.
+- Hardware step detector: yes; `android.hardware.sensor.stepdetector` and `android.hardware.sensor.stepcounter` features verified on the device.
+- 20 real steps, slow: **20 / 20 / 20** (Talha reported).
+- 20 real steps, normal: **about 19 to 21 per trial**; Talha recalled **20 / 20 / 20**. These are approximate figures reported by Talha, not recorded per-trial measurements.
+- 20 real steps, fast: **about 17 to 18 per trial**; Talha recalled **17 / 18 / 17** (about 10–15% undercount). These are approximate figures reported by Talha, not recorded per-trial measurements. The displayed count is hardware-only, with no hardware/accel fusion.
+- Immediate versus after five seconds: Talha reports that fast counts were read immediately and were **unchanged after five seconds**; this is an approximate recollection, not a recorded per-trial comparison.
+- Earlier first-round counts: **20 / 18 / 17**, retained for honesty.
+- 90-degree left x3: **+89, +88, +91 degrees** (Talha reported).
+- 90-degree right x3: **-88, -87, -88.4 degrees** (Talha reported).
+- Sway about 20 degrees: **no false turn** (Talha reported).
+- Hold: Talha reports holding the phone normally at approximately **lower chest height, slightly above the waist**; position is approximate and was not measured.
+- Trace: `docs/traces/spike_walk_talha.jsonl` is from the **first session**; the later **nine-trial retest was not recorded to a separate trace file**. It was pulled from the newest device file `2026-10-09-T2-sensing_spike-1791578862394701.jsonl`. Walking with a right turn, a left turn, and another right turn, with matching tester marks. **2,274 valid JSON lines**: 1 meta, 2,232 motion samples (`yawRate` and `accel`), 38 hardware step events, 3 marks; no separate derived-turn records. Time span: **44.620 seconds**, t=1,071,365..1,115,985 ms; file size **191,291 bytes**. Replaying the current TurnDetector rules gives **-87.24, +92.82, -70.75 degrees**; these are this recorded walk's results, separate from the reported 90-degree trial series above. Raw hardware events do not establish the number of real footfalls.
+- Native change: `SensingChannel.kt` was edited so a failed optional step sensor no longer unregisters gyro and accel (or gravity); it emits `stepDetector:false` once and leaves motion sensing running.
+- Open item: `maxMotionGapMs = 200` remains local to sensing code; captain to add `const int maxMotionGapMs = 200;` to `lib/core/tuning.dart`, then T2 can use that shared constant.
+- Verification: cadence regression tests preserve all 20 synthetic steps at 333, 400 and 1,000 ms intervals in hardware and fallback paths; stationary motion/turn tests add no steps. This is software evidence, not proof that the physical fast-step undercount is fixed. Protected fallback settings remain unchanged: `accelPeakThreshold = 11.5` m/s2 and `accelPeakMinGapMs = 300` ms.
