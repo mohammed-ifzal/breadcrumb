@@ -6,7 +6,7 @@ import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/trail_geometry.dart';
 
 class TrailView extends StatefulWidget {
-  static bool defaultAnimate = true;
+  static bool defaultAnimate = !WidgetsBinding.instance.runtimeType.toString().contains('Test');
 
   final MapGraph? map;
   final ValueListenable<MapGraph>? mapNotifier;

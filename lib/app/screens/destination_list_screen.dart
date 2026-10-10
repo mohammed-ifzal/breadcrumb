@@ -74,17 +74,27 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
         _submit();
       } else {
         final err = Wiring.instance.speechInput.lastError;
+        final String errorText;
+        if (err != null) {
+          if (err == 'error_language_unavailable') {
+            errorText = 'Speech pack missing on this phone. '
+                'Type the place or pick from the list.';
+          } else {
+            errorText = '${describeSpeechError(err)}. '
+                'Type the place or pick from the list.';
+          }
+        } else {
+          errorText = 'No speech detected. Type the place or pick from the list.';
+        }
         setState(() {
-          _feedbackMessage = err != null
-              ? describeSpeechError(err)
-              : 'No speech detected. Try speaking again or type.';
+          _feedbackMessage = errorText;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isListening = false;
-          _feedbackMessage = 'Speech error: $e';
+          _feedbackMessage = '$e. Type the place or pick from the list.';
         });
       }
     }
@@ -94,19 +104,56 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
     final utterance = _controller.text.trim();
     if (utterance.isEmpty || _isThinking) return;
 
+    final wiring = Wiring.instance;
+    final map = wiring.map;
+    final currentPlace = wiring.effectiveCurrentPlaceId;
+
+    // 1. Always try fuzzy PlaceMatcher first (exact place name or alias works with no AI)
+    final fuzzyMatch = wiring.placeMatcher.match(utterance, map);
+    if (fuzzyMatch != null) {
+      final targetId = fuzzyMatch.placeId;
+      final isValid = map.places.any(
+        (p) =>
+            p.id == targetId &&
+            p.kind != PlaceKind.junction &&
+            p.id != currentPlace,
+      );
+      if (isValid) {
+        setState(() {
+          _isThinking = false;
+          _feedbackMessage = null;
+        });
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NavigateScreen(destinationId: targetId),
+          ),
+        );
+        return;
+      }
+    }
+
+    // 2. No match and AI not ready/unavailable: immediately show message with no spinner
+    if (!wiring.aiStatus.value.isReady) {
+      setState(() {
+        _isThinking = false;
+        _feedbackMessage = "AI isn't ready. Pick from the list";
+      });
+      return;
+    }
+
+    // 3. AI ready: call resolver with timeout, keeping existing stale-answer protection
     final requestId = ++_latestRequestId;
     setState(() {
       _isThinking = true;
       _feedbackMessage = null;
     });
 
-    final wiring = Wiring.instance;
-    final map = wiring.map;
-    final currentPlace = wiring.effectiveCurrentPlaceId;
-
     PlaceMatch? match;
     try {
-      match = await wiring.destinationResolver.resolve(utterance, map);
+      match = await wiring.destinationResolver
+          .resolve(utterance, map)
+          .timeout(wiring.destinationResolveTimeout);
     } catch (_) {
       match = null;
     }
@@ -115,10 +162,12 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
 
     final targetId = match?.placeId;
     final isValid = targetId != null &&
-        map.places.any((p) =>
-            p.id == targetId &&
-            p.kind != PlaceKind.junction &&
-            p.id != currentPlace);
+        map.places.any(
+          (p) =>
+              p.id == targetId &&
+              p.kind != PlaceKind.junction &&
+              p.id != currentPlace,
+        );
 
     if (isValid) {
       setState(() {
@@ -248,14 +297,43 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
           // AI Ready indicator
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: ValueListenableBuilder<bool>(
-              valueListenable: wiring.isAiReady,
-              builder: (context, ready, _) {
-                return StatusPill(
-                  label: ready ? 'AI ready' : 'AI warming...',
-                  icon: ready ? Icons.memory_rounded : Icons.hourglass_top_rounded,
-                  tone: ready ? StatusTone.accent : StatusTone.neutral,
-                );
+            child: ValueListenableBuilder<AiStatus>(
+              valueListenable: wiring.aiStatus,
+              builder: (context, status, _) {
+                if (status.isReady) {
+                  return const StatusPill(
+                    label: 'AI ready',
+                    icon: Icons.memory_rounded,
+                    tone: StatusTone.accent,
+                  );
+                } else if (status.isLoading) {
+                  return const StatusPill(
+                    label: 'AI warming...',
+                    icon: Icons.hourglass_top_rounded,
+                    tone: StatusTone.neutral,
+                  );
+                } else {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const StatusPill(
+                        label: 'AI unavailable',
+                        icon: Icons.cloud_off_rounded,
+                        tone: StatusTone.warning,
+                      ),
+                      if (status.reason != null && status.reason!.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          status.reason!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: BreadcrumbTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                }
               },
             ),
           ),

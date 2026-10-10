@@ -12,6 +12,17 @@ import 'package:breadcrumb/app/screens/navigate_screen.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUp(() {
+    // Prevent warmAi from creating a pending timer in tests.
+    Wiring.instance.resetAiForTesting();
+    Wiring.instance.aiStatus.value = const AiStatus.ready();
+    Wiring.instance.isAiReady.value = true;
+  });
+
+  tearDown(() {
+    Wiring.instance.resetAiForTesting();
+  });
+
   group('BUG 1 Regressions', () {
     testWidgets('current place is never shown in destination list', (tester) async {
       final wiring = Wiring.instance;
