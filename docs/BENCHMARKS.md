@@ -2,6 +2,74 @@
 
 Measured on the phone, never estimated. Newest run at the top.
 
+## AI tiers and generated aliases (D30) on the iQOO 15, Sun 11 Oct 00:40
+
+**Setup:** branch `ifzal/ai-tier`, debug APK of `lib/ai/debug_main.dart` with
+`--dart-define=BENCH=tiers`, iQOO I2501 (15.6 GB RAM, so `DeviceTier.full`). Gemma 4 E2B
+on GPU: load 2671 ms + warm-up 465 ms. Aeroplane mode was off, but nothing in the path
+uses the network.
+
+**Method:** the same 40 requests (`lib/ai/benchmark.dart`), 3 rounds per mode, on the
+demo map with **its hand-typed aliases removed** (names only: Start, Food counter, Stage
+side), which is what a fresh recording gives. Then `AliasSuggester` asks Gemma once per
+place (3 calls, 666-732 ms each) and `applyAliases` stores what passes validation:
+
+- Start: beginning, entry point, shuru, आरंभ, शुरुआत
+- Food counter: food, kitchen, food station, khana counter, खाना काउंटर, खाद्य काउंटर
+- Stage side: stage, स्टेज
+
+| | Matcher only (names) | Matcher + aliases (basic tier) | Matcher + aliases + Gemma (full tier) |
+| --- | --- | --- | --- |
+| Correct | 45 / 120 | 63 / 120 | **90 / 120** |
+| English | 0 / 45 | 9 / 45 | 27 / 45 |
+| Hindi / Hinglish | 0 / 30 | 9 / 30 | 18 / 30 |
+| Must be null | 45 / 45 | 45 / 45 | 45 / 45 |
+| **False positives** | **0** | **0** | **0** |
+| Wrong place | 0 | 0 | 0 |
+| Missed | 75 | 57 | 30 |
+| Latency, median (all 120) | 0.08 ms | 0.17 ms | 488 ms |
+| Gemma answers (102 of 120): median / p90 | - | - | 529 / 1977 ms |
+
+Gemma answer times by group: "none" (must be null) about 470 ms, English place about
+1.4 s, Hindi place about 1.9 s. Matcher-only modes are timed in microseconds.
+
+**What aliases add:** "where's the stage", "take me to the stage", "take me back to the
+stage area", "स्टेज कहाँ है", "stage kidhar hai" and "mujhe stage pe jaana hai" now
+resolve with no model, so they also work on a basic-tier phone. Gemma's aliases name the
+place, not what people go there for: none of coffee, tea, snacks, lunch or show came
+back, so requests like those still need Gemma.
+
+**Still missed by the full tier** (all 3 rounds): snacks, where can I get coffee, lunch,
+where is the show, where are the speeches happening, where's the main event, खाना कहाँ
+मिलेगा, chai kahan milegi, nashta kahan hai, show kahan ho raha hai. Gemma replied
+"none" to each; none went to the wrong place. The 10 Oct run (hand aliases "canteen" and
+"खाना काउंटर") got 96 / 120 because it also resolved "snacks" and "where can I get
+coffee".
+
+**Alias prompt experiments** (same map; "aliases" = the basic-tier column):
+
+| Alias prompt | Aliases kept (start / food / stage) | Basic tier | Full tier | False positives (basic / full) | Wrong place (basic / full) |
+| --- | --- | --- | --- | --- | --- |
+| v1: plain list, no filler filter | shuru, ..., darwaza, room, kuchh, wahan / khana counter, where is it / stage area, stage spot, ... | 45 / 120 | 87 / 120 | **6 / 9** | **15 / 15** |
+| v2: v1 + "no question words" + filler words trimmed in code | start point, shuru, entry, ... / food, khaana, food stall, khaana chahiye / stage, stage access, stage view | 63 / 120 | 90 / 120 | 0 / 0 | 0 / 0 |
+| **v3 (kept): "what they want there" + a Ticket counter example**, filler filter | as listed above | 63 / 120 | 90 / 120 | 0 / 0 | 0 / 0 |
+
+With v1, the Food counter alias "where is it" caught "where is the washroom" (false positive) and "where is the show" (wrong place), and Start's "wahan" / "kuchh" caught "bathroom kahan hai" and several Hinglish food requests, so the filler
+filter (`fillerWords` in `lib/ai/alias_suggester.dart`) is in code, not left to the
+prompt. v3 is kept for its cleaner Hindi aliases. topK 40 / temperature 0.8 gave the same
+aliases as topK 1, so the session stays greedy.
+
+**Reproduce:**
+
+```
+flutter build apk --debug -t lib/ai/debug_main.dart --dart-define=BENCH=tiers
+adb install -r build/app/outputs/flutter-apk/app-debug.apk
+adb logcat -s flutter | grep BENCH
+```
+
+The debug APK replaces the main app (same package); reinstall it afterwards with
+`flutter build apk --debug` and `adb install -r`.
+
 ## Destination resolving on the iQOO 15, Sat 10 Oct 04:20
 
 **Setup:** branch `ifzal/voice`, debug APK of `lib/ai/debug_main.dart` built with
