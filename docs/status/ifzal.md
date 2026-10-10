@@ -3,6 +3,22 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 09:25, merge round: PR #6 merged, PR #2 blocked, D22, speech diagnosis
+PR #2 NOT merged: origin/main conflicts in docs/DECISIONS.md (Spike results rows); fix
+posted as a PR comment (also: use tuning.maxMotionGapMs, docs/ is mine). PR #6: speech fix
+a4f93ca, review clean, CI green, merged f6b8e8f. D22 on main 74dff2e (DECISIONS + CONTRACTS
+MapGraph: record saves <app documents>/maps/latest.json, Navigate loads it else demo map).
+Speech diagnosis: both buttons fail in 25-100 ms with error_language_unavailable, because the
+en-IN/hi-IN on-device packs (Android System Intelligence) are listed but not installed. Also
+fixed: 2 s pauseFor counted from the tap; the error that came after `done` was dropped.
+main f6b8e8f: 134 tests green, debug APK installed on the iQOO, Home shows, no FATAL.
+Next: Ifzal downloads en-IN + hi-IN under Settings > On-device speech recognition (Wi-Fi once),
+reinstall the Gemma debug APK (`flutter build apk --debug -t lib/ai/debug_main.dart`), redo
+the spoken test, then fill the DECISIONS spike row + BENCHMARKS "Spoken test 2". T2 rebases
+PR #2. D22 implementation: T2 (record_screen save), T3 (Navigate load).
+Follow-up: GemmaService serialises calls; a hung call stalls later requests to null.
+Blocked: speech packs (phone settings). Last commit: this handoff.
+
 ## Sat 10 Oct 05:00, voice + benchmark session (branch ifzal/voice, PR open, not merged)
 Done: GemmaService reuses one chat per map, clears history after each answer (conversation
 open ~1650 ms moved off the critical path). iQOO GPU, load 2468 ms: Gemma median 2863 -> 1173
