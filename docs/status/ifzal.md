@@ -12,7 +12,7 @@ in DECISIONS + CONTRACTS. Main app (a2c8655, app code = 19c14d4) installed on th
 Home shows, no crash. en-IN + hi-IN speech packs downloaded by Ifzal.
 Next: spoken test with the Gemma debug APK; fill DECISIONS speech row + BENCHMARKS.
 T2: D22 save + D23 End of walk in record_screen, use tuning.maxMotionGapMs, move
-docs/traces/spike_walk_talha.jsonl to traces/. T3: D22 load + D23 start selector.
+the spike trace to traces/spike_walk_talha.jsonl (done in PR 8). T3: D22 load + D23 start selector.
 Blocked: nothing. Last commit: this handoff.
 
 ## Sat 10 Oct 09:25, merge round: PR #6 merged, PR #2 blocked, D22, speech diagnosis
