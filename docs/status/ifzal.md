@@ -3,6 +3,18 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 14:40, merge round 4: PR #12 merged, #11 closed
+PR #12 (ifzal/loop-fixes) merged e3156fe: temp-branch merge of origin/main (already up to date),
+analyze clean, 255 tests green, CI green. D25 (90-degree snap) and D26 (late/arrival turns) are on main.
+PR #11 (T3 reload fix) closed as superseded by #12; T3 asked to move the warmAi() early return and the
+90 s AI-unavailable timeout into t3/polish.
+PR #13 (t3/ai-status) open, not reviewed; Teammate 3 is moving it into t3/polish.
+t2/turns: no commits beyond main yet, no PR.
+iQOO: main e3156fe debug APK installed and launched, no FATAL / E/flutter in logcat.
+Next: loop re-test on the iQOO in aeroplane mode (record -> Navigate -> I am here to arrival),
+then Session A2 (D24 floors + speech fallback).
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct 14:10, loop fixes (branch ifzal/loop-fixes, PR open)
 Missing places cause: Home's initState was the only reloadActiveMap() call. App started 13:08:44,
 maps/ first written 13:24, latest.json 13:26, so Navigate kept the demo map. Fix: DestinationListScreen
