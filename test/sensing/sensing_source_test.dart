@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -265,6 +266,57 @@ void main() {
       }
     });
   }
+  test(
+    'opening a trace preserves first motion, queued steps and marks',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'breadcrumb-trace-open-',
+      );
+      final gate = Completer<Directory>();
+      final recorder = TraceRecorder(documentsDirectory: () => gate.future);
+      final source = SensingSource(recorder: recorder);
+      final sub = source.events().listen((_) {});
+      try {
+        final opening = source.startTrace({'map': 'walk', 'walker': 'T2'});
+        await Future<void>.delayed(Duration.zero);
+        await send({'type': 'motion', 't': 0, 'yawRate': 0, 'accel': 9.8});
+        await send({'type': 'step', 't': 20});
+        source.mark('first corner');
+        gate.complete(directory);
+        await opening;
+        await source.stopTrace();
+        final file = directory
+            .listSync(recursive: true)
+            .whereType<File>()
+            .single;
+        final rows = (await file.readAsLines())
+            .map((line) => jsonDecode(line) as Map<String, dynamic>)
+            .toList();
+        expect(rows.first['type'], 'meta');
+        expect(rows.first['stepSource'], 'hardware');
+        expect(rows.skip(1).map((r) => r['type']), ['motion', 'step', 'mark']);
+        expect(rows.last['note'], 'first corner');
+      } finally {
+        if (!gate.isCompleted) gate.complete(directory);
+        await sub.cancel();
+        await source.dispose();
+        await recorder.dispose();
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+  test(
+    'injected recorder state survives source disposal for the saved screen',
+    () async {
+      final recorder = TraceRecorder();
+      final source = SensingSource(recorder: recorder);
+      await source.dispose();
+      void listener() {}
+      expect(() => recorder.state.addListener(listener), returnsNormally);
+      recorder.state.removeListener(listener);
+      await recorder.dispose();
+    },
+  );
   test('native errors reach consumers without enabling fallback', () async {
     final source = SensingSource();
     final errors = <Object>[];
