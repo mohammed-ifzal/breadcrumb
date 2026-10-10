@@ -54,6 +54,12 @@ Maps come from record mode (D15). Tests build maps in code. In version 1, **a
 map comes from one walk**; merging several walks is a stretch goal, because each walk
 has its own heading frame.
 
+**Where the map lives (D22).** When a recording is finished, the record screen writes
+`MapBuilder.finish().toJson()` to `<app documents>/maps/latest.json` (path_provider's
+application documents directory), replacing the previous file. Navigate loads
+`maps/latest.json` if it exists and parses; otherwise it loads the bundled demo map from
+`assets/maps/`. Only the app layer does this file I/O; `lib/core/` stays pure.
+
 ## Sensor stream and trace files
 
 Kotlin (EventChannel `breadcrumb/sensing`, one broadcast stream, events sent on the main
