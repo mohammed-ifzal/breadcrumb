@@ -200,6 +200,27 @@ class TrailPainter extends CustomPainter {
     );
   }
 
+  /// Where to draw a label for the dot at [dot]: below, above, right or left,
+  /// whichever first stays clear of [placed] labels, kept inside the canvas.
+  Offset _labelOffset(Offset dot, Size text, Size canvas, List<Rect> placed) {
+    final candidates = [
+      dot + const Offset(-10, 12),
+      dot + Offset(-10, -12 - text.height),
+      dot + Offset(14, -text.height / 2),
+      dot + Offset(-14 - text.width, -text.height / 2),
+    ];
+    Offset clamp(Offset o) => Offset(
+          o.dx.clamp(6.0, math.max(6.0, canvas.width - text.width - 6)),
+          o.dy.clamp(4.0, math.max(4.0, canvas.height - text.height - 4)),
+        );
+    for (final c in candidates) {
+      final o = clamp(c);
+      final rect = Rect.fromLTWH(o.dx - 4, o.dy - 2, text.width + 8, text.height + 4);
+      if (!placed.any((r) => r.inflate(2).overlaps(rect))) return o;
+    }
+    return clamp(candidates.first);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     // 1. Subtle background grid
@@ -284,6 +305,7 @@ class TrailPainter extends CustomPainter {
           })()
         : map.start;
     final destId = route?.toId;
+    final placedLabels = <Rect>[];
 
     // 4. Place dots (circles only, no icons yet), start marker, destination marker
     for (final p in points) {
@@ -352,14 +374,21 @@ class TrailPainter extends CustomPainter {
           ),
         );
         textPainter.layout();
-        final textOffset = offset + const Offset(-10, 12);
+        final textOffset = _labelOffset(
+          offset,
+          Size(textPainter.width, textPainter.height),
+          size,
+          placedLabels,
+        );
+        final labelRect = Rect.fromLTWH(
+          textOffset.dx - 4,
+          textOffset.dy - 2,
+          textPainter.width + 8,
+          textPainter.height + 4,
+        );
+        placedLabels.add(labelRect);
         final bgRect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            textOffset.dx - 4,
-            textOffset.dy - 2,
-            textPainter.width + 8,
-            textPainter.height + 4,
-          ),
+          labelRect,
           const Radius.circular(4),
         );
         canvas.drawRRect(
