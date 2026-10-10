@@ -53,10 +53,15 @@ void main() {
       walk(builder, 3);
       builder.onTurn(contracts.TurnEvent(100, angle));
     }
-    expect(
-      builder.snapshot().corridors.map((c) => c.heading),
-      [0, 270, 0, 270, 180, 270, 0],
-    );
+    expect(builder.snapshot().corridors.map((c) => c.heading), [
+      0,
+      270,
+      0,
+      270,
+      180,
+      270,
+      0,
+    ]);
   });
 
   for (final sign in [1, -1]) {
@@ -300,4 +305,101 @@ void main() {
       expect(reverse.legs.every((leg) => leg.reversed), isTrue);
     },
   );
+  group('D24 recorded floors', () {
+    for (final kind in [
+      contracts.CorridorKind.stairs,
+      contracts.CorridorKind.escalator,
+      contracts.CorridorKind.lift,
+    ]) {
+      test('$kind separates prior walking from a completed transition', () {
+        final builder = MapBuilder()..start('Entrance');
+        walk(builder, 5);
+        builder.changeFloor(1, kind);
+        final snapshot = builder.snapshot();
+        expect(snapshot.corridors.map((c) => c.steps), [5, 0, 0]);
+        expect(snapshot.corridors.map((c) => c.kind), [
+          contracts.CorridorKind.walk,
+          kind,
+          contracts.CorridorKind.walk,
+        ]);
+        expect(snapshot.corridors.map((c) => c.floorDelta), [0, 1, 0]);
+        expect(snapshot.places.last.floor, 1);
+        expect(builder.snapshot().toJson(), snapshot.toJson());
+        walk(builder, 2);
+        builder.addPlace('Upper desk', []);
+        final finished = builder.finish();
+        expect(finished.places.last.floor, 1);
+        expect(finished.corridors.last.steps, 2);
+        expect(decodeMap(encodeMap(finished)).toJson(), finished.toJson());
+        expect(
+          DijkstraRoutePlanner()
+              .plan(finished, finished.start, finished.places.last.id)
+              .legs
+              .map((l) => l.floorDelta),
+          [0, 1, 0],
+        );
+      });
+    }
+    test('no-step consecutive changes and finish retain all transitions', () {
+      final builder = MapBuilder()..start('Entrance');
+      builder.changeFloor(1, contracts.CorridorKind.stairs);
+      builder.changeFloor(1, contracts.CorridorKind.escalator);
+      builder.changeFloor(-1, contracts.CorridorKind.lift);
+      builder.addPlace('End of walk', []);
+      final map = builder.finish();
+      expect(map.corridors.map((c) => c.floorDelta), [1, 1, -1, 0]);
+      expect(map.corridors.map((c) => c.steps), everyElement(0));
+      expect(map.places.map((p) => p.floor), [0, 1, 2, 1, 1]);
+      expect(decodeMap(encodeMap(map)).toJson(), map.toJson());
+      final reverse = DijkstraRoutePlanner().plan(
+        map,
+        map.places.last.id,
+        map.start,
+      );
+      expect(reverse.legs.map((l) => l.floorDelta), [0, 1, -1, -1]);
+    });
+    test('a change immediately after a turn preserves its heading', () {
+      final builder = MapBuilder()..start('Entrance');
+      walk(builder, 3);
+      builder.onTurn(const contracts.TurnEvent(100, 90));
+      builder.changeFloor(-1, contracts.CorridorKind.lift);
+      final map = builder.snapshot();
+      expect(map.corridors.map((c) => c.steps), [3, 0, 0]);
+      expect(map.corridors.map((c) => c.heading), [0, 90, 90]);
+      expect(map.places.last.floor, -1);
+      expect(decodeMap(encodeMap(map)).toJson(), map.toJson());
+    });
+    test('invalid transitions do not mutate an active walk', () {
+      final builder = MapBuilder()..start('Entrance');
+      final before = builder.snapshot().toJson();
+      expect(
+        () => builder.changeFloor(0, contracts.CorridorKind.stairs),
+        throwsArgumentError,
+      );
+      expect(
+        () => builder.changeFloor(1, contracts.CorridorKind.walk),
+        throwsArgumentError,
+      );
+      expect(builder.snapshot().toJson(), before);
+    });
+    test(
+      'floor changes outside recording are ignored and start resets the floor',
+      () {
+        final builder = MapBuilder();
+        builder.changeFloor(1, contracts.CorridorKind.lift);
+        builder.start('Entrance');
+        expect(builder.snapshot().places.last.floor, 0);
+        builder.changeFloor(-1, contracts.CorridorKind.stairs);
+        final map = builder.finish();
+        builder.changeFloor(1, contracts.CorridorKind.lift);
+        expect(builder.finish().toJson(), map.toJson());
+        builder.start('Fresh');
+        expect(builder.snapshot().places.last.floor, 0);
+        expect(
+          builder.snapshot().corridors.single.kind,
+          contracts.CorridorKind.walk,
+        );
+      },
+    );
+  });
 }
