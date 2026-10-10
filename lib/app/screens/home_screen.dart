@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
 import '../wiring.dart';
 import 'destination_list_screen.dart';
 
@@ -26,43 +25,40 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Breadcrumb'),
       ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ElevatedButton(
-                  style: BreadcrumbTheme.primaryButton,
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const DestinationListScreen(),
-                      ),
-                    );
-                  },
-                  child: const Text('Navigate'),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(250, 80),
+                  textStyle: const TextStyle(fontSize: 24),
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  style: BreadcrumbTheme.secondaryButton.copyWith(
-                    minimumSize: const WidgetStatePropertyAll(Size(220, 64)),
-                    textStyle: const WidgetStatePropertyAll(
-                      TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DestinationListScreen(),
                     ),
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Map a route (Coming Soon)')),
-                    );
-                  },
-                  child: const Text('Map a route'),
+                  );
+                },
+                child: const Text('Navigate'),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(250, 80),
+                  textStyle: const TextStyle(fontSize: 24),
                 ),
-              ],
-            ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Map a route (Coming Soon)')),
+                  );
+                },
+                child: const Text('Map a route'),
+              ),
+            ],
           ),
         ),
       ),

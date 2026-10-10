@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/ai/speech_input.dart';
 import 'package:breadcrumb/core/contracts.dart';
-import 'package:breadcrumb/app/theme.dart';
 import 'package:breadcrumb/app/wiring.dart';
 import 'navigate_screen.dart';
 
@@ -139,7 +138,6 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: BreadcrumbTheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -161,7 +159,6 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: BreadcrumbTheme.textLight,
                         ),
                       ),
                       IconButton(
@@ -182,18 +179,17 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                       return ListTile(
                         leading: Icon(
                           isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                          color: isSelected ? BreadcrumbTheme.accent : BreadcrumbTheme.textMuted,
+                          color: isSelected ? Colors.blue : Colors.grey,
                         ),
                         title: Text(
                           p.name,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: BreadcrumbTheme.textLight,
-                          ),
+                            ),
                         ),
                         subtitle: p.aliases.isNotEmpty
-                            ? Text(p.aliases.join(', '), style: const TextStyle(color: BreadcrumbTheme.textMuted))
+                            ? Text(p.aliases.join(', '))
                             : null,
                         onTap: () {
                           setState(() {
@@ -275,10 +271,9 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
           // D23: "You are at" selector
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: BreadcrumbTheme.surface,
+            decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: BreadcrumbTheme.surfaceBorder),
+                bottom: BorderSide(color: Theme.of(context).dividerColor),
               ),
             ),
             child: InkWell(
@@ -288,7 +283,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
                   children: [
-                    const Icon(Icons.my_location, color: BreadcrumbTheme.accent, size: 20),
+                    const Icon(Icons.my_location, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -296,12 +291,11 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: BreadcrumbTheme.textLight,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down, color: BreadcrumbTheme.textMuted),
+                    const Icon(Icons.arrow_drop_down),
                   ],
                 ),
               ),
@@ -341,11 +335,9 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                 ),
                 const SizedBox(height: 10),
                 ElevatedButton(
-                  style: BreadcrumbTheme.primaryButton.copyWith(
-                    minimumSize: const WidgetStatePropertyAll(Size(double.infinity, 52)),
-                    textStyle: const WidgetStatePropertyAll(
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    textStyle: const TextStyle(fontSize: 18),
                   ),
                   onPressed: _isThinking ? null : _submit,
                   child: _isThinking
@@ -395,10 +387,9 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                   subtitle: place.aliases.isNotEmpty
                       ? Text(
                           'Aliases: ${place.aliases.join(", ")}',
-                          style: const TextStyle(color: BreadcrumbTheme.textMuted),
                         )
                       : null,
-                  trailing: const Icon(Icons.chevron_right, color: BreadcrumbTheme.textMuted),
+                  trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
                       context,
