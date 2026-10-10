@@ -55,7 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
               title: 'Navigate',
               subtitle: 'Say or type a place. Follow the arrow back along the trail.',
               highlighted: true,
-              onTap: () {
+              onTap: () async {
+                await Wiring.instance.reloadActiveMap();
+                if (!context.mounted) return;
                 Navigator.push(
                   context,
                   MaterialPageRoute(

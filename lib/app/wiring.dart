@@ -131,14 +131,20 @@ class Wiring {
     }
   }
 
+  /// Optional directory override (e.g. for testing temp directory).
+  Future<Directory> Function()? documentsDirectoryProvider;
+
   /// D22: Load maps/latest.json from app documents directory if present,
   /// otherwise keep default demo map.
   Future<bool> reloadActiveMap({Directory? documentsDir}) async {
     try {
-      final dir = documentsDir ?? await getApplicationDocumentsDirectory();
+      final dir = documentsDir ??
+          (documentsDirectoryProvider != null
+              ? await documentsDirectoryProvider!()
+              : await getApplicationDocumentsDirectory());
       final file = File('${dir.path}/maps/latest.json');
-      if (await file.exists()) {
-        final content = await file.readAsString();
+      if (file.existsSync()) {
+        final content = file.readAsStringSync();
         final loaded = decodeMap(content);
         map = loaded;
         return true;
@@ -152,6 +158,7 @@ class Wiring {
   /// Warm up Gemma LLM in the background and update [isAiReady].
   Future<bool> warmAi() async {
     try {
+      if (isAiReady.value) return true;
       if (!gemmaService.isLoaded) {
         await gemmaService.load();
       }

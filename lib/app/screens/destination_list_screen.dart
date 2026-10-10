@@ -23,6 +23,12 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
   @override
   void initState() {
     super.initState();
+    // D22: Reload latest recorded map if available
+    Wiring.instance.reloadActiveMap().then((loaded) {
+      if (loaded && mounted) {
+        setState(() {});
+      }
+    });
     // Warm Gemma AI if not already warmed
     Wiring.instance.warmAi();
   }
