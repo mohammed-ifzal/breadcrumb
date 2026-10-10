@@ -75,6 +75,7 @@ class BenchResult {
     required this.actual,
     required this.viaGemma,
     required this.ms,
+    this.us = 0,
   });
 
   final String request;
@@ -85,6 +86,9 @@ class BenchResult {
   /// False when PlaceMatcher answered and Gemma was never asked.
   final bool viaGemma;
   final int ms;
+
+  /// The same time in microseconds, for PlaceMatcher answers well under 1 ms.
+  final int us;
 
   bool get correct => actual == expected;
 
@@ -134,6 +138,7 @@ Future<List<BenchResult>> runBench({
         actual: match?.placeId,
         viaGemma: !isMatcherHit(c.request),
         ms: watch.elapsedMilliseconds,
+        us: watch.elapsedMicroseconds,
       );
       results.add(result);
       onResult?.call(result);
@@ -170,6 +175,7 @@ class BenchSummary {
   int get gemmaP90Ms => percentile(_gemmaMs, 90);
   int get allMedianMs => percentile(results.map((r) => r.ms), 50);
   int get allP90Ms => percentile(results.map((r) => r.ms), 90);
+  int get allMedianUs => percentile(results.map((r) => r.us), 50);
 
   String describe() =>
       'correct $correct/$total (en ${correctIn('en')}/${totalIn('en')}, '
@@ -177,5 +183,5 @@ class BenchSummary {
       'null ${correctIn('null')}/${totalIn('null')}); '
       'false positives $falsePositives, wrong place $wrongPlaces, missed $missed; '
       'Gemma answers $gemmaCount: median $gemmaMedianMs ms, p90 $gemmaP90Ms ms; '
-      'all: median $allMedianMs ms, p90 $allP90Ms ms';
+      'all: median $allMedianMs ms ($allMedianUs us), p90 $allP90Ms ms';
 }
