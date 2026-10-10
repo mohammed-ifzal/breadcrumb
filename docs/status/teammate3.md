@@ -3,6 +3,11 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct, 10:45
+Done: Branched t3/real-sensors from main (de5f654). Real sensors: wiring.sensorEvents now merges real SensingSource (native EventChannel) with simulated events; simulation off by default (widget.simulate flag). D22: wiring.reloadActiveMap() loads maps/latest.json from app documents. D23: effectiveCurrentPlaceId defaults to the last place-kind node; "You are at" selector on destination list. Gemma warm-up with AI ready/warming indicator in AppBar. Mic button wired to SpeechInput. Theme in lib/app/theme.dart (dark, high contrast, large touch targets). Replay button hidden until real traces. 190 tests green, analyze clean.
+Next: Build debug APK, install on iQOO, test real sensors + Gemma warm-up + mic button. Push PR for review.
+Blocked: Nothing.
+
 ## Sat 10 Oct, 09:25
 Done: Built self-contained offline tools/map_desk.html (MapGraph layout, loop mismatch warning, canvas renderer, place/alias editor, JSON download) and tools/sample_map.json; verified layout math and loop closure in Node.js (heading 0 up, heading 90 left).
 Next: Visual check of map_desk.html in a browser; integrate with MapBuilder export when Teammate 2 PR lands.

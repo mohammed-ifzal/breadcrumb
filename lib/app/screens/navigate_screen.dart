@@ -8,7 +8,8 @@ import 'package:breadcrumb/app/widgets/trail_view.dart';
 
 class NavigateScreen extends StatefulWidget {
   final String destinationId;
-  const NavigateScreen({super.key, required this.destinationId});
+  final bool simulate;
+  const NavigateScreen({super.key, required this.destinationId, this.simulate = false});
 
   @override
   State<NavigateScreen> createState() => _NavigateScreenState();
@@ -85,9 +86,10 @@ class _NavigateScreenState extends State<NavigateScreen> {
     _position = wiring.tracker.anchor(startPlaceId);
     _updateInstruction();
 
-    _isSimulating = true;
-    _usedSimulation = true;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    if (widget.simulate) {
+      _isSimulating = true;
+      _usedSimulation = true;
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final currentPos = _position;
       final currentRoute = _route;
       if (currentPos == null || currentRoute == null) {
@@ -121,7 +123,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
           return;
         }
       }
-    });
+      });
+    }
   }
 
   void _stopSimulation() {

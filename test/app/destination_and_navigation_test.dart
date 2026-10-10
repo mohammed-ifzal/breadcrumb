@@ -57,7 +57,7 @@ void main() {
 
   testWidgets('the SIMULATED label is present while the simulation runs', (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: NavigateScreen(destinationId: 'cafe'),
+      home: NavigateScreen(destinationId: 'cafe', simulate: true),
     ));
     await tester.pump();
 
@@ -66,8 +66,9 @@ void main() {
   });
 
   testWidgets('COMMIT 1a: SIMULATED label stays visible on the arrival screen too', (tester) async {
+    Wiring.instance.currentPlaceId = 'entrance';
     await tester.pumpWidget(const MaterialApp(
-      home: NavigateScreen(destinationId: 'cafe'),
+      home: NavigateScreen(destinationId: 'cafe', simulate: true),
     ));
     await tester.pump();
     expect(find.text('SIMULATED'), findsWidgets);
