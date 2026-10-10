@@ -3,6 +3,11 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct, 09:25
+Done: Built self-contained offline tools/map_desk.html (MapGraph layout, loop mismatch warning, canvas renderer, place/alias editor, JSON download) and tools/sample_map.json; verified layout math and loop closure in Node.js (heading 0 up, heading 90 left).
+Next: Visual check of map_desk.html in a browser; integrate with MapBuilder export when Teammate 2 PR lands.
+Blocked: Nothing for tools.
+
 ## Sat 10 Oct, 08:20
 Done: BUG 2b vibration timing fixed — turns vibrate exactly once per leg when steps <= turnNowSteps ("turn now"), arrive once on arrival, straight never; per-leg state maintained in navigate_screen. 131 tests green, analyze clean.
 Next: Physical on-device check of vibration pulse timing at turning thresholds.

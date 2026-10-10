@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "name": "Sample Office Trail",
+  "start": "entrance",
+  "places": [
+    {
+      "id": "entrance",
+      "name": "Entrance",
+      "aliases": ["main gate", "front door"],
+      "kind": "start"
+    },
+    {
+      "id": "j1",
+      "name": "Junction 1",
+      "aliases": [],
+      "kind": "junction"
+    },
+    {
+      "id": "cafe",
+      "name": "Cafe",
+      "aliases": ["coffee", "cafeteria"],
+      "kind": "place"
+    },
+    {
+      "id": "j2",
+      "name": "Junction 2",
+      "aliases": [],
+      "kind": "junction"
+    },
+    {
+      "id": "stage",
+      "name": "Stage Side",
+      "aliases": ["auditorium", "hall"],
+      "kind": "place"
+    }
+  ],
+  "corridors": [
+    {
+      "id": "c1",
+      "from": "entrance",
+      "to": "j1",
+      "steps": 15,
+      "heading": 0
+    },
+    {
+      "id": "c2",
+      "from": "j1",
+      "to": "cafe",
+      "steps": 10,
+      "heading": 90
+    },
+    {
+      "id": "c3",
+      "from": "cafe",
+      "to": "j2",
+      "steps": 12,
+      "heading": 90
+    },
+    {
+      "id": "c4",
+      "from": "j2",
+      "to": "stage",
+      "steps": 15,
+      "heading": 0
+    }
+  ]
+}
