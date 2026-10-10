@@ -59,7 +59,7 @@ void main() {
   });
   group('walking bouts', () {
     test('five isolated queue shuffles over twenty seconds emit no steps', () {
-      final gate = WalkingBoutGate();
+      final gate = WalkingBoutGate(useBoutGating: true);
       final emitted = <contracts.StepEvent>[];
       for (final t in [0, 5000, 10000, 15000, 20000]) {
         emitted.addAll(gate.onStep(contracts.StepEvent(t)));
@@ -70,7 +70,7 @@ void main() {
     test(
       'ten normal steps all survive with first three emitted retroactively',
       () {
-        final gate = WalkingBoutGate();
+        final gate = WalkingBoutGate(useBoutGating: true);
         final steps = [
           for (var i = 0; i < 10; i++) contracts.StepEvent(i * 500),
         ];
@@ -92,7 +92,7 @@ void main() {
     );
     for (final gap in [250, 333, 400, 1500]) {
       test('inclusive valid cadence $gap ms drops no steps', () {
-        final gate = WalkingBoutGate();
+        final gate = WalkingBoutGate(useBoutGating: true);
         final emitted = <contracts.StepEvent>[];
         for (var i = 0; i < 10; i++) {
           emitted.addAll(gate.onStep(contracts.StepEvent(i * gap)));
@@ -101,7 +101,7 @@ void main() {
       });
     }
     test('too-fast duplicates and stale candidates cannot confirm a bout', () {
-      final gate = WalkingBoutGate();
+      final gate = WalkingBoutGate(useBoutGating: true);
       expect(gate.onStep(const contracts.StepEvent(0)), isEmpty);
       expect(gate.onStep(const contracts.StepEvent(100)), isEmpty);
       expect(gate.onStep(const contracts.StepEvent(100)), isEmpty);
@@ -112,7 +112,7 @@ void main() {
       expect(gate.inBout, isFalse);
     });
     test('reset discards pending candidates and a confirmed bout', () {
-      final gate = WalkingBoutGate();
+      final gate = WalkingBoutGate(useBoutGating: true);
       gate.onStep(const contracts.StepEvent(0));
       gate.onStep(const contracts.StepEvent(500));
       gate.reset();
@@ -209,7 +209,11 @@ void main() {
       );
     });
     test('handling gate suppresses steps and the entire flip turn', () {
-      final gates = SensingGates(useBoutGating: false);
+      final gates = SensingGates(
+        useBoutGating: false,
+        useHandlingGate: true,
+        usePlacement: true,
+      );
       final events = flip(gates);
       expect(
         events.whereType<MotionStateEvent>().any(
@@ -223,7 +227,11 @@ void main() {
     test(
       'handling entry drops an unconfirmed bout and exit starts a fresh one',
       () {
-        final gates = SensingGates();
+        final gates = SensingGates(
+          useBoutGating: true,
+          useHandlingGate: true,
+          usePlacement: true,
+        );
         gates.onStep(const contracts.StepEvent(0));
         gates.onStep(const contracts.StepEvent(300));
         gates.onRaw(pose(300, 0));
@@ -259,7 +267,11 @@ void main() {
     test(
       'after handling a fresh yaw baseline still yields exactly ninety degrees',
       () {
-        final gates = SensingGates(useBoutGating: false);
+        final gates = SensingGates(
+          useBoutGating: false,
+          useHandlingGate: true,
+          usePlacement: true,
+        );
         flip(gates);
         final events = <Object>[...gates.advanceTo(3000)];
         events.addAll(gates.onMotion(3000, 0));
@@ -281,6 +293,7 @@ void main() {
         final gates = SensingGates(
           useBoutGating: false,
           useHandlingGate: false,
+          usePlacement: true,
         );
         final events = flip(gates);
         expect(events.whereType<contracts.StepEvent>(), hasLength(4));
@@ -291,7 +304,11 @@ void main() {
       },
     );
     test('bout confirmation and expiration publish walking then still', () {
-      final gates = SensingGates();
+      final gates = SensingGates(
+        useBoutGating: true,
+        useHandlingGate: true,
+        usePlacement: true,
+      );
       gates.onStep(const contracts.StepEvent(0));
       gates.onStep(const contracts.StepEvent(500));
       final batch = gates.onStep(const contracts.StepEvent(1000));
@@ -312,7 +329,7 @@ void main() {
   });
   group('placement', () {
     test('near and dark become pocket only after two continuous seconds', () {
-      final detector = PlacementDetector();
+      final detector = PlacementDetector(usePlacement: true);
       expect(detector.onProximity(const ProximitySample(0, true, 0)), isNull);
       expect(
         detector.onLight(const LightSample(0, 10))!.placement,
@@ -327,7 +344,7 @@ void main() {
       );
     });
     test('near with bright light stays hand; far cancels dark dwell', () {
-      final detector = PlacementDetector();
+      final detector = PlacementDetector(usePlacement: true);
       detector.onProximity(const ProximitySample(0, true, 0));
       detector.onLight(const LightSample(0, 100));
       expect(detector.advanceTo(5000), isNull);
@@ -338,7 +355,7 @@ void main() {
       expect(detector.placement, Placement.hand);
     });
     test('a bright interruption resets the dwell rather than accumulating darkness', () {
-      final detector = PlacementDetector();
+      final detector = PlacementDetector(usePlacement: true);
       detector.onProximity(const ProximitySample(0, true, 0));
       detector.onLight(const LightSample(0, 1));
       detector.onLight(const LightSample(1500, 20));
@@ -349,7 +366,7 @@ void main() {
     test(
       'missing sensors mean unknown; RAM notices do not change placement',
       () {
-        final detector = PlacementDetector();
+        final detector = PlacementDetector(usePlacement: true);
         detector.onProximity(const ProximitySample(0, true, 0));
         detector.onLight(const LightSample(0, 1));
         detector.advanceTo(2001);
@@ -378,7 +395,7 @@ void main() {
       },
     );
     test('invalid or old samples do not flip placement', () {
-      final detector = PlacementDetector();
+      final detector = PlacementDetector(usePlacement: true);
       detector.onProximity(const ProximitySample(100, false, 5));
       detector.onLight(const LightSample(100, 100));
       expect(detector.onLight(const LightSample(200, double.nan)), isNull);
@@ -407,7 +424,11 @@ void main() {
     });
     test('placement never changes accepted steps or turn integration', () {
       List<Object> run(bool usePlacement) {
-        final gates = SensingGates(usePlacement: usePlacement);
+        final gates = SensingGates(
+          useBoutGating: true,
+          useHandlingGate: true,
+          usePlacement: usePlacement,
+        );
         final output = <Object>[];
         output.addAll(gates.onRaw(const ProximitySample(0, true, 0)));
         output.addAll(gates.onRaw(const LightSample(0, 1)));

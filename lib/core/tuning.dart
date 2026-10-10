@@ -79,9 +79,10 @@ const int boutMinSteps = 3;
 const int boutMinGapMs = 250;
 const int boutMaxGapMs = 1500;
 
-const bool useBoutGating = true;
-const bool useHandlingGate = true;
-const bool usePlacement = true;
+/// Off: the T2 gates are standalone and not wired into the Tracker yet.
+const bool useBoutGating = false;
+const bool useHandlingGate = false;
+const bool usePlacement = false;
 
 const double pocketLuxMax = 10;
 
@@ -95,7 +96,7 @@ const int pocketHoldMs = 2000;
 
 /// Pass raw turns through the TurnConfirmer before the Tracker and the
 /// MapBuilder (D29).
-const bool useTurnConfirmer = false;
+const bool useTurnConfirmer = true;
 
 /// A raw turn counts only once this many steps follow it…
 const int turnConfirmSteps = 2;
@@ -106,7 +107,7 @@ const int turnConfirmSteps = 2;
 const int turnConfirmWindowMs = 8000;
 
 /// Track position confidence and ask "Are you at {place}?" when it drops (D29).
-const bool useConfidence = false;
+const bool useConfidence = true;
 
 /// Confidence is multiplied by this on every step.
 const double confidenceDecayPerStep = 0.98;
