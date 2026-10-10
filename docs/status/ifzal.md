@@ -3,6 +3,23 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct, UI session (branch ifzal/ui, stacked on t3/real-sensors, PR open, not merged)
+Done: T3's t3/real-sensors already had theme.dart + Home/Destination logic, so ifzal/ui is
+based on it (Ifzal's call). theme.dart replaced: dark #0B0F14/#141A22, teal #2DE2C3, amber
+#FFB020, radius 20, 56 dp, type 42/28/17, system font; name BreadcrumbTheme.themeData kept, so
+main.dart is untouched. lib/app/widgets/ui/: PrimaryButton, ActionCard, StatusPill,
+SectionHeader, ThinkingIndicator. Home and Destination restyled, T3's logic unchanged.
+Tests: test/app/widgets/ui/ (16, incl. font scale 1.3 on 360 dp). analyze clean, 217 green.
+Merged T3's newer t3/real-sensors (sign scan; T3 dropped their theme): kept my 3 files, main.dart
+keeps BreadcrumbTheme.themeData (T3 had reverted it to blue). Re-checked on iQOO in aeroplane mode.
+iQOO check done: Home -> "where can I get coffee" -> Cafe route -> debug steps -> "Cafe is
+here." with SIMULATED shown; no crash in logcat. Outlined buttons tightened so the debug row fits.
+Found (not mine): TrailView paints place dots/labels black, invisible on the dark background;
+'I am here' tapped once per leg ends on "That turn wasn't on the route" at Cafe, not arrival;
+Navigate's bottom row and body overflow at font scale 1.3 on 360 dp (widget test).
+Next: PR #10 retargets to main once T3's branch merges; T3 fixes the TrailView colours.
+Blocked: T3 must open/merge t3/real-sensors first. Last commit: this handoff.
+
 ## Sat 10 Oct 10:25, merge round 2: PR #2, #5, #7 merged, D23
 PR #2 merged locally 1256dc6 (DECISIONS: Gemma + step + turn spike rows kept), pushed.
 PR #5 merged a2c8655 (temp-branch check with #2: analyze clean, 189 tests). PR #7

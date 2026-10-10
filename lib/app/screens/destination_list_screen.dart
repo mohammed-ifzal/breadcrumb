@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/ai/speech_input.dart';
 import 'package:breadcrumb/core/contracts.dart';
+import 'package:breadcrumb/app/theme.dart';
+import 'package:breadcrumb/app/widgets/ui/ui.dart';
 import 'package:breadcrumb/app/wiring.dart';
 import 'navigate_screen.dart';
 
@@ -138,58 +140,68 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      isScrollControlled: true,
       builder: (context) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.fromLTRB(24, 0, 12, 8),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Change Start Location',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      const Expanded(
+                        child: Text(
+                          'Change Start Location',
+                          style: BreadcrumbTheme.title,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Icons.close_rounded),
+                        tooltip: 'Close',
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
                 ),
-                const Divider(),
                 Flexible(
                   child: ListView.builder(
                     shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                     itemCount: validPlaces.length,
                     itemBuilder: (context, index) {
                       final p = validPlaces[index];
                       final isSelected = p.id == wiring.effectiveCurrentPlaceId;
                       return ListTile(
+                        minTileHeight: BreadcrumbTheme.minTouch,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                        ),
+                        selected: isSelected,
+                        selectedColor: BreadcrumbTheme.accent,
+                        selectedTileColor: BreadcrumbTheme.accent.withValues(alpha: 0.08),
                         leading: Icon(
                           isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                          color: isSelected ? Colors.blue : Colors.grey,
+                          color: isSelected ? BreadcrumbTheme.accent : BreadcrumbTheme.textSecondary,
                         ),
                         title: Text(
                           p.name,
                           style: TextStyle(
                             fontSize: 18,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: BreadcrumbTheme.textPrimary,
+                          ),
                         ),
                         subtitle: p.aliases.isNotEmpty
-                            ? Text(p.aliases.join(', '))
+                            ? Text(
+                                p.aliases.join(', '),
+                                style: const TextStyle(fontSize: 15, color: BreadcrumbTheme.textSecondary),
+                              )
                             : null,
                         onTap: () {
                           setState(() {
@@ -221,10 +233,10 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
     final places = map.places
         .where((p) => p.kind != PlaceKind.junction && p.id != currentPlaceId)
         .toList();
+    final feedback = _feedbackMessage;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Destination'),
         actions: [
           // AI Ready indicator
           Padding(
@@ -232,177 +244,275 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
             child: ValueListenableBuilder<bool>(
               valueListenable: wiring.isAiReady,
               builder: (context, ready, _) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: ready ? const Color(0xFF064E3B) : const Color(0xFF334155),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: ready ? const Color(0xFF059669) : const Color(0xFF475569),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        ready ? Icons.check_circle : Icons.hourglass_top,
-                        size: 14,
-                        color: ready ? const Color(0xFF6EE7B7) : const Color(0xFF94A3B8),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        ready ? 'AI ready' : 'AI warming...',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: ready ? const Color(0xFF6EE7B7) : const Color(0xFFCBD5E1),
-                        ),
-                      ),
-                    ],
-                  ),
+                return StatusPill(
+                  label: ready ? 'AI ready' : 'AI warming...',
+                  icon: ready ? Icons.memory_rounded : Icons.hourglass_top_rounded,
+                  tone: ready ? StatusTone.accent : StatusTone.neutral,
                 );
               },
             ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // D23: "You are at" selector
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Theme.of(context).dividerColor),
-              ),
-            ),
-            child: InkWell(
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+          children: [
+            // D23: "You are at" selector
+            _StartPlaceButton(
+              placeName: currentPlace?.name ?? currentPlaceId,
               onTap: () => _showStartPlaceSelector(context),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.my_location, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'You are at: ${currentPlace?.name ?? currentPlaceId}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const Icon(Icons.arrow_drop_down),
-                  ],
+            ),
+            const SizedBox(height: 28),
+            const Text('Where do you want to go?', style: BreadcrumbTheme.heading),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              onChanged: _onTextChanged,
+              onSubmitted: (_) => _submit(),
+              textInputAction: TextInputAction.go,
+              style: BreadcrumbTheme.body.copyWith(fontSize: 19),
+              decoration: InputDecoration(
+                hintText: 'Where do you want to go?',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 16, right: 8),
+                  child: Icon(Icons.search_rounded, color: BreadcrumbTheme.textSecondary),
+                ),
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: _MicButton(
+                    listening: _isListening,
+                    onPressed: _onMicPressed,
+                  ),
                 ),
               ),
             ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            const SizedBox(height: 14),
+            PrimaryButton(
+              label: 'Submit',
+              icon: Icons.near_me_rounded,
+              busy: _isThinking,
+              onPressed: _submit,
+            ),
+            if (_isThinking) ...[
+              const SizedBox(height: 14),
+              const _NoteCard(
+                icon: Icons.memory_rounded,
+                color: BreadcrumbTheme.accent,
+                text: 'On-device AI is matching your words to a marked place.',
+              ),
+            ],
+            if (feedback != null) ...[
+              const SizedBox(height: 14),
+              _NoteCard(
+                icon: _isListening ? Icons.graphic_eq_rounded : Icons.info_outline_rounded,
+                color: _isListening ? BreadcrumbTheme.accent : BreadcrumbTheme.warning,
+                text: feedback,
+              ),
+            ],
+            const SizedBox(height: 36),
+            SectionHeader(
+              'Marked places',
+              trailing: places.length == 1 ? '1 place' : '${places.length} places',
+            ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        onChanged: _onTextChanged,
-                        onSubmitted: (_) => _submit(),
-                        decoration: const InputDecoration(
-                          hintText: 'Where do you want to go?',
-                          labelText: 'Where do you want to go?',
+                for (final place in places)
+                  _PlaceChip(
+                    place: place,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => NavigateScreen(destinationId: place.id),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Active Mic Button
-                    IconButton(
-                      icon: Icon(
-                        _isListening ? Icons.mic : Icons.mic_none,
-                        color: _isListening ? Colors.redAccent : Colors.white,
-                        size: 28,
-                      ),
-                      tooltip: _isListening ? 'Listening...' : 'Voice Search',
-                      onPressed: _onMicPressed,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    textStyle: const TextStyle(fontSize: 18),
+                      );
+                    },
                   ),
-                  onPressed: _isThinking ? null : _submit,
-                  child: _isThinking
-                      ? const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(width: 10),
-                            Text('Thinking...'),
-                          ],
-                        )
-                      : const Text('Submit'),
-                ),
-                if (_feedbackMessage != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _feedbackMessage!,
-                    style: TextStyle(
-                      color: _isListening ? const Color(0xFF93C5FD) : Colors.amber.shade400,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StartPlaceButton extends StatelessWidget {
+  const _StartPlaceButton({required this.placeName, required this.onTap});
+
+  final String placeName;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: BreadcrumbTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BreadcrumbTheme.borderRadius,
+        side: BorderSide(color: BreadcrumbTheme.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: BreadcrumbTheme.minTouch),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.my_location_rounded, color: BreadcrumbTheme.accent, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'You are at: ',
+                      style: const TextStyle(color: BreadcrumbTheme.textSecondary),
+                      children: [
+                        TextSpan(
+                          text: placeName,
+                          style: const TextStyle(
+                            color: BreadcrumbTheme.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
+                    style: BreadcrumbTheme.body,
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Change',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: BreadcrumbTheme.accent,
+                  ),
+                ),
               ],
             ),
           ),
-          const Divider(height: 1),
+        ),
+      ),
+    );
+  }
+}
+
+class _MicButton extends StatelessWidget {
+  const _MicButton({required this.listening, required this.onPressed});
+
+  final bool listening;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: listening ? 'Listening...' : 'Voice Search',
+      style: IconButton.styleFrom(
+        backgroundColor: listening
+            ? BreadcrumbTheme.accent
+            : BreadcrumbTheme.accent.withValues(alpha: 0.14),
+        foregroundColor: listening ? BreadcrumbTheme.onAccent : BreadcrumbTheme.accent,
+        minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+      icon: Icon(listening ? Icons.mic_rounded : Icons.mic_none_rounded, size: 28),
+    );
+  }
+}
+
+class _NoteCard extends StatelessWidget {
+  const _NoteCard({required this.icon, required this.color, required this.text});
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BreadcrumbTheme.borderRadius,
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 12),
           Expanded(
-            child: ListView.builder(
-              itemCount: places.length,
-              itemBuilder: (context, index) {
-                final place = places[index];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                  title: Text(
-                    place.name,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: place.aliases.isNotEmpty
-                      ? Text(
-                          'Aliases: ${place.aliases.join(", ")}',
-                        )
-                      : null,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => NavigateScreen(destinationId: place.id),
-                      ),
-                    );
-                  },
-                );
-              },
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 16, height: 1.35, fontWeight: FontWeight.w600, color: color),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PlaceChip extends StatelessWidget {
+  const _PlaceChip({required this.place, required this.onTap});
+
+  final Place place;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: BreadcrumbTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BreadcrumbTheme.borderRadius,
+        side: BorderSide(color: BreadcrumbTheme.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: BreadcrumbTheme.minTouch),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 18, 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.place_rounded, color: BreadcrumbTheme.accent, size: 22),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        place.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: BreadcrumbTheme.textPrimary,
+                        ),
+                      ),
+                      if (place.aliases.isNotEmpty)
+                        Text(
+                          place.aliases.join(' · '),
+                          style: const TextStyle(fontSize: 14, color: BreadcrumbTheme.textSecondary),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

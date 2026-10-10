@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app/screens/permissions_screen.dart';
+import 'app/theme.dart';
 
 void main() => runApp(const BreadcrumbApp());
 
@@ -10,10 +11,7 @@ class BreadcrumbApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Breadcrumb',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
+      theme: BreadcrumbTheme.themeData,
       home: const PermissionsScreen(),
     );
   }
