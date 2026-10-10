@@ -7,6 +7,14 @@ import 'package:flutter/material.dart';
 class BreadcrumbTheme {
   BreadcrumbTheme._();
 
+  static const String fontFamily = 'Inter';
+
+  /// Tabular figures for numbers (e.g. step counts) so digits align and don't jitter.
+  static const TextStyle tabularFigures = TextStyle(
+    fontFamily: fontFamily,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
   // Colours.
   static const Color background = Color(0xFF0B0F14);
   static const Color surface = Color(0xFF141A22);
@@ -137,6 +145,7 @@ class BreadcrumbTheme {
     );
 
     return ThemeData(
+      fontFamily: 'Inter',
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: scheme,

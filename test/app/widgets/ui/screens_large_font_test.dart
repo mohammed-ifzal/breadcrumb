@@ -134,7 +134,7 @@ void main() {
     expect(tester.takeException(), isNull);
     // Huge arrow, instruction, trail card, and actions visible
     expect(find.byType(TrailView), findsOneWidget);
-    expect(find.text('I am here'), findsOneWidget);
+    expect(find.text("I'm here"), findsOneWidget);
     expect(find.text('Scan sign'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -162,7 +162,7 @@ void main() {
     await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -300));
     await tester.pump();
 
-    expect(find.text('I am here'), findsOneWidget);
+    expect(find.text("I'm here"), findsOneWidget);
     expect(find.text('Scan sign'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
