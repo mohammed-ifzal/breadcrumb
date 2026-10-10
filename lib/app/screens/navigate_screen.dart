@@ -5,10 +5,12 @@ import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/tuning.dart' as tuning;
 import 'package:breadcrumb/app/wiring.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
+import 'scan_screen.dart';
 
 class NavigateScreen extends StatefulWidget {
   final String destinationId;
-  const NavigateScreen({super.key, required this.destinationId});
+  final bool simulate;
+  const NavigateScreen({super.key, required this.destinationId, this.simulate = false});
 
   @override
   State<NavigateScreen> createState() => _NavigateScreenState();
@@ -85,9 +87,10 @@ class _NavigateScreenState extends State<NavigateScreen> {
     _position = wiring.tracker.anchor(startPlaceId);
     _updateInstruction();
 
-    _isSimulating = true;
-    _usedSimulation = true;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    if (widget.simulate) {
+      _isSimulating = true;
+      _usedSimulation = true;
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final currentPos = _position;
       final currentRoute = _route;
       if (currentPos == null || currentRoute == null) {
@@ -121,7 +124,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
           return;
         }
       }
-    });
+      });
+    }
   }
 
   void _stopSimulation() {
@@ -422,7 +426,25 @@ class _NavigateScreenState extends State<NavigateScreen> {
                 child: const Text('I am here'),
               ),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ScanScreen(
+                        destinationId: widget.destinationId,
+                        currentRoute: _route,
+                        onReplan: (newRoute, newPosition) {
+                          setState(() {
+                            _route = newRoute;
+                            _position = newPosition;
+                          });
+                          _updateInstruction();
+                        },
+                      ),
+                    ),
+                  );
+                  _updateInstruction();
+                },
                 child: const Text('Scan sign'),
               ),
             ],

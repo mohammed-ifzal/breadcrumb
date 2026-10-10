@@ -1,14 +1,30 @@
 import 'package:flutter/material.dart';
+import '../wiring.dart';
 import 'destination_list_screen.dart';
-import 'replay_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load latest recorded map if available (D22)
+    Wiring.instance.reloadActiveMap();
+    // Warm Gemma AI in background
+    Wiring.instance.warmAi();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Breadcrumb')),
+      appBar: AppBar(
+        title: const Text('Breadcrumb'),
+      ),
       body: Center(
         child: SingleChildScrollView(
           child: Column(
@@ -22,7 +38,9 @@ class HomeScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const DestinationListScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const DestinationListScreen(),
+                    ),
                   );
                 },
                 child: const Text('Navigate'),
@@ -39,21 +57,6 @@ class HomeScreen extends StatelessWidget {
                   );
                 },
                 child: const Text('Map a route'),
-              ),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.replay, size: 28),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(250, 60),
-                  textStyle: const TextStyle(fontSize: 20),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ReplayScreen()),
-                  );
-                },
-                label: const Text('Replay mode'),
               ),
             ],
           ),

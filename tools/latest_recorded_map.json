@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "name": "entrance",
+  "start": "p0",
+  "places": [
+    {
+      "id": "p0",
+      "name": "entrance",
+      "aliases": [],
+      "kind": "start"
+    },
+    {
+      "id": "j1",
+      "name": "Junction 1",
+      "aliases": [],
+      "kind": "junction"
+    },
+    {
+      "id": "j2",
+      "name": "Junction 2",
+      "aliases": [],
+      "kind": "junction"
+    },
+    {
+      "id": "j3",
+      "name": "Junction 3",
+      "aliases": [],
+      "kind": "junction"
+    },
+    {
+      "id": "p1",
+      "name": "washroom",
+      "aliases": [],
+      "kind": "place"
+    },
+    {
+      "id": "j4",
+      "name": "Junction 4",
+      "aliases": [],
+      "kind": "junction"
+    },
+    {
+      "id": "j5",
+      "name": "Junction 5",
+      "aliases": [],
+      "kind": "junction"
+    },
+    {
+      "id": "p2",
+      "name": "End of walk",
+      "aliases": [],
+      "kind": "place"
+    }
+  ],
+  "corridors": [
+    {
+      "id": "c1",
+      "from": "p0",
+      "to": "j1",
+      "steps": 15,
+      "heading": 0.0
+    },
+    {
+      "id": "c2",
+      "from": "j1",
+      "to": "j2",
+      "steps": 12,
+      "heading": 270.0
+    },
+    {
+      "id": "c3",
+      "from": "j2",
+      "to": "j3",
+      "steps": 9,
+      "heading": 0.0
+    },
+    {
+      "id": "c4",
+      "from": "j3",
+      "to": "p1",
+      "steps": 0,
+      "heading": 180.0
+    },
+    {
+      "id": "c5",
+      "from": "p1",
+      "to": "j4",
+      "steps": 9,
+      "heading": 180.0
+    },
+    {
+      "id": "c6",
+      "from": "j4",
+      "to": "j5",
+      "steps": 6,
+      "heading": 90.0
+    },
+    {
+      "id": "c7",
+      "from": "j5",
+      "to": "p2",
+      "steps": 50,
+      "heading": 180.0
+    }
+  ]
+}

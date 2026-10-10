@@ -33,7 +33,8 @@ void main() {
     Wiring.instance.destinationResolver = originalResolver;
   });
 
-  testWidgets('renders "Where do you want to go?" text box, submit button, and disabled mic button', (tester) async {
+  testWidgets('renders "Where do you want to go?" text box, submit button, active mic button, and AI ready indicator', (tester) async {
+    Wiring.instance.isAiReady.value = false;
     await tester.pumpWidget(const MaterialApp(home: DestinationListScreen()));
     await tester.pumpAndSettle();
 
@@ -41,9 +42,38 @@ void main() {
     expect(find.widgetWithText(ElevatedButton, 'Submit'), findsOneWidget);
     expect(find.byType(IconButton), findsOneWidget);
 
-    // Mic button is disabled
+    // Mic button is active
     final micButton = tester.widget<IconButton>(find.byType(IconButton));
-    expect(micButton.onPressed, isNull);
+    expect(micButton.onPressed, isNotNull);
+
+    // AI indicator shows warming
+    expect(find.text('AI warming...'), findsOneWidget);
+
+    // Change to ready
+    Wiring.instance.isAiReady.value = true;
+    await tester.pump();
+    expect(find.text('AI ready'), findsOneWidget);
+  });
+
+  testWidgets('D23: displays "You are at:" selector defaulting to last place', (tester) async {
+    final wiring = Wiring.instance;
+    // D23: effectiveCurrentPlaceId defaults to the last place kind node
+    wiring.currentPlaceId = null;
+
+    await tester.pumpWidget(const MaterialApp(home: DestinationListScreen()));
+    await tester.pumpAndSettle();
+
+    // The default start place is the last 'place' kind node in the demo map
+    // Demo map places order: entrance(start), j1(junction), cafe(place),
+    // j2(junction), stage(place), restroom(place)
+    // Last place kind = restroom
+    expect(find.textContaining('You are at:'), findsOneWidget);
+
+    // Tap selector to see the bottom sheet
+    await tester.tap(find.textContaining('You are at:'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Change Start Location'), findsOneWidget);
   });
 
   testWidgets('valid resolved place navigates to NavigateScreen', (tester) async {
