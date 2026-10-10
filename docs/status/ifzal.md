@@ -9,7 +9,9 @@ based on it (Ifzal's call). theme.dart replaced: dark #0B0F14/#141A22, teal #2DE
 #FFB020, radius 20, 56 dp, type 42/28/17, system font; name BreadcrumbTheme.themeData kept, so
 main.dart is untouched. lib/app/widgets/ui/: PrimaryButton, ActionCard, StatusPill,
 SectionHeader, ThinkingIndicator. Home and Destination restyled, T3's logic unchanged.
-Tests: test/app/widgets/ui/ (16, incl. font scale 1.3 on 360 dp). analyze clean, 206 green.
+Tests: test/app/widgets/ui/ (16, incl. font scale 1.3 on 360 dp). analyze clean, 217 green.
+Merged T3's newer t3/real-sensors (sign scan; T3 dropped their theme): kept my 3 files, main.dart
+keeps BreadcrumbTheme.themeData (T3 had reverted it to blue). Re-checked on iQOO in aeroplane mode.
 iQOO check done: Home -> "where can I get coffee" -> Cafe route -> debug steps -> "Cafe is
 here." with SIMULATED shown; no crash in logcat. Outlined buttons tightened so the debug row fits.
 Found (not mine): TrailView paints place dots/labels black, invisible on the dark background;
