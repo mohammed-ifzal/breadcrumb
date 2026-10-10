@@ -3,6 +3,7 @@
 /// Everything it returns is checked by `GemmaDestinationResolver`.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
@@ -38,12 +39,39 @@ class GemmaLoadReport {
   final List<String> notes;
 }
 
+/// The system instruction for every place question.
+const String gemmaSystemInstruction =
+    'You help someone find a place on an indoor map. The request may be in '
+    'English or Hindi. It may name a place, describe it, or ask for '
+    'something you can get or do somewhere without naming the place; then '
+    'pick the place where that is most likely. If one place fits, call '
+    '$choosePlaceTool with its ID. If no place fits, do not call the tool; '
+    'reply with the single word none.';
+
 class GemmaService implements PlaceChooser {
+  GemmaService({this.reuseChat = true});
+
+  /// Keep one chat (system instruction and `choose_place` tool) per set of
+  /// places and clear its history after each answer, instead of opening a new
+  /// chat per request. The clearing runs after the answer is returned, so the
+  /// next request finds a fresh conversation ready. False is the old
+  /// chat-per-request path, kept for the benchmark's before/after.
+  bool reuseChat;
+
   InferenceModel? _model;
   GemmaLoadReport? report;
 
-  bool get isLoaded => _model != null;
+  InferenceChat? _chat;
 
+  /// The [choosePlaceDescription] [_chat] was made for; another map, or a
+  /// renamed place, needs a new chat.
+  String? _chatPlaces;
+
+  /// Completes when the previous request, and the clearing after it, is done.
+  /// Requests run one at a time: the engine holds one live conversation.
+  Future<void> _idle = Future.value();
+
+  bool get isLoaded => _model != null;
   /// Registers the model file, loads it (GPU first, CPU if that fails) and
   /// warms it up once. Throws if no path or backend works.
   Future<GemmaLoadReport> load() async {
@@ -117,6 +145,42 @@ class GemmaService implements PlaceChooser {
   Future<String?> choosePlace(String utterance, List<Place> places) async {
     final model = _model;
     if (model == null) throw StateError('Gemma is not loaded');
+    final previous = _idle;
+    final turn = Completer<void>();
+    _idle = turn.future;
+    await previous;
+
+    InferenceChat? chat;
+    try {
+      chat = await _chatFor(model, places);
+      await chat.addQueryChunk(Message(text: utterance, isUser: true));
+      final response = await chat.generateChatResponse();
+      final id = switch (response) {
+        FunctionCallResponse() => _placeId(response),
+        ParallelFunctionCallResponse(:final calls) =>
+          calls.map(_placeId).firstWhere((id) => id != null, orElse: () => null),
+        TextResponse() || ThinkingResponse() => null,
+      };
+      if (reuseChat) {
+        // Not awaited: the answer goes back now, the next request waits.
+        unawaited(_clear(chat).whenComplete(turn.complete));
+      } else {
+        await chat.close();
+        turn.complete();
+      }
+      return id;
+    } catch (_) {
+      if (chat != null) await _drop(chat);
+      turn.complete();
+      rethrow;
+    }
+  }
+
+  Future<InferenceChat> _chatFor(InferenceModel model, List<Place> places) async {
+    final description = choosePlaceDescription(places);
+    final kept = _chat;
+    if (reuseChat && kept != null && _chatPlaces == description) return kept;
+    if (kept != null) await _drop(kept);
     final chat = await model.createChat(
       topK: 1,
       maxOutputTokens: 64,
@@ -125,7 +189,7 @@ class GemmaService implements PlaceChooser {
       tools: [
         Tool(
           name: choosePlaceTool,
-          description: choosePlaceDescription(places),
+          description: description,
           parameters: {
             'type': 'object',
             'properties': {
@@ -139,25 +203,34 @@ class GemmaService implements PlaceChooser {
           },
         ),
       ],
-      systemInstruction:
-          'You help someone find a place on an indoor map. The request may be in '
-          'English or Hindi. It may name a place, describe it, or ask for '
-          'something you can get or do somewhere without naming the place; then '
-          'pick the place where that is most likely. If one place fits, call '
-          '$choosePlaceTool with its ID. If no place fits, do not call the tool; '
-          'reply with the single word none.',
+      systemInstruction: gemmaSystemInstruction,
     );
+    if (reuseChat) {
+      _chat = chat;
+      _chatPlaces = description;
+    }
+    return chat;
+  }
+
+  /// Empties [chat] for the next request; a chat that fails to clear is
+  /// dropped and the next request opens a new one.
+  Future<void> _clear(InferenceChat chat) async {
     try {
-      await chat.addQueryChunk(Message(text: utterance, isUser: true));
-      final response = await chat.generateChatResponse();
-      return switch (response) {
-        FunctionCallResponse() => _placeId(response),
-        ParallelFunctionCallResponse(:final calls) =>
-          calls.map(_placeId).firstWhere((id) => id != null, orElse: () => null),
-        TextResponse() || ThinkingResponse() => null,
-      };
-    } finally {
+      await chat.clearHistory();
+    } catch (_) {
+      await _drop(chat);
+    }
+  }
+
+  Future<void> _drop(InferenceChat chat) async {
+    if (identical(chat, _chat)) {
+      _chat = null;
+      _chatPlaces = null;
+    }
+    try {
       await chat.close();
+    } catch (_) {
+      // Already closed or the engine is gone; nothing left to free.
     }
   }
 
@@ -168,6 +241,8 @@ class GemmaService implements PlaceChooser {
   }
 
   Future<void> close() async {
+    final chat = _chat;
+    if (chat != null) await _drop(chat);
     await _model?.close();
     _model = null;
   }

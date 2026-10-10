@@ -3,6 +3,36 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 09:25, merge round: PR #6 merged, PR #2 blocked, D22, speech diagnosis
+PR #2 NOT merged: origin/main conflicts in docs/DECISIONS.md (Spike results rows); fix
+posted as a PR comment (also: use tuning.maxMotionGapMs, docs/ is mine). PR #6: speech fix
+a4f93ca, review clean, CI green, merged f6b8e8f. D22 on main 74dff2e (DECISIONS + CONTRACTS
+MapGraph: record saves <app documents>/maps/latest.json, Navigate loads it else demo map).
+Speech diagnosis: both buttons fail in 25-100 ms with error_language_unavailable, because the
+en-IN/hi-IN on-device packs (Android System Intelligence) are listed but not installed. Also
+fixed: 2 s pauseFor counted from the tap; the error that came after `done` was dropped.
+main f6b8e8f: 134 tests green, debug APK installed on the iQOO, Home shows, no FATAL.
+Next: Ifzal downloads en-IN + hi-IN under Settings > On-device speech recognition (Wi-Fi once),
+reinstall the Gemma debug APK (`flutter build apk --debug -t lib/ai/debug_main.dart`), redo
+the spoken test, then fill the DECISIONS spike row + BENCHMARKS "Spoken test 2". T2 rebases
+PR #2. D22 implementation: T2 (record_screen save), T3 (Navigate load).
+Follow-up: GemmaService serialises calls; a hung call stalls later requests to null.
+Blocked: speech packs (phone settings). Last commit: this handoff.
+
+## Sat 10 Oct 05:00, voice + benchmark session (branch ifzal/voice, PR open, not merged)
+Done: GemmaService reuses one chat per map, clears history after each answer (conversation
+open ~1650 ms moved off the critical path). iQOO GPU, load 2468 ms: Gemma median 2863 -> 1173
+ms, p90 4432 -> 2363 ms; 96/120 correct, 0 false positives, 24 misses (8 requests, all to null).
+Two prompt rewrites scored 90/120, original kept. docs/BENCHMARKS.md. SpeechInput
+(lib/ai/speech_input.dart): on-device only, no network fallback. Offline en-IN yes, hi-IN yes.
+analyze clean, 128 tests green. The phone has the Gemma debug APK (not the main app) installed.
+Spoken test (yours): phone in aeroplane mode, open Breadcrumb (Gemma debug), wait for "Loaded",
+tap "Speak (en-IN)", say "where can I get coffee" -> "Heard (en_IN): ..." then Food counter.
+Tap "बोलें (hi-IN)", say "स्टेज कहाँ है" -> Stage side. Say nothing once -> "Heard nothing".
+Note: vivo Remote Control in front blocked the run once; I brought the app forward.
+Next: spoken test; merge PR after review; reinstall main app (flutter build apk --debug).
+Blocked: nothing. Last commit: this handoff (previous 2be332a).
+
 ## Sat 10 Oct 03:50, D21 + merge PR #3 and #4 session
 Done: D21 on main 303209c (tuning maxMotionGapMs 200, turnSnapDegrees 45; CONTRACTS table;
 CI frees runner disk: 82% -> 69% used, 14G -> 23G free). TASKS: T3 follow-up added (f50f2b9).

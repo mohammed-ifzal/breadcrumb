@@ -8,6 +8,16 @@ Done: Built self-contained offline tools/map_desk.html (MapGraph layout, loop mi
 Next: Visual check of map_desk.html in a browser; integrate with MapBuilder export when Teammate 2 PR lands.
 Blocked: Nothing for tools.
 
+## Sat 10 Oct, 08:20
+Done: BUG 2b vibration timing fixed — turns vibrate exactly once per leg when steps <= turnNowSteps ("turn now"), arrive once on arrival, straight never; per-leg state maintained in navigate_screen. 131 tests green, analyze clean.
+Next: Physical on-device check of vibration pulse timing at turning thresholds.
+Blocked: Teammate 2 PR #2 (SensingSource) for live sensor stream.
+
+## Sat 10 Oct, 04:00
+Done: COMMIT 1 (SIMULATED stays on arrival, debug buttons behind dev toggle), COMMIT 2 (bugs 1-4 fixed with regression tests: zero-leg guard, turn vibrations, mid-route "I am here", concise speech), COMMIT 3 (sensorEvents stream in wiring), COMMIT 4 (destination resolver box with thinking state). 129 tests green, analyze clean.
+Next: On-device phone checks for speech clarity/calm rate, physical vibration patterns, and Gemma resolver response.
+Blocked: Teammate 2 PR #2 (SensingSource) to swap sensorEvents to live hardware stream.
+
 ## Sat 10 Oct, 02:00
 Done: STEP 2 — Replay screen consumes trace events via StepDetector/TurnDetector interfaces (wiring.stepDetector, wiring.turnDetector); REPLAY label always visible (AppBar + banner); empty/missing-meta/malformed-line traces handled gracefully. STEP 3 — start-place guard, zero-leg route guard, unknown destination error screen. STEP 4 — replay_test.dart (5 tests: REPLAY always visible, empty trace, missing meta, malformed line, full replay), destination_and_navigation_test.dart (SIMULATED label test, turn angle sign test for leg boundaries). 98 tests green, analyze clean, debug APK builds.
 Next: Phone test with real .jsonl traces once Teammate 2's PR #2 merges; add export if time permits.
