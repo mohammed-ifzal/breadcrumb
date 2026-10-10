@@ -1,6 +1,5 @@
 import '../core/contracts.dart' as contracts;
 import '../core/tuning.dart' as tuning;
-import 'motion_timing.dart';
 
 /// Integrates qualifying yaw samples, then emits the full angle after settling.
 class TurnDetector implements contracts.TurnDetector {
@@ -16,7 +15,7 @@ class TurnDetector implements contracts.TurnDetector {
     final previousT = _lastT;
     _lastT = t;
     if (previousT == null) return null;
-    if (t - previousT > maxMotionGapMs) {
+    if (t - previousT > tuning.maxMotionGapMs) {
       _angle = 0;
       _settleStart = null;
       return null;
