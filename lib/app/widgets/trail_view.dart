@@ -273,10 +273,19 @@ class TrailPainter extends CustomPainter {
     }
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    final startId = map.start;
+    final startId = route != null && route!.legs.isNotEmpty
+        ? (() {
+            final firstLeg = route!.legs.first;
+            final c = map.corridors.cast<Corridor?>().firstWhere(
+              (c) => c?.id == firstLeg.corridorId,
+              orElse: () => null,
+            );
+            return c != null ? (firstLeg.reversed ? c.to : c.from) : map.start;
+          })()
+        : map.start;
     final destId = route?.toId;
 
-    // 4. Place dots with icons by kind, start marker, destination marker
+    // 4. Place dots (circles only, no icons yet), start marker, destination marker
     for (final p in points) {
       final offset = toOffset(p.x, p.y, size, precomputedPoints: points);
 
@@ -292,43 +301,44 @@ class TrailPainter extends CustomPainter {
       );
 
       final isStart = p.placeId == startId || (place != null && place.kind == PlaceKind.start);
-      final isDest = destId != null && p.placeId == destId;
+      final isDest = (destId != null && p.placeId == destId) ||
+          (destId == null && place != null && place.name == 'End of walk');
 
       if (isStart) {
-        // Clear start marker: distinct teal ring with white/accent center
-        canvas.drawCircle(offset, 13.0, Paint()..color = BreadcrumbTheme.accent.withValues(alpha: 0.3));
-        canvas.drawCircle(offset, 10.0, Paint()..color = BreadcrumbTheme.accent);
-        canvas.drawCircle(offset, 6.0, Paint()..color = BreadcrumbTheme.onAccent);
-        canvas.drawCircle(offset, 3.0, Paint()..color = Colors.white);
+        // Clear start marker: distinct teal ring with white/accent center (compact)
+        canvas.drawCircle(offset, 9.0, Paint()..color = BreadcrumbTheme.accent.withValues(alpha: 0.3));
+        canvas.drawCircle(offset, 7.0, Paint()..color = BreadcrumbTheme.accent);
+        canvas.drawCircle(offset, 4.5, Paint()..color = BreadcrumbTheme.onAccent);
+        canvas.drawCircle(offset, 2.0, Paint()..color = Colors.white);
       } else if (isDest) {
-        // Clear end (destination) marker: glowing amber/warning target
-        canvas.drawCircle(offset, 14.0, Paint()..color = BreadcrumbTheme.warning.withValues(alpha: 0.35));
-        canvas.drawCircle(offset, 10.0, Paint()..color = BreadcrumbTheme.warning);
-        canvas.drawCircle(offset, 6.5, Paint()..color = BreadcrumbTheme.surface);
-        canvas.drawCircle(offset, 3.5, Paint()..color = BreadcrumbTheme.warning);
+        // Clear end (destination) marker: glowing amber/warning target (compact)
+        canvas.drawCircle(offset, 9.5, Paint()..color = BreadcrumbTheme.warning.withValues(alpha: 0.35));
+        canvas.drawCircle(offset, 7.0, Paint()..color = BreadcrumbTheme.warning);
+        canvas.drawCircle(offset, 4.5, Paint()..color = BreadcrumbTheme.surface);
+        canvas.drawCircle(offset, 2.5, Paint()..color = BreadcrumbTheme.warning);
       } else if (place == null || place.kind == PlaceKind.junction) {
-        // Junction dot
-        canvas.drawCircle(offset, 4.5, Paint()..color = BreadcrumbTheme.textFaint);
+        // Junction dot (compact)
+        canvas.drawCircle(offset, 3.5, Paint()..color = BreadcrumbTheme.textFaint);
         canvas.drawCircle(
           offset,
-          4.5,
+          3.5,
           Paint()
             ..color = BreadcrumbTheme.border
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5,
+            ..strokeWidth = 1.0,
         );
       } else {
-        // Place dot by kind: place
-        canvas.drawCircle(offset, 9.0, Paint()..color = BreadcrumbTheme.surfaceRaised);
+        // Place dot by kind: place (circles only, no icons yet - compact)
+        canvas.drawCircle(offset, 6.0, Paint()..color = BreadcrumbTheme.surfaceRaised);
         canvas.drawCircle(
           offset,
-          9.0,
+          6.0,
           Paint()
             ..color = BreadcrumbTheme.accent
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.0,
+            ..strokeWidth = 1.5,
         );
-        canvas.drawCircle(offset, 4.0, Paint()..color = BreadcrumbTheme.accent);
+        canvas.drawCircle(offset, 2.5, Paint()..color = BreadcrumbTheme.accent);
       }
 
       // Draw label badge for places and start/dest (skip unlabeled junctions)

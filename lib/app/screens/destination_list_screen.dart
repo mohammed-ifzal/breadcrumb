@@ -1,3 +1,4 @@
+import 'map_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/ai/speech_input.dart';
 import 'package:breadcrumb/core/contracts.dart';
@@ -397,6 +398,19 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                 text: feedback,
               ),
             ],
+            const SizedBox(height: 14),
+            PrimaryButton(
+              label: 'View floor map',
+              icon: Icons.map_rounded,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MapScreen(),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 36),
             SectionHeader(
               'Marked places',
