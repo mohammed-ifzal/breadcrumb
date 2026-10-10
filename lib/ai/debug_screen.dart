@@ -103,7 +103,7 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
     final offline = await _speech.offlineLocales();
     bool has(String id) => offline.any((l) => l.replaceAll('-', '_') == id);
     final status =
-        'Speech: offline en-IN ${has(speechLocaleEnglish) ? 'yes' : 'no'}, '
+        'Speech: on-device supports en-IN ${has(speechLocaleEnglish) ? 'yes' : 'no'}, '
         'hi-IN ${has(speechLocaleHindi) ? 'yes' : 'no'}'
         '${_speech.lastError == null ? '' : ' (${_speech.lastError})'}\n'
         'On-device languages: ${offline.isEmpty ? 'none reported' : offline.join(', ')}';
@@ -122,8 +122,9 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
     setState(() {
       _busy = false;
       _speechStatus = text == null
-          ? 'Heard nothing ($localeId)${_speech.lastError == null ? '' : ': ${_speech.lastError}'}'
+          ? 'Heard nothing ($localeId)${_speech.lastError == null ? '' : ': ${describeSpeechError(_speech.lastError!)}'}'
           : 'Heard ($localeId): $text';
+      _speechStatus += '\n${_speech.lastEvents.join(' | ')}';
     });
     if (text != null) {
       _text.text = text;

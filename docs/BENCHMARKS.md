@@ -61,8 +61,18 @@ recognisers exist for **en-IN: yes** and **hi-IN: yes**. The full list: cmn_CN, 
 en_AU, en_CA, en_IN, en_IE, en_SG, en_GB, en_US, fr_BE, fr_CA, fr_FR, fr_CH, de_AT,
 de_BE, de_DE, de_CH, hi_IN, id_ID, it_IT, it_CH, ja_JP, ko_KR, pl_PL, pt_BR, ru_RU,
 es_ES, es_US, th_TH, tr_TR, vi_VN. The phone has two recognition services: Android System
-Intelligence (on-device) and Google's TTS service. Recognising spoken words has not been
-tested yet.
+Intelligence (on-device) and Google's TTS service.
+
+**Correction (10 Oct 09:00):** that list is what the on-device recogniser *supports*, not
+what is installed. Spoken test 1 (Ifzal): both buttons stopped after a moment, or showed
+"Listening" and stopped after 2-3 s without hearing anything. Logcat with the new `SPEECH`
+event log, en-IN and hi-IN: `listening` -> `notListening` -> `done` ->
+`error_language_unavailable (permanent)` within 25-100 ms, so neither pack is installed
+on the iQOO. The old code also lost that error (it came after `done`), and a 2 s
+`pauseFor` that speech_to_text counts from the tap would cut off anyone slower than 2 s
+to start speaking. Both are fixed in `lib/ai/speech_input.dart`; the packs must be
+downloaded on the phone once (Settings > On-device speech recognition). Spoken test 2:
+pending.
 
 **Reproduce:**
 
