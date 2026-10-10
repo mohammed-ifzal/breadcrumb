@@ -73,17 +73,27 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
         _submit();
       } else {
         final err = Wiring.instance.speechInput.lastError;
+        final String errorText;
+        if (err != null) {
+          if (err == 'error_language_unavailable') {
+            errorText = 'Speech pack missing on this phone. '
+                'Type the place or pick from the list.';
+          } else {
+            errorText = '${describeSpeechError(err)}. '
+                'Type the place or pick from the list.';
+          }
+        } else {
+          errorText = 'No speech detected. Type the place or pick from the list.';
+        }
         setState(() {
-          _feedbackMessage = err != null
-              ? describeSpeechError(err)
-              : 'No speech detected. Try speaking again or type.';
+          _feedbackMessage = errorText;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isListening = false;
-          _feedbackMessage = 'Speech error: $e';
+          _feedbackMessage = '$e. Type the place or pick from the list.';
         });
       }
     }
