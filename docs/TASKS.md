@@ -30,18 +30,16 @@ the iQOO phone. **[RL]** = suits Red Light (phone only).
 - [ ] **G2 (Sat 8 am) [RL]:** a person who didn't build it records a loop and navigates
   back without help.
 
-## Saturday
+## Saturday (plan after the 10:00 mentor round, see `MENTOR.md`)
 
-- [ ] **Ifzal:** Gemma `DestinationResolver` for spoken requests, with the speech input.
-- [ ] **Teammate 2 [RL]:** 10 traced test walks; replay tests; tune turn thresholds.
-- [ ] **Teammate 3:** replay mode labelled "Replay"; scan any printed text to anchor
-  (bonus); export the trail for Office Kit.
-- [ ] **Teammate 3:** First commit on t3/live-trail: SIMULATED label stays on the
-  arrival screen; +1 step / turn debug buttons hidden behind a dev toggle and show
-  SIMULATED when used (PR #3 follow-up).
-- [ ] **Teammate 3 [RL]:** first backup video.
-- [ ] **Ifzal [RL]:** pitch and Q&A drill.
-- [ ] **G3 (Sat 6 pm):** feature cut.
+- [ ] **Ifzal:** merge PR #16 (D27 robust navigation) and PR #14 (T3 polish).
+- [ ] **Ifzal:** device-load benchmark on the iQOO, numbers in `BENCHMARKS.md`.
+- [ ] **Ifzal [RL]:** pitch and Q&A drill (mentor answers in `MENTOR.md`).
+- [ ] **Teammate 2:** assigned after the 16:00 status check.
+- [ ] **Teammate 3:** assigned after the 16:00 status check.
+- [ ] **All, 16:45:** final ground-floor map, recorded in one walk on Ifzal's phone.
+- [ ] **All, 17:30:** backup video.
+- [ ] **All, 18:15:** freeze.
 
 ## Saturday night to Sunday
 
