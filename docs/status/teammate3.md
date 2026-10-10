@@ -3,6 +3,20 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## 2026-10-11 00:05 — t3/nav-card: PR #22 updates (font cleanup & steps line zero-guard)
+- Deleted duplicate Inter*.ttf files, keeping only Inter-*.ttf declared in pubspec.yaml; confirmed pubspec.yaml diff against main only touches the fonts block.
+- Updated Navigate card to hide the steps line when steps == 0 (e.g. orientation or corner arrival).
+- Added widget test in navigate_card_screen_test.dart; 364/364 tests green, flutter analyze clean.
+- In progress: PR #22 updates on branch t3/nav-card.
+- Next step: review and merge PR #22.
+- Blocked: nothing.
+- Last commit: this commit.
+
+## 2026-10-10 23:35 — t3/nav-card: Offline Inter font + Google-Maps-style Navigate screen
+- Bundled offline Inter font (Regular/Medium/SemiBold/Bold) in assets/fonts/ & pubspec fonts block; set as theme fontFamily; tabular figures configured.
+- Implemented Google-Maps-style Navigate screen: accent top card with 56 dp arrow + confidence ring (amber < 0.5), 24-26 sp instruction + steps line; "Then: ..." strip below; TrailView as middle hero; bottom sheet with destination name, steps left, progress bar, equal "I'm here" / "Scan sign" buttons; preserved SIMULATED/Replay labels.
+- Added test/app/navigate_card_screen_test.dart; updated existing tests; 363/363 tests green, flutter analyze clean, verified at font scale 1.3 on 360x640.
+
 
 ## 2026-10-10 16:32 — t3/map-screen: Floor map screen + route preview
 - Added MapScreen (full-screen TrailView, summary stats, route preview with turn count, Start→Navigate). Entry points from Home + DestinationList. TrailView markers compacted.

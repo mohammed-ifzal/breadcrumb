@@ -179,7 +179,7 @@ void main() {
     expect(theme.textTheme.headlineMedium?.fontSize, 28);
     expect(theme.textTheme.bodyMedium?.fontSize, 17);
     // System font only: Roboto ships with Android, nothing is downloaded.
-    expect(theme.textTheme.bodyMedium?.fontFamily, anyOf(isNull, 'Roboto'));
+    expect(theme.textTheme.bodyMedium?.fontFamily, anyOf(isNull, 'Roboto', 'Inter'));
     expect(
       theme.elevatedButtonTheme.style?.minimumSize?.resolve({}),
       const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
