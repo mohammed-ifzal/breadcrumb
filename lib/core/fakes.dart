@@ -338,6 +338,37 @@ class FakeSensingSource implements SensingSource {
 
   @override
   void mark(String note) => marks.add(note);
+
+  /// Always walking (D29).
+  @override
+  Stream<MotionStateEvent> motionStates() =>
+      Stream.value(const MotionStateEvent(MotionState.walking, 0));
+
+  /// Always in the hand (D29).
+  @override
+  Stream<PlacementEvent> placements() =>
+      Stream.value(const PlacementEvent(Placement.hand, 0));
+
+  /// A 12 GB phone, like the iQOO 15 (D29).
+  @override
+  Future<int> totalRamMb() async => 12000;
+}
+
+/// Confirms every raw turn at once, unchanged, whatever the motion state (D29).
+class FakeTurnConfirmer implements TurnConfirmer {
+  final _confirmed = StreamController<TurnEvent>.broadcast(sync: true);
+
+  @override
+  Stream<TurnEvent> get confirmed => _confirmed.stream;
+
+  @override
+  void onStep(StepEvent e) {}
+
+  @override
+  void onTurn(TurnEvent e) => _confirmed.add(e);
+
+  @override
+  void onMotionState(MotionStateEvent e) {}
 }
 
 /// Returns the text registered for an image path, or `null`.

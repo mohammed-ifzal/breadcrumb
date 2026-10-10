@@ -57,3 +57,46 @@ const int accelPeakMinGapMs = 300;
 
 /// Longest wait for Gemma to choose a destination before giving up (null).
 const int gemmaTimeoutMs = 20000;
+
+// ---------------------------------------------------------------------------
+// D29: robust core. Each feature has a flag, so it can be switched off on the
+// phone if it misbehaves.
+// ---------------------------------------------------------------------------
+
+/// Pass raw turns through the TurnConfirmer before the Tracker and the
+/// MapBuilder (D29).
+const bool useTurnConfirmer = false;
+
+/// A raw turn counts only once this many steps follow it…
+const int turnConfirmSteps = 2;
+
+/// …within this many ms of it; otherwise it is dropped.
+const int turnConfirmWindowMs = 4000;
+
+/// Track position confidence and ask "Are you at {place}?" when it drops (D29).
+const bool useConfidence = false;
+
+/// Confidence is multiplied by this on every step.
+const double confidenceDecayPerStep = 0.98;
+
+/// Confidence after a snapped corner (an "I'm here" tap or arrival resets to 1.0).
+const double confidenceCornerReset = 0.9;
+
+/// Below this the Guide asks "Are you at {next place}?", once per leg.
+const double confidenceAskBelow = 0.5;
+
+/// Arrive only after enough steps on the final leg and all its turns (D29).
+const bool useArrivalGuard = false;
+
+/// Fraction of the final leg's steps needed before arrival counts.
+const double arrivalMinFraction = 0.7;
+
+/// No step for this many ms means MotionState.still (T2, sensing).
+const int stillAfterMs = 1500;
+
+/// Rotation rate (deg/s, any axis but yaw) above which the phone is being
+/// handled, not carried by a turning body (T2, sensing).
+const double handlingRotationMin = 120;
+
+/// Total RAM (MB) at or above which the device is DeviceTier.full.
+const int fullTierMinRamMb = 8000;

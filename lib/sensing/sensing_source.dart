@@ -209,6 +209,17 @@ class SensingSource implements contracts.SensingSource {
     'note': note,
   });
 
+  // D29 compile stubs added by the captain with the contract change; Teammate 2
+  // replaces them with real motion state, placement and RAM readings.
+  @override
+  Stream<contracts.MotionStateEvent> motionStates() => const Stream.empty();
+
+  @override
+  Stream<contracts.PlacementEvent> placements() => const Stream.empty();
+
+  @override
+  Future<int> totalRamMb() async => 0;
+
   Future<void> dispose() => _disposing ??= _dispose();
 
   Future<void> _dispose() async {

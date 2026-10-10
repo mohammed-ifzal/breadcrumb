@@ -43,6 +43,14 @@ class WalkSource implements contracts.SensingSource {
     await recorder?.stop();
     if (!closed.isCompleted) closed.complete();
   }
+
+  // D29 compile stubs (captain, with the contract change).
+  @override
+  Stream<contracts.MotionStateEvent> motionStates() => const Stream.empty();
+  @override
+  Stream<contracts.PlacementEvent> placements() => const Stream.empty();
+  @override
+  Future<int> totalRamMb() async => 0;
 }
 
 Future<void> tap(WidgetTester tester, String key) async {
