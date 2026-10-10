@@ -19,6 +19,11 @@ sealed class RawSensingEvent {
           _timestamp(raw['t']),
           _bool(raw['near']),
           _nonnegative(raw['cm']),
+          maximumRange: raw['maximumRange'] == null
+              ? null
+              : _positive(raw['maximumRange']),
+          origin: _proximityOrigin(raw['origin']),
+          snapshot: _optionalBool(raw['snapshot']),
         ),
         'light' => LightSample(_timestamp(raw['t']), _nonnegative(raw['lux'])),
         'info' => DeviceInfo(
@@ -62,17 +67,36 @@ class GravitySample extends RawSensingEvent {
 
 /// Native near/far relative to the sensor's own maximum range, plus raw cm.
 class ProximitySample extends RawSensingEvent {
-  const ProximitySample(this.t, this.near, this.cm);
+  const ProximitySample(
+    this.t,
+    this.near,
+    this.cm, {
+    this.maximumRange,
+    this.origin,
+    this.snapshot,
+  });
   @override
   final int t;
   final bool near;
   final double cm;
+
+  /// Sensor-defined far reference in cm; absent in older traces.
+  final double? maximumRange;
+
+  /// sensor = callback; cached = last known; assumed = fallback far reference.
+  final String? origin;
+
+  /// Current-state copy made when a trace starts, not a new hardware change.
+  final bool? snapshot;
   @override
   Map<String, Object?> toJson() => {
     'type': 'proximity',
     't': t,
     'near': near,
     'cm': cm,
+    if (maximumRange != null) 'maximumRange': maximumRange,
+    if (origin != null) 'origin': origin,
+    if (snapshot != null) 'snapshot': snapshot,
   };
 }
 
@@ -126,6 +150,22 @@ class DeviceInfo extends RawSensingEvent {
     if (lightAvailable != null) 'lightAvailable': lightAvailable,
     if (stepDetector != null) 'stepDetector': stepDetector,
   };
+}
+
+double _positive(Object? value) {
+  final number = _number(value);
+  if (number <= 0) {
+    throw const FormatException('Sensor maximum range must be positive');
+  }
+  return number;
+}
+
+String? _proximityOrigin(Object? value) {
+  if (value == null) return null;
+  if (!const {'sensor', 'cached', 'assumed'}.contains(value)) {
+    throw const FormatException('Unknown proximity origin');
+  }
+  return value as String;
 }
 
 double _number(Object? value) {

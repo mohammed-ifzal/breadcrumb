@@ -49,6 +49,7 @@ class SensingSource implements contracts.SensingSource {
   final Stream<dynamic> _raw;
   final Map<String, Object?> _filterConfig;
   final _deviceInfo = <String, Object?>{};
+  Map<String, Object?>? _proximityState;
   late final StreamController<Object> _events;
   StreamSubscription<dynamic>? _subscription;
   StepDetector _steps = StepDetector();
@@ -88,6 +89,7 @@ class SensingSource implements contracts.SensingSource {
     _sinceSample.reset();
     hardwareStepDetector.value = null;
     _deviceInfo.clear();
+    _proximityState = null;
     _capability = Completer<void>();
     // Observe errors even when nobody is currently waiting for startTrace.
     unawaited(
@@ -140,6 +142,7 @@ class SensingSource implements contracts.SensingSource {
               ));
       if (type == 'gravity' || type == 'proximity' || type == 'light') {
         final event = RawSensingEvent.fromJson(raw);
+        if (event is ProximitySample) _proximityState = Map.of(raw);
         _observeTimestamp(event.t!);
         _events.add(event);
       } else if (type == 'info') {
@@ -158,6 +161,7 @@ class SensingSource implements contracts.SensingSource {
         )) {
           final event = RawSensingEvent.fromJson(raw) as DeviceInfo;
           _deviceInfo.addAll(event.toJson());
+          if (event.proximityAvailable == false) _proximityState = null;
           _events.add(event);
         }
         if (raw['stepDetector'] == false) {
@@ -236,6 +240,17 @@ class SensingSource implements contracts.SensingSource {
       // The native RAM/capability notices usually precede Start trace. Preserve
       // their latest fields after meta without inventing events in old traces.
       if (_deviceInfo.isNotEmpty) _recorder.record(Map.of(_deviceInfo));
+      final proximity = _proximityState;
+      if (proximity != null) {
+        // Preserve the current known state even when its on-change callback
+        // preceded Start trace. Timestamp this copy at capture, not stream start.
+        _recorder.record({
+          ...proximity,
+          't': _lastT + _sinceSample.elapsedMilliseconds,
+          'origin': proximity['origin'] == 'assumed' ? 'assumed' : 'cached',
+          'snapshot': true,
+        });
+      }
       if (!_recorder.state.value.recording) {
         _tracing = false;
         await _releaseIfIdle();

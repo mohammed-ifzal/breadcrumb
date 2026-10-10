@@ -86,4 +86,94 @@ void main() {
       expect(() => RawSensingEvent.fromJson(raw), throwsFormatException);
     }
   });
+  test(
+    'proximity parses far, near and back to far using arbitrary sensor range',
+    () {
+      final packets = <Map<String, Object?>>[
+        {
+          'type': 'proximity',
+          't': 0,
+          'near': false,
+          'cm': 8.0,
+          'maximumRange': 8.0,
+          'origin': 'assumed',
+        },
+        {
+          'type': 'proximity',
+          't': 8800,
+          'near': true,
+          'cm': 0.0,
+          'maximumRange': 8.0,
+          'origin': 'sensor',
+        },
+        {
+          'type': 'proximity',
+          't': 14000,
+          'near': false,
+          'cm': 8.0,
+          'maximumRange': 8.0,
+          'origin': 'sensor',
+        },
+      ];
+      final samples = packets
+          .map((raw) => RawSensingEvent.fromJson(raw) as ProximitySample)
+          .toList();
+      expect(samples.map((e) => e.near), [false, true, false]);
+      expect(samples.map((e) => e.cm), [8.0, 0.0, 8.0]);
+      expect(samples.map((e) => e.maximumRange), everyElement(8.0));
+      expect(samples.map((e) => e.toJson()).toList(), packets);
+    },
+  );
+  test(
+    'proximity snapshots preserve origin without changing legacy packets',
+    () {
+      final sample = RawSensingEvent.fromJson({
+        'type': 'proximity',
+        't': 926467,
+        'near': false,
+        'cm': 12,
+        'maximumRange': 12,
+        'origin': 'cached',
+        'snapshot': true,
+      }) as ProximitySample;
+      expect(sample.snapshot, isTrue);
+      expect(sample.origin, 'cached');
+      expect(sample.maximumRange, 12);
+      expect(sample.toJson()['snapshot'], isTrue);
+      final legacy = RawSensingEvent.fromJson({
+        'type': 'proximity',
+        't': 0,
+        'near': false,
+        'cm': 5,
+      }) as ProximitySample;
+      expect(legacy.maximumRange, isNull);
+      expect(legacy.origin, isNull);
+      expect(legacy.toJson(), {
+        'type': 'proximity',
+        't': 0,
+        'near': false,
+        'cm': 5.0,
+      });
+    },
+  );
+  test('invalid proximity ranges and origins are rejected', () {
+    for (final extra in <Map<String, Object?>>[
+      {'maximumRange': 0},
+      {'maximumRange': -1},
+      {'maximumRange': double.nan},
+      {'origin': 'guessed'},
+      {'snapshot': 'yes'},
+    ]) {
+      expect(
+        () => RawSensingEvent.fromJson({
+          'type': 'proximity',
+          't': 0,
+          'near': false,
+          'cm': 8,
+          ...extra,
+        }),
+        throwsFormatException,
+      );
+    }
+  });
 }

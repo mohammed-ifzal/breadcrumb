@@ -94,7 +94,7 @@ Raw native/JSONL shapes (t is milliseconds since the stream started):
 
 ```json
 {"type":"gravity","t":20,"x":0.0,"y":0.0,"z":9.8,"source":"sensor"}
-{"type":"proximity","t":21,"near":true,"cm":0.0}
+{"type":"proximity","t":21,"near":true,"cm":0.0,"maximumRange":8.0,"origin":"sensor"}
 {"type":"light","t":22,"lux":12.5}
 {"type":"info","t":0,"totalRamMb":8192}
 {"type":"info","gravityAvailable":false,"gravitySource":"accelerometer","gravityLowPassEnabled":true}
@@ -186,3 +186,50 @@ handlingHoldMs=1200, boutMinSteps=3, boutMinGapMs=250, boutMaxGapMs=1500,
 useBoutGating=true, useHandlingGate=true, usePlacement=true, pocketLuxMax=10,
 pocketHoldMs=2000. No existing tuning value changed. All production files here
 import only Dart libraries and the existing pure models; no Flutter or I/O imports.
+
+## Proximity state and replay timing fix (11 Oct)
+
+Investigation: the native comparison already used cm < sensor.maximumRange, and
+its pair-based change check did not suppress a received far value. The proven
+startup-state gaps were no explicit state at registration, a blanket timestamp
+filter that could discard an old initial value, and no source proximity snapshot
+when a trace starts later than the native stream. The one-near-record trace does
+not prove why its final far callback was absent. Normal sampling delay was also
+requested; proximity now requests FASTEST on-change delivery with zero batching.
+
+After optional registration, an already-queued hardware value wins. Otherwise the
+channel emits the last observed value, or the explicit maximum-range far reference
+requested for sensors that supply no initial callback. Every proximity packet
+contains cm, maximumRange and near=(cm<maximumRange). origin identifies sensor,
+cached or assumed; an assumed far is not a claimed hardware measurement. The first
+real callback is forced even if equal to that fallback. Subsequent cm/near changes,
+including near->far, are emitted; old timestamps are retimed at receipt and marked
+cached rather than dropping the value. Registration generation/paused/sink guards
+cancel obsolete initial callbacks. Missing/failing proximity remains optional and
+announces proximityAvailable:false once, without unregistering motion/steps.
+
+ProximitySample keeps its original constructor and adds optional maximumRange,
+origin and snapshot fields, so old traces and tests still parse unchanged. Source
+records all new native fields unchanged. It caches valid proximity state, clears it
+on an unavailable notice, and copies it after meta/device info at trace start with
+snapshot:true and a capture-time t (not an old stream-start sample timestamp).
+Known observations are labelled cached; an assumed origin remains assumed. Source
+does not invent a far snapshot when no proximity observation is available.
+
+trace_replay.dart adds pure-Dart TraceReplayData.parse(jsonl), fromRecords(...),
+.timing (firstTimestampMs, lastTimestampMs, durationMs, durationSeconds) and .frames
+(record, tMs, delayMs). Only timestamped sample/mark/sign/scan/turn records affect
+timing. Info and meta remain in .records, but never start/end/reset/delay the replay
+clock, even if their t is old, future or not numeric. Duration uses min/max valid
+sample times, not row order. Delayed hardware samples have zero replay delay and do
+not move the playback clock backwards. No file I/O, timers or Flutter imports.
+
+There was no replay/duration module in lib/sensing before this change. The existing
+Teammate 3 lib/app/screens/replay_screen.dart timing loop is outside this task's
+allowed paths and was NOT edited; its owner can use TraceReplayData.parse(content)
+.frames instead of updating prevT from info records. External trace inspection
+scripts should likewise use .timing rather than every record's t.
+
+Phone verification is still required. Compile/unit results do not establish that
+the iQOO driver delivers the final far callback. Cover/uncover with marks, leave
+time for the returned far before Stop, and inspect cm/maximumRange/near/origin.

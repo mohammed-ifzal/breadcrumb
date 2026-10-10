@@ -41,6 +41,12 @@ class SensingChannel(private val context: Context, messenger: BinaryMessenger) :
     private var gravityAlpha = 0.0
     private var lightCoalescingEnabled = false
     private var lastProximity: Pair<Boolean, Double>? = null
+    // An observed value survives listener restarts; force/provenance distinguish
+    // fresh observations, cached state and the explicit fallback far assumption.
+    private var lastKnownProximityCm: Double? = null
+    private var proximityEpoch = 0L
+    private var proximityRegistrationNs = 0L
+    private var proximitySeenInRegistration = false
     private var lastLightLux: Double? = null
     private var lastLightEmissionNs: Long? = null
     private var pendingLight: Pair<Long, Double>? = null
@@ -113,7 +119,14 @@ class SensingChannel(private val context: Context, messenger: BinaryMessenger) :
         }
         // Independent optional registrations never unregister motion or steps.
         usingGravitySensor = registerOptional(gravity, Sensor.TYPE_GRAVITY, "gravityAvailable", 20_000)
-        registerOptional(proximity, Sensor.TYPE_PROXIMITY, "proximityAvailable", SensorManager.SENSOR_DELAY_NORMAL)
+        proximityEpoch++
+        proximityRegistrationNs = SystemClock.elapsedRealtimeNanos()
+        proximitySeenInRegistration = false
+        // Proximity is on-change; request immediate delivery with no batching,
+        // instead of allowing the normal sampling delay near trace Stop.
+        if (registerOptional(proximity, Sensor.TYPE_PROXIMITY, "proximityAvailable", SensorManager.SENSOR_DELAY_FASTEST)) {
+            publishInitialProximity()
+        }
         registerOptional(light, Sensor.TYPE_LIGHT, "lightAvailable", 200_000)
         if (step != null && !stepUnavailable) {
             try {
@@ -173,6 +186,8 @@ class SensingChannel(private val context: Context, messenger: BinaryMessenger) :
     }
 
     private fun unregister() {
+        proximityEpoch++
+        proximitySeenInRegistration = false
         try { manager.unregisterListener(this) } catch (_: RuntimeException) { }
         registered = false
         usingGravitySensor = false
@@ -202,6 +217,38 @@ class SensingChannel(private val context: Context, messenger: BinaryMessenger) :
         }
     }
 
+    private fun publishInitialProximity() {
+        val target = sink ?: return
+        val epoch = proximityEpoch
+        // Let an already-queued initial callback win. Android has no synchronous
+        // get-current-proximity API; otherwise use last known or the requested
+        // maximum-range far reference, explicitly marked cached/assumed.
+        main.post {
+            if (sink !== target || paused || epoch != proximityEpoch ||
+                proximitySeenInRegistration || Sensor.TYPE_PROXIMITY in unavailable) return@post
+            val sensor = proximity ?: return@post
+            val known = lastKnownProximityCm
+            emitProximity(elapsedMs(), known ?: sensor.maximumRange.toDouble(),
+                sensor.maximumRange.toDouble(), if (known == null) "assumed" else "cached", force = true)
+        }
+    }
+
+    private fun emitProximity(t: Long, cm: Double, maximumRange: Double, origin: String, force: Boolean = false) {
+        if (!cm.isFinite() || cm < 0.0 || !maximumRange.isFinite() || maximumRange <= 0.0) {
+            disableOptional(proximity, Sensor.TYPE_PROXIMITY, "proximityAvailable")
+            return
+        }
+        // Binary sensors commonly report exactly 0 and maximumRange. Both
+        // near->far and far->near use the sensor-defined range, never 0/5 cm gates.
+        val sample = Pair(cm < maximumRange, cm)
+        if (force || sample != lastProximity) {
+            lastProximity = sample
+            emit(mapOf("type" to "proximity", "t" to t, "near" to sample.first,
+                "cm" to cm, "maximumRange" to maximumRange, "origin" to origin),
+                allowed = { Sensor.TYPE_PROXIMITY !in unavailable && !paused },
+                onFailure = { disableOptional(proximity, Sensor.TYPE_PROXIMITY, "proximityAvailable") })
+        }
+    }
     private fun queueLight(t: Long, lux: Double) {
         if (pendingLight == null && lux == lastLightLux) return
         val now = SystemClock.elapsedRealtimeNanos()
@@ -235,8 +282,11 @@ class SensingChannel(private val context: Context, messenger: BinaryMessenger) :
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        if (sink == null || paused || event.timestamp < startNs) return
-        val t = (event.timestamp - startNs) / 1_000_000L
+        if (sink == null || paused) return
+        if (event.sensor.type != Sensor.TYPE_PROXIMITY && event.timestamp < startNs) return
+        // An on-change initial value can carry a pre-registration measurement
+        // timestamp. Treat that first value as cached at delivery, not negative t.
+        val t = if (event.timestamp < startNs) elapsedMs() else (event.timestamp - startNs) / 1_000_000L
         when (event.sensor.type) {
             Sensor.TYPE_STEP_DETECTOR -> emitStep(t)
             Sensor.TYPE_GRAVITY -> {
@@ -271,17 +321,20 @@ class SensingChannel(private val context: Context, messenger: BinaryMessenger) :
             }
             Sensor.TYPE_PROXIMITY -> {
                 if (Sensor.TYPE_PROXIMITY in unavailable) return
+                val cached = event.timestamp < proximityRegistrationNs
                 try {
                     val cm = event.values[0].toDouble()
-                    if (!cm.isFinite() || cm < 0.0) throw IllegalArgumentException("Invalid proximity distance")
-                    // Sensor-defined near/far range, never a hardcoded cm gate.
-                    val sample = Pair(cm < event.sensor.maximumRange.toDouble(), cm)
-                    if (sample != lastProximity) {
-                        lastProximity = sample
-                        emit(mapOf("type" to "proximity", "t" to t, "near" to sample.first, "cm" to cm),
-                            allowed = { Sensor.TYPE_PROXIMITY !in unavailable && !paused },
-                            onFailure = { disableOptional(proximity, Sensor.TYPE_PROXIMITY, "proximityAvailable") })
+                    val maximumRange = event.sensor.maximumRange.toDouble()
+                    if (!cm.isFinite() || cm < 0.0 || !maximumRange.isFinite() || maximumRange <= 0.0) {
+                        throw IllegalArgumentException("Invalid proximity distance/range")
                     }
+                    val first = !proximitySeenInRegistration
+                    proximitySeenInRegistration = true
+                    lastKnownProximityCm = cm
+                    // Force the first actual reading even if it equals an assumed
+                    // far bootstrap, so a real observation replaces the assumption.
+                    emitProximity(if (cached) elapsedMs() else t, cm, maximumRange,
+                        if (cached) "cached" else "sensor", force = first)
                 } catch (_: RuntimeException) { disableOptional(proximity, Sensor.TYPE_PROXIMITY, "proximityAvailable") }
             }
             Sensor.TYPE_LIGHT -> {

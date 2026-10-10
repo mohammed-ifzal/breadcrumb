@@ -621,4 +621,105 @@ void main() {
     },
     skip: File('traces/expected_turns.json').existsSync() ? false : 'expected_turns.json and the labelled walks are missing from this checkout',
   );
+  test(
+    'trace starts with cached far and preserves near then far changes',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'breadcrumb-proximity-trace-',
+      );
+      final source = SensingSource(
+        recorder: TraceRecorder(documentsDirectory: () async => directory),
+      );
+      final samples = <ProximitySample>[];
+      final sub = source.events().listen((e) {
+        if (e is ProximitySample) samples.add(e);
+      });
+      try {
+        await Future<void>.delayed(Duration.zero);
+        await send({
+          'type': 'proximity',
+          't': 0,
+          'near': false,
+          'cm': 8.0,
+          'maximumRange': 8.0,
+          'origin': 'sensor',
+        });
+        await send({'type': 'motion', 't': 926467, 'yawRate': 0, 'accel': 9.8});
+        await source.startTrace({'walker': 'T2', 'map': 'cover'});
+        await send({
+          'type': 'proximity',
+          't': 935296,
+          'near': true,
+          'cm': 0.0,
+          'maximumRange': 8.0,
+          'origin': 'sensor',
+        });
+        await send({
+          'type': 'proximity',
+          't': 940000,
+          'near': false,
+          'cm': 8.0,
+          'maximumRange': 8.0,
+          'origin': 'sensor',
+        });
+        await source.stopTrace();
+        final file = directory
+            .listSync(recursive: true)
+            .whereType<File>()
+            .single;
+        final rows = (await file.readAsLines())
+            .map((line) => jsonDecode(line) as Map<String, dynamic>)
+            .toList();
+        final proximity = rows.where((r) => r['type'] == 'proximity').toList();
+        expect(samples.map((e) => e.near), [false, true, false]);
+        expect(proximity.map((e) => e['near']), [false, true, false]);
+        expect(proximity.first['t'] as num, greaterThanOrEqualTo(926467));
+        expect(proximity.first['origin'], 'cached');
+        expect(proximity.first['snapshot'], isTrue);
+        expect(proximity.map((e) => e['maximumRange']), everyElement(8));
+      } finally {
+        await sub.cancel();
+        await source.dispose();
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+  test(
+    'missing proximity sends no invented far snapshot at trace start',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'breadcrumb-no-proximity-',
+      );
+      final source = SensingSource(
+        recorder: TraceRecorder(documentsDirectory: () async => directory),
+      );
+      final sub = source.events().listen((_) {});
+      try {
+        await Future<void>.delayed(Duration.zero);
+        await send({
+          'type': 'proximity',
+          't': 0,
+          'near': false,
+          'cm': 8.0,
+          'maximumRange': 8.0,
+        });
+        await send({'type': 'info', 'proximityAvailable': false});
+        await send({'type': 'motion', 't': 20, 'yawRate': 0, 'accel': 9.8});
+        await source.startTrace({'walker': 'T2', 'map': 'no-prox'});
+        await source.stopTrace();
+        final file = directory
+            .listSync(recursive: true)
+            .whereType<File>()
+            .single;
+        final rows = (await file.readAsLines()).map(
+          (line) => jsonDecode(line) as Map<String, dynamic>,
+        );
+        expect(rows.where((r) => r['type'] == 'proximity'), isEmpty);
+      } finally {
+        await sub.cancel();
+        await source.dispose();
+        await directory.delete(recursive: true);
+      }
+    },
+  );
 }
