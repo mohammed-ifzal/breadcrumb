@@ -136,7 +136,7 @@ detector) or `"accel"` (the Dart `StepDetector` fallback).
 | `PlaceMatch` | `placeId`, `score` (0–1) |
 | `Leg` | `corridorId`, `reversed`, `heading`, `steps`, `kind` (default walk), `floorDelta` (as walked: negated when reversed; default 0), `isTransition` (D24) |
 | `RoutePlan` | ordered `legs`, `totalSteps`, `toId` |
-| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool) |
+| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool), `orienting` (bool, default false), `facing` (double?, assumed facing while orienting, null = unknown) (D27) |
 | `Instruction` | `kind` (straight, turnLeft, turnRight, turnAround, arrive, offRoute, rescan, changeFloor), `steps` (int?), `placeName` (String?), `text` |
 
 ## Interfaces (one owner each)
@@ -171,15 +171,26 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 
 - Each step moves position along the current leg. Turns are ignored while
   `pauseTurns(true)`; the app sets this while the sign-scan screen is open.
+- **Orientation phase (D27).** From `setRoute` until the first step, `Position.orienting`
+  is true and turns are not route turns: they only add their angle to
+  `Position.facing`. The facing starts as the heading of the corridor the walker arrived
+  on when the route starts at the node where the recording ended (the last corridor's
+  `to`); otherwise it is null (unknown) and turns leave it unknown. `anchor` / `tapHere`
+  don't end the phase (Navigate anchors at the start right after `setRoute`).
 - A turn in the expected direction near the end of a leg (last `snapZone` fraction or
   within `snapSteps`) snaps position to the start of the next leg.
 - A turn in the wrong direction sets `offRoute`.
+- **A corner is passed only by a turn or an overwalk (D27).** Steps keep counting past
+  the counted corner; walking more than `overwalk` × the run past it with no turn moves
+  position to the start of the next leg (`stepsAlong` 0, so the real turn, if it comes
+  late, is absorbed by the `lateTurnSteps` rule). Not while off route.
+- **Auto-recover (D27).** While off route, a turn in the direction the next turning
+  point needs, within 2 × `snapSteps` of it (before or after), snaps position to the
+  start of the leg after it and clears `offRoute`. Other turns are ignored.
 - Turns after arriving (last leg, its steps done) are ignored (D26).
 - A turn within `lateTurnSteps` after a node the position already moved past (by
   `tapHere`, `anchor` or a turn snap), in the direction that node needs, is that node's
   turn: the position stays and it is not `offRoute` (D26).
-- Walking more than `overwalk` past a leg's length gives a "may have passed the turn"
-  `rescan` instruction.
 - `anchor(placeId)` moves position to that place. If the place isn't on the current
   route, it sets `needsReplan`; the app then plans again from that place.
 - **Transitions (D24).** A stairs, escalator or lift leg always ends a straight run.
@@ -198,8 +209,16 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 - Take the turn between the current leg and the next. If `|turn|` < `straightTolerance`,
   just continue.
 - If `|turn|` > `turnAroundAngle`, say "turn around".
-- When the steps left on a leg are at most `turnNowSteps`, say "turn left now" or
-  "turn right now".
+- When the steps left are at most `turnNowSteps`, say "Get ready to turn left/right.";
+  when they reach 0, "Turn left/right at the corner." (D27; was "turn left now").
+- **Orienting (D27).** While `Position.orienting`, before the normal instruction: facing
+  unknown → "Face {next place} and start walking." (`straight`, no steps; the next place is
+  the first non-junction node ahead); first leg about 180° from the facing (more than
+  `turnAroundAngle`) → "Turn around, then walk straight." (`turnAround`); at least
+  `straightTolerance` off → "Turn left/right, then walk straight." (`turnLeft` /
+  `turnRight`, no steps). Within `straightTolerance` → the normal instruction.
+- Off route → "Looks like you went off the path. Go back to the last corner or tap I'm
+  here." The Guide no longer gives `rescan` (D27); the Scan sign button stays.
 - Before a transition, `changeFloor` replaces the turn: "In about {steps} steps, take
   the {kind} {up/down} to Floor {N}.", then "Take the {kind} {up/down} to Floor {N}."
   within `turnNowSteps` and on the transition leg. {N} is the floor of the node at its
@@ -220,8 +239,9 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 
 - **A correct turn before the snap zone is `offRoute`.** The snap zone is measured over
   the straight run up to the next turn, not a single leg.
-- **While off route, turns are ignored** until an anchor (`anchor` / `tapHere`) or a
-  new route (`setRoute`) clears `offRoute`.
+- **While off route, turns are ignored** until an anchor (`anchor` / `tapHere`), a
+  new route (`setRoute`) or a matching turn near the next corner (auto-recover, D27)
+  clears `offRoute`.
 - **Places mid-corridor are passed through.** A place splits a corridor into two legs
   with the same heading; walking past it is straight on, never a turn.
 - **`RoutePlanner.plan` throws `ArgumentError`** for an unknown place ID or when there is
@@ -238,12 +258,12 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `turnSnapDegrees` | 90 | `MapBuilder` rounds each recorded turn angle to the nearest multiple (D25; was 45) |
 | `straightTolerance` | 30 | Leg-to-leg changes smaller than this are "straight on" |
 | `turnAroundAngle` | 150 | Changes larger than this are "turn around" |
-| `turnNowSteps` | 3 | Say "turn now" this many steps before the end of a leg |
-| `snapZone` | 0.4 | A turn snaps in the last 40% of a leg… |
-| `snapSteps` | 8 | …or within this many steps of its end |
+| `turnNowSteps` | 3 | Say "Get ready to turn" this many steps before the corner |
+| `snapZone` | 0.5 | A turn snaps in the last half of a leg… (D27; was 0.4) |
+| `snapSteps` | 10 | …or within this many steps of its end; off route, 2× this is the auto-recover window (D27; was 8) |
 | `lateTurnSteps` | 3 | A turn this many steps after a node the position already moved past is that node's turn (D26) |
 | `floorChangeCostSteps` | 20 | Extra route cost of each stairs, escalator or lift corridor (D24) |
-| `overwalk` | 0.3 | 30% past a leg's length triggers a rescan prompt |
+| `overwalk` | 0.3 | 30% of a run past its corner with no turn moves on to the next leg (D27; was a rescan prompt) |
 | `matchThreshold` | 0.8 | Minimum fuzzy score for a place match |
 | `accelPeakThreshold` | 11.5 | m/s² peak needed to count a step (fallback only) |
 | `accelPeakMinGapMs` | 300 | Minimum ms between fallback step peaks |
@@ -254,11 +274,12 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | Kind | Text |
 | --- | --- |
 | straight | "Walk straight, about {steps} steps." |
-| turnLeft / turnRight | "In about {steps} steps, turn left." Then "Turn left now." |
+| turnLeft / turnRight | "In about {steps} steps, turn left." Then "Get ready to turn left." Then "Turn left at the corner." (D27) |
+| orienting (D27) | "Turn around, then walk straight." / "Turn left, then walk straight." / "Face {place} and start walking." |
 | turnAround | "Turn around." |
 | arrive | "{placeName} is here." |
-| offRoute | "That turn wasn't on the route. Scan a nearby sign to re-locate." |
-| rescan | "You may have passed the turn. Point the camera at a sign." |
+| offRoute | "Looks like you went off the path. Go back to the last corner or tap I'm here." (D27) |
+| rescan | No longer given by the Guide (D27); kept in the enum. |
 | changeFloor | "In about {steps} steps, take the stairs up to Floor 1." Then "Take the stairs up to Floor 1." (D24) |
 
 Vibration: left = two short pulses, right = one long pulse, arrive = three short pulses.

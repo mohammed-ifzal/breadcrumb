@@ -3,6 +3,21 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 15:55, end of session: D27 robust navigation (branch ifzal/nav-robust)
+Done: PR #15 (ifzal/floors, D24) merged 0477be5 (CI green, temp merge up to date, 281 green).
+In progress: PR #16 open, not merged (ifzal/nav-robust, D27, CI was pending). Fixes from the
+iQOO loop test: orientation phase until the first step (turns only update facing; facing =
+arrival corridor if starting where the recording ended, else unknown); "Get ready to turn" ->
+"Turn left at the corner", leg advances only on a correct turn or overwalk, snapZone 0.5,
+snapSteps 10; off-route text without Scan sign; off route, a matching turn within 2x snapSteps
+recovers. T3 path: speaker.dart speaks the Guide text (+ test/app/speaker_wording_test.dart).
+analyze clean, 300 green. Debug APK installed + launched on iQOO, no crash; loop not re-walked.
+Not handled: (1) turns made before Navigate opens are unseen, so "Turn around" can be wrong
+if the walker already turned after Stop; (2) navigate_screen.dart (T3) still vibrates at
+"Get ready" (3 steps before the corner), not at the corner.
+Next: merge PR #16 once CI is green, then re-walk the loop on the iQOO in aeroplane mode.
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct, Session A2: D24 floors + speech fallback (branch ifzal/floors, PR open)
 PR #13 (t3/ai-status) closed: "Moving into t3/polish per Teammate 3."
 D24 in lib/core: Place.floor, Corridor/Leg kind + floorDelta (optional, old maps load and are

@@ -24,11 +24,11 @@ void main() {
     expect(i.text, 'In about 10 steps, turn left.');
   });
 
-  test('within turnNowSteps: "Turn left now."', () {
+  test('within turnNowSteps: "Get ready to turn left." (D27)', () {
     final r = planner.plan(demoMap, 'start', 'stage_side');
     final i = guide.next(r, at(0, 9));
     expect(i.kind, InstructionKind.turnLeft);
-    expect(i.text, 'Turn left now.');
+    expect(i.text, 'Get ready to turn left.');
   });
 
   test('distance to a turn spans straight-on joins', () {
@@ -63,7 +63,7 @@ void main() {
     final r = planner.plan(demoMap, 'stage_side', 'start');
     expect(guide.next(r, at(0, 0)).text, 'In about 6 steps, turn left.');
     expect(guide.next(r, at(2, 2)).text, 'In about 8 steps, turn right.');
-    expect(guide.next(r, at(2, 8)).text, 'Turn right now.');
+    expect(guide.next(r, at(2, 8)).text, 'Get ready to turn right.');
     expect(guide.next(r, at(3, 12)).text, 'Start is here.');
   });
 
@@ -71,16 +71,16 @@ void main() {
     final r = planner.plan(demoMap, 'start', 'stage_side');
     final i = guide.next(r, at(0, 10, offRoute: true));
     expect(i.kind, InstructionKind.offRoute);
-    expect(i.text, "That turn wasn't on the route. Scan a nearby sign to re-locate.");
+    expect(i.text, "Looks like you went off the path. Go back to the last corner or tap I'm here.");
   });
 
-  test('overwalk past a turn gives rescan', () {
+  test('past the counted corner it keeps saying "at the corner", never rescan (D27)', () {
     final r = planner.plan(demoMap, 'start', 'stage_side');
-    // c1 is 12 steps; 30% overwalk allows up to 15.6.
-    expect(guide.next(r, at(0, 15)).kind, InstructionKind.turnLeft);
-    final i = guide.next(r, at(0, 16));
-    expect(i.kind, InstructionKind.rescan);
-    expect(i.text, 'You may have passed the turn. Point the camera at a sign.');
+    for (final along in [12, 15, 16, 30]) {
+      final i = guide.next(r, at(0, along));
+      expect(i.kind, InstructionKind.turnLeft);
+      expect(i.text, 'Turn left at the corner.');
+    }
   });
 
   test('a U-turn between legs says "Turn around."', () {
