@@ -23,8 +23,15 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
   @override
   void initState() {
     super.initState();
+    // D22: pick up a map saved since app start (Home loads it only once).
+    _reloadMap();
     // Warm Gemma AI if not already warmed
     Wiring.instance.warmAi();
+  }
+
+  Future<void> _reloadMap() async {
+    final loaded = await Wiring.instance.reloadActiveMap();
+    if (loaded && mounted) setState(() {});
   }
 
   @override

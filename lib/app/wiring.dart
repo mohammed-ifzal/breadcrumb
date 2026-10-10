@@ -52,6 +52,7 @@ class Wiring {
 
   set map(MapGraph newMap) {
     _activeMap = newMap;
+    _loadedMapJson = null;
     tracker = RouteTracker(_activeMap);
     guide = RouteGuide(_activeMap);
     currentPlaceId = defaultStartPlaceId(_activeMap);
@@ -131,16 +132,27 @@ class Wiring {
     }
   }
 
+  /// Where [reloadActiveMap] looks for maps/latest.json; tests point it at a
+  /// temporary directory.
+  Future<Directory> Function() documentsDirectory = getApplicationDocumentsDirectory;
+
+  /// The latest.json content behind [map], so an unchanged file is not reloaded
+  /// (which would reset the "You are at" choice).
+  String? _loadedMapJson;
+
   /// D22: Load maps/latest.json from app documents directory if present,
-  /// otherwise keep default demo map.
+  /// otherwise keep default demo map. Called whenever Navigate opens, so a map
+  /// saved after app start is used without a restart.
   Future<bool> reloadActiveMap({Directory? documentsDir}) async {
     try {
-      final dir = documentsDir ?? await getApplicationDocumentsDirectory();
+      final dir = documentsDir ?? await documentsDirectory();
       final file = File('${dir.path}/maps/latest.json');
       if (await file.exists()) {
         final content = await file.readAsString();
+        if (content == _loadedMapJson) return true;
         final loaded = decodeMap(content);
         map = loaded;
+        _loadedMapJson = content;
         return true;
       }
     } catch (e) {
