@@ -134,6 +134,8 @@ void main() {
       final map = decodeMap(written!);
       expect(map.name, 'Entrance');
       expect(map.corridors.single.steps, 2);
+      expect(map.places.last.name, 'End of walk');
+      expect(map.places.last.kind, contracts.PlaceKind.place);
       expect(map.places.any((p) => p.id == contracts.hereId), isFalse);
       expect(decodeMap(encodeMap(map)).toJson(), map.toJson());
       expect(
@@ -183,10 +185,12 @@ void main() {
       expect(find.textContaining('disk full'), findsOneWidget);
       expect(find.text('Retry save'), findsOneWidget);
       expect(builder.finishCalls, 1);
+      expect(builder.endPlaceCalls, 1);
       expect(tester.takeException(), isNull);
       await tap(tester, 'record-stop');
       expect(saves, 2);
       expect(builder.finishCalls, 1);
+      expect(builder.endPlaceCalls, 1);
       expect(find.textContaining('disk full'), findsNothing);
       expect(
         find.text('Saved map: /documents/maps/latest.json'),
@@ -197,6 +201,84 @@ void main() {
     },
   );
 
+  for (final stepsAfterMark in [0, 1]) {
+    testWidgets('D23 Stop after mark with $stepsAfterMark extra steps', (
+      tester,
+    ) async {
+      final events = StreamController<Object>.broadcast(sync: true);
+      addTearDown(events.close);
+      contracts.MapGraph? savedMap;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RecordScreen(
+            events: events.stream,
+            save: (map) async {
+              savedMap = map;
+              return '/maps/latest.json';
+            },
+          ),
+        ),
+      );
+      await start(tester);
+      events.add(const contracts.StepEvent(20));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('place-name')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('place-name')), 'Desk');
+      await tester.pump();
+      await tap(tester, 'record-mark');
+      for (var i = 0; i < stepsAfterMark; i++) {
+        events.add(contracts.StepEvent(40 + i * 20));
+      }
+      await tester.pumpAndSettle();
+      await tap(tester, 'record-stop');
+      final map = savedMap!;
+      expect(map.places.last.kind, contracts.PlaceKind.place);
+      if (stepsAfterMark == 0) {
+        expect(map.places.last.name, 'Desk');
+        expect(map.places.where((p) => p.name == 'End of walk'), isEmpty);
+        expect(map.corridors.map((c) => c.steps), [1]);
+      } else {
+        expect(map.places.last.name, 'End of walk');
+        expect(map.corridors.map((c) => c.steps), [1, 1]);
+      }
+      expect(decodeMap(encodeMap(map)).toJson(), map.toJson());
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+  }
+
+  testWidgets('D23 Stop with zero steps still adds a named End of walk', (
+    tester,
+  ) async {
+    final events = StreamController<Object>.broadcast(sync: true);
+    addTearDown(events.close);
+    contracts.MapGraph? savedMap;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RecordScreen(
+          events: events.stream,
+          save: (map) async {
+            savedMap = map;
+            return '/maps/latest.json';
+          },
+        ),
+      ),
+    );
+    await start(tester);
+    await tap(tester, 'record-stop');
+    final map = savedMap!;
+    expect(map.places.map((p) => p.name), ['Entrance', 'End of walk']);
+    expect(map.places.last.kind, contracts.PlaceKind.place);
+    expect(map.corridors.single.steps, 0);
+    expect(map.corridors.single.to, map.places.last.id);
+    expect(map.places.any((p) => p.id == contracts.hereId), isFalse);
+    expect(decodeMap(encodeMap(map)).toJson(), map.toJson());
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
   testWidgets('dispose cancels subscriptions and disposes the map notifier', (
     tester,
   ) async {
@@ -354,6 +436,13 @@ void main() {
 class CountingBuilder extends MapBuilder {
   int snapshotCalls = 0;
   int finishCalls = 0;
+  int endPlaceCalls = 0;
+  @override
+  void addPlace(String name, List<String> aliases) {
+    if (name == 'End of walk') endPlaceCalls++;
+    super.addPlace(name, aliases);
+  }
+
   @override
   contracts.MapGraph snapshot() {
     snapshotCalls++;

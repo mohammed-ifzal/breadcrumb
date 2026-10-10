@@ -54,6 +54,7 @@ class _RecordScreenState extends State<RecordScreen> {
   contracts.MapGraph? _finished;
   final _turns = <double>[];
   int _steps = 0;
+  int? _stepsAtLastMark;
   bool _started = false;
   bool _recording = false;
   bool _saving = false;
@@ -127,6 +128,7 @@ class _RecordScreenState extends State<RecordScreen> {
     if (!_recording || name.isEmpty) return;
     try {
       _builder.addPlace(name, const []);
+      _stepsAtLastMark = _steps;
       _map!.value = _builder.snapshot();
       _placeName.clear();
       setState(() => _marked = 'Marked place: $name');
@@ -145,7 +147,16 @@ class _RecordScreenState extends State<RecordScreen> {
     try {
       // Keep the same finished map for a retry; stop accepting sensor events
       // immediately so neither delayed events nor retries add steps.
-      _finished ??= _builder.finish();
+      if (_finished == null) {
+        // D23: retain a just-marked final position instead of adding another
+        // place at zero distance. Otherwise make the endpoint selectable.
+        if (_stepsAtLastMark != _steps) {
+          _builder.addPlace('End of walk', const []);
+          _stepsAtLastMark = _steps;
+          _map!.value = _builder.snapshot();
+        }
+        _finished = _builder.finish();
+      }
       _map!.value = _finished!;
       // Persistence must not wait on platform stream teardown.
       unawaited(_releaseSensors());
