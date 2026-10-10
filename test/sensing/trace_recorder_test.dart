@@ -64,6 +64,22 @@ void main() {
           'yawRate': 90.0,
           'accel': 9.8,
         });
+        recorder.record({
+          'type': 'gravity',
+          't': 21,
+          'x': 0,
+          'y': 0,
+          'z': 9.8,
+          'source': 'sensor',
+        });
+        recorder.record({
+          'type': 'proximity',
+          't': 22,
+          'near': true,
+          'cm': 0.0,
+        });
+        recorder.record({'type': 'light', 't': 23, 'lux': 12.5});
+        recorder.record({'type': 'info', 't': 24, 'totalRamMb': 8192});
         recorder.mark(30, 'turned left');
         await recorder.stop();
         final file = directory
@@ -81,10 +97,26 @@ void main() {
         expect(rows[0]['type'], 'meta');
         expect(rows[0]['walker'], 'T2');
         expect(rows[1]['yawRate'], 90);
-        expect(rows[2], {'type': 'mark', 't': 30, 'note': 'turned left'});
+        expect(rows[2], {
+          'type': 'gravity',
+          't': 21,
+          'x': 0,
+          'y': 0,
+          'z': 9.8,
+          'source': 'sensor',
+        });
+        expect(rows[3], {
+          'type': 'proximity',
+          't': 22,
+          'near': true,
+          'cm': 0.0,
+        });
+        expect(rows[4], {'type': 'light', 't': 23, 'lux': 12.5});
+        expect(rows[5], {'type': 'info', 't': 24, 'totalRamMb': 8192});
+        expect(rows[6], {'type': 'mark', 't': 30, 'note': 'turned left'});
         recorder.record({'type': 'step', 't': 40});
         await recorder.stop();
-        expect(await file.readAsLines(), hasLength(3));
+        expect(await file.readAsLines(), hasLength(7));
       } finally {
         await recorder.stop();
         await directory.delete(recursive: true);
