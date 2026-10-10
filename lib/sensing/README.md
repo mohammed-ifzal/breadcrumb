@@ -13,7 +13,7 @@ only after Kotlin reports that hardware step detection is absent. `TurnDetector`
 integrates each qualifying sample over the preceding timestamp interval, waits for a
 continuous settling period, then emits the entire angle. The first motion sample sets
 the time origin; duplicate/out-of-order and non-finite samples are ignored. Thresholds
-come from `lib/core/tuning.dart`. The explicitly requested transport gap limit is temporarily `maxMotionGapMs = 200` in `motion_timing.dart`: longer gaps discard step peaks and turn integration/settling, with the current sample establishing a fresh baseline. Ask the captain to move this constant to shared tuning.
+come from `lib/core/tuning.dart`. Both detectors use shared `tuning.maxMotionGapMs` (currently 200 ms): longer gaps discard step peaks and turn integration/settling, with the current sample establishing a fresh baseline.
 
 `SensingSource` implements the core interface. Subscribe through `events()`; consumers
 share one native subscription. `hardwareStepDetector` is a ValueNotifier: unknown
@@ -42,7 +42,7 @@ adb shell pm grant com.teamgroza.breadcrumb android.permission.ACTIVITY_RECOGNIT
 
 This spike supports D15's real live recording. It does not implement MapBuilder or
 record_screen.dart, draw a fabricated trail, or require signs. No contract/tuning or
-shared build changes were made. The captain should centralize maxMotionGapMs in tuning as described above. Test with `flutter test --concurrency=1` if parallel
+shared build changes were made. The motion-gap limit is now read directly from shared tuning. Test with `flutter test --concurrency=1` if parallel
 Flutter test compilation exhausts memory on the laptop.
 
 ## Android build memory failure (10 Oct)

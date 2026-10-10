@@ -48,9 +48,10 @@ void main() {
     final detector = TurnDetector();
     detector.onMotion(0, 0);
     feed(detector, 20, 500, 90);
-    expect(detector.onMotion(701, 90), isNull);
-    feed(detector, 721, 1701, -90);
-    final turns = feed(detector, 1721, 2321, 0);
+    final freshT = 500 + tuning.maxMotionGapMs + 1;
+    expect(detector.onMotion(freshT, 90), isNull);
+    feed(detector, freshT + 20, freshT + 1000, -90);
+    final turns = feed(detector, freshT + 1020, freshT + 1620, 0);
     expect(turns, hasLength(1));
     expect(turns.single.angle, closeTo(-90, .01));
   });
@@ -59,24 +60,31 @@ void main() {
     detector.onMotion(0, 0);
     feed(detector, 20, 1000, 90);
     detector.onMotion(1020, 0);
-    expect(detector.onMotion(1520, 0), isNull);
-    expect(feed(detector, 1540, 2200, 0), isEmpty);
+    final freshT = 1020 + tuning.maxMotionGapMs + 1;
+    expect(detector.onMotion(freshT, 0), isNull);
+    expect(feed(detector, freshT + 20, freshT + 680, 0), isEmpty);
   });
   test('exactly 200 ms remains a valid motion interval', () {
     final detector = TurnDetector();
     detector.onMotion(0, 0);
-    for (var t = 200; t <= 1000; t += 200) {
+    final gap = tuning.maxMotionGapMs;
+    final duration = (1000 / gap).ceil() * gap;
+    for (var t = gap; t <= duration; t += gap) {
       detector.onMotion(t, 90);
     }
-    expect(feed(detector, 1020, 1620, 0).single.angle, closeTo(90, .01));
+    expect(
+      feed(detector, duration + 20, duration + 620, 0).single.angle,
+      closeTo(90 * duration / 1000, .01),
+    );
   });
   test('step gap discards stale peak and recovers on fresh samples', () {
     final detector = StepDetector();
     detector.onMotion(0, 9);
     detector.onMotion(20, 13);
-    expect(detector.onMotion(221, 9), isNull);
-    detector.onMotion(241, 13);
-    expect(detector.onMotion(261, 9)?.t, 241);
+    final freshT = 20 + tuning.maxMotionGapMs + 1;
+    expect(detector.onMotion(freshT, 9), isNull);
+    detector.onMotion(freshT + 20, 13);
+    expect(detector.onMotion(freshT + 40, 9)?.t, freshT + 20);
   });
   List<contracts.TurnEvent> walkTurn(double rate, int duration) {
     final detector = TurnDetector();
