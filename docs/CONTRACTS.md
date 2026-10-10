@@ -60,6 +60,13 @@ application documents directory), replacing the previous file. Navigate loads
 `maps/latest.json` if it exists and parses; otherwise it loads the bundled demo map from
 `assets/maps/`. Only the app layer does this file I/O; `lib/core/` stays pure.
 
+**End of walk and the start place (D23).** When the walker taps Stop, the record screen
+calls `addPlace('End of walk', [])` and then `finish()`, so every recorded map ends at a
+place. It skips the call if a place was marked with no steps after it (no zero-step
+corridor). Navigate's "You are at" defaults to the loaded map's last place: the last node
+with `kind: place` in `nodes` order (walk order). A selector lists every place so the user
+can change it.
+
 ## Sensor stream and trace files
 
 Kotlin (EventChannel `breadcrumb/sensing`, one broadcast stream, events sent on the main

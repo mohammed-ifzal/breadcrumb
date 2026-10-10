@@ -3,6 +3,18 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 10:25, merge round 2: PR #2, #5, #7 merged, D23
+PR #2 merged locally 1256dc6 (DECISIONS: Gemma + step + turn spike rows kept), pushed.
+PR #5 merged a2c8655 (temp-branch check with #2: analyze clean, 189 tests). PR #7
+(tools/ only) merged 19c14d4, teammate3.md conflict kept both entries. No open T2
+record-screen PR. D23 (End of walk on Stop; Navigate 'You are at' = last place + selector)
+in DECISIONS + CONTRACTS. Main app (a2c8655, app code = 19c14d4) installed on the iQOO,
+Home shows, no crash. en-IN + hi-IN speech packs downloaded by Ifzal.
+Next: spoken test with the Gemma debug APK; fill DECISIONS speech row + BENCHMARKS.
+T2: D22 save + D23 End of walk in record_screen, use tuning.maxMotionGapMs, move
+docs/traces/spike_walk_talha.jsonl to traces/. T3: D22 load + D23 start selector.
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct 09:25, merge round: PR #6 merged, PR #2 blocked, D22, speech diagnosis
 PR #2 NOT merged: origin/main conflicts in docs/DECISIONS.md (Spike results rows); fix
 posted as a PR comment (also: use tuning.maxMotionGapMs, docs/ is mine). PR #6: speech fix
