@@ -3,6 +3,21 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sun 11 Oct 12:20, D33 demo safety (branch ifzal/demo-safety, PR #34)
+Sync: no open PRs; #33 t2/loop-close already on main; t2/floors only an old merge commit;
+t3/ai-status, t3/reload-fix closed. Nothing merged, nothing skipped for failures.
+Done: MapLibrary (maps/<slug>-<stamp>.json + active.txt; latest.json = copy of active;
+pre-D33 latest.json migrated once), Saved maps screen, Undo last mark
+(MapBuilder.undoLastMark), confirms on Stop / Finish at start / Back, "Join loop at X?"
+(No -> "X 2"), Navigate opens "Where are you?" nearest-first + Scan a sign (forStart).
+Tests: 5 new files; analyze clean, 603 green. Cross-owner files touched (T2 record_screen,
+map_builder; T3 screens, wiring) as captain; noted in the PR.
+iQOO: 155eed8 installed -r; migration kept "team groza table" active (backup in session
+scratch); Home/Saved maps/Where are you/Record undo/join/stop/discard checked; logcat clean.
+NOT verified: Scan a sign with a printed sign; saving a new map on the phone (tests only).
+Next: merge #34 when CI is green; print a sign and test Scan a sign start on the iQOO.
+Blocked: nothing. Last commit: this handoff.
+
 ## Sun 11 Oct ~09:30, pre-demo: demo-final + D31/D32 (branch ifzal/recalibrate, PR #31)
 Done on main: #27, #28 (useArrivalGuard on; confirmer + confidence on, gates off), #30 (T3
 privacy). Tag demo-final -> 8b70871 (tag-only force push, approved). iQOO: 8b70871 installed
