@@ -257,7 +257,7 @@ void main() {
       expect(tracker.position.stepsAlong, 5);
 
       // Tap "I am here"
-      final imHereButton = find.widgetWithText(ElevatedButton, 'I am here');
+      final imHereButton = find.widgetWithText(ElevatedButton, "I'm here");
       expect(imHereButton, findsOneWidget);
       await tester.tap(imHereButton);
       await tester.pump();

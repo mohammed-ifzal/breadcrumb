@@ -18,7 +18,8 @@ class SensingSource implements contracts.SensingSource {
     bool gravityFallbackLowPassEnabled = tuning.gravityFallbackLowPassEnabled,
     double gravityFallbackLowPassAlpha = tuning.gravityFallbackLowPassAlpha,
     bool lightCoalescingEnabled = tuning.lightCoalescingEnabled,
-  }) : _recorder = recorder ?? TraceRecorder(),
+  }) : _ownsRecorder = recorder == null,
+       _recorder = recorder ?? TraceRecorder(),
        _filterConfig = {
          'gravityFallbackLowPassEnabled': gravityFallbackLowPassEnabled,
          'gravityFallbackLowPassAlpha': gravityFallbackLowPassAlpha,
@@ -45,7 +46,10 @@ class SensingSource implements contracts.SensingSource {
     );
   }
 
+  final bool _ownsRecorder;
   final TraceRecorder _recorder;
+  bool _startingTrace = false;
+  final _pendingTrace = <Map<String, Object?>>[];
   final Stream<dynamic> _raw;
   final Map<String, Object?> _filterConfig;
   final _deviceInfo = <String, Object?>{};
@@ -122,7 +126,7 @@ class SensingSource implements contracts.SensingSource {
     var optionalPacket = false;
     try {
       final raw = Map<String, Object?>.from(value as Map);
-      _recorder.record(raw);
+      _writeTrace(raw);
       final type = raw['type'];
       optionalPacket =
           type == 'gravity' ||
@@ -226,6 +230,8 @@ class SensingSource implements contracts.SensingSource {
   Future<void> startTrace(Map<String, Object?> meta) async {
     if (_tracing) throw StateError('A trace is already active.');
     _tracing = true;
+    _startingTrace = true;
+    _pendingTrace.clear();
     try {
       _ensureListening();
       await _capability!.future;
@@ -235,7 +241,7 @@ class SensingSource implements contracts.SensingSource {
         'rawSensorFilters': Map<String, Object?>.of(_filterConfig),
         'stepSource': hardwareStepDetector.value == false
             ? 'accel'
-            : 'detector',
+            : 'hardware',
       });
       // The native RAM/capability notices usually precede Start trace. Preserve
       // their latest fields after meta without inventing events in old traces.
@@ -251,11 +257,19 @@ class SensingSource implements contracts.SensingSource {
           'snapshot': true,
         });
       }
+      final pending = List<Map<String, Object?>>.of(_pendingTrace);
+      _pendingTrace.clear();
+      _startingTrace = false;
+      for (final row in pending) {
+        _recorder.record(row);
+      }
       if (!_recorder.state.value.recording) {
         _tracing = false;
         await _releaseIfIdle();
       }
     } catch (_) {
+      _startingTrace = false;
+      _pendingTrace.clear();
       _tracing = false;
       await _releaseIfIdle();
       rethrow;
@@ -272,9 +286,31 @@ class SensingSource implements contracts.SensingSource {
     }
   }
 
+  void _writeTrace(Map<String, Object?> row) {
+    if (_startingTrace) {
+      _pendingTrace.add(Map.of(row));
+    } else if (_tracing) {
+      _recorder.record(row);
+    }
+  }
+
   @override
-  void mark(String note) =>
-      _recorder.mark(_lastT + _sinceSample.elapsedMilliseconds, note);
+  void mark(String note) => _writeTrace({
+    'type': 'mark',
+    't': _lastT + _sinceSample.elapsedMilliseconds,
+    'note': note,
+  });
+
+  // D29 compile stubs added by the captain with the contract change; Teammate 2
+  // replaces them with real motion state, placement and RAM readings.
+  @override
+  Stream<contracts.MotionStateEvent> motionStates() => const Stream.empty();
+
+  @override
+  Stream<contracts.PlacementEvent> placements() => const Stream.empty();
+
+  @override
+  Future<int> totalRamMb() async => 0;
 
   Future<void> dispose() => _disposing ??= _dispose();
 
@@ -287,7 +323,11 @@ class SensingSource implements contracts.SensingSource {
     await _subscription?.cancel();
     _subscription = null;
     _recorder.state.removeListener(_onTraceState);
-    await _recorder.dispose();
+    if (_ownsRecorder) {
+      await _recorder.dispose();
+    } else {
+      await _recorder.stop();
+    }
     await _events.close();
     _sinceSample.stop();
     hardwareStepDetector.dispose();

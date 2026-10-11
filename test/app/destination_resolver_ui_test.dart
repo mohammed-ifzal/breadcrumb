@@ -113,7 +113,7 @@ void main() {
 
     // Thinking indicator shown
     expect(find.text('Thinking...'), findsOneWidget);
-    final submitButton = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+    final submitButton = tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Thinking...')); 
     expect(submitButton.onPressed, isNull);
 
     // Complete with result

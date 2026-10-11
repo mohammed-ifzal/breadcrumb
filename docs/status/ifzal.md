@@ -3,6 +3,35 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sat 10 Oct 23:50, D29 robust core (branch ifzal/robust-core)
+Done: PR #21 (D29 contracts + tuning flags) merged de810fe, CI green. Steps 1-4 on the
+branch: lib/core/turn_confirmer.dart (StepTurnConfirmer + order-keeping ConfirmedEvents),
+Tracker confidence + arrival guard (new Position.unconfirmedArrival), Guide confirmPlace /
+arrivingConfirm / maybePassed, wiring.dart (T3) + record_screen.dart (T2) behind
+useTurnConfirmer. All D29 flags are false on main.
+Replay (4 traces, 9 labelled turns): confirmer off 0 missed / 0 false, on 0 / 0 at
+turnConfirmWindowMs 8000 (was 4000: missed all 3 spike-walk turns). Synthetic straight
+walk + 3 sidesteps + 2 handlings: off passes 8 false turns, on 0. analyze clean, 404 green.
+iQOO: debug APK installed and launched, no FATAL / E/flutter.
+In progress: PR #23 (Steps 1-4) open, CI green, not merged; flags not walked on the phone.
+Next: merge PR #23; walk the loop with the flags on, then flip them in tuning.dart.
+T2: real motionStates()/placements()/totalRamMb() (stubs return empty / 0).
+Blocked: nothing. Last commit: this handoff.
+
+## Sat 10 Oct 22:55, end of session: demo build merged to main
+Done: PR #20 (demo/now -> main) merged 7014b0d, CI green. Brings in D28 tuning
+(turnRateMin 15, turnSettleMs 300), PRs #17, #18 and #19 (now shown as merged), trail labels
+and the Navigate layout. Local: analyze clean, 359 tests green.
+Final map skipped: origin/t2/final-map doesn't exist yet, so assets/maps/final_map.json
+isn't bundled, there's no latest.json fallback, and nothing was pushed via run-as.
+iQOO: debug APK from main 7014b0d installed and launched, Gemma 4 loads (prefill 514 ms),
+no FATAL or E/flutter in logcat. Screens not checked by hand.
+New remote branch seen: origin/t2/robust-sensing (not reviewed).
+Next: when T2 pushes t2/final-map, copy demo/final_map.json, bundle it as
+assets/maps/final_map.json, add the fallback and its test, then push it as
+app_flutter/maps/latest.json via run-as.
+Blocked: final map from T2. Last commit: this handoff.
+
 ## Sat 10 Oct 16:40, merge round 5: PR #16 and #14 merged
 Docs on main 1a082f8: docs/MENTOR.md (10:00 mentor Q&A + feedback), TASKS Saturday plan.
 PR #16 merged a90e6bf (CI green, temp merge with main: docs only, 300 green).
