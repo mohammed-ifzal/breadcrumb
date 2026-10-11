@@ -2,6 +2,7 @@ import 'dart:async';
 // Run: dart run test/sensing/turn_replay.dart --sweep
 // Or:  dart run test/sensing/turn_replay.dart --rate=15 --settle=700
 // Optional: --file=trace.jsonl --traces=folder --expected=file.json --angle-tolerance=15
+// Shared live/replay profile: --pocket-profile=true (default from tuning).
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -9,6 +10,8 @@ import 'dart:math' as math;
 import 'package:breadcrumb/core/contracts.dart' show TurnEvent;
 import 'package:breadcrumb/core/tuning.dart' as tuning;
 import 'package:breadcrumb/sensing/turn_detector.dart';
+import 'package:breadcrumb/sensing/raw_events.dart';
+import 'package:breadcrumb/sensing/trace_replay.dart' show traceSampleTimeMs;
 
 class MotionSample {
   const MotionSample(this.t, this.yawRate);
@@ -17,7 +20,13 @@ class MotionSample {
 }
 
 class TraceData {
-  TraceData(this.name, this.motion, this.marks);
+  TraceData(
+    this.name,
+    this.motion,
+    this.marks, {
+    this.profileEvents = const [],
+  });
+  final List<RawSensingEvent> profileEvents;
   final String name;
   final List<MotionSample> motion;
   final List<Map<String, Object?>> marks;
@@ -34,11 +43,21 @@ Future<TraceData> loadTrace(String path) async {
   final lines = await file.readAsLines();
   final motion = <MotionSample>[];
   final marks = <Map<String, Object?>>[];
+  final profileEvents = <RawSensingEvent>[];
+  var captureT = 0;
   for (var i = 0; i < lines.length; i++) {
     try {
       final row = Map<String, Object?>.from(jsonDecode(lines[i]) as Map);
       if (i == 0 && row['type'] != 'meta') {
         throw const FormatException('Meta must be first');
+      }
+      final sampleT = traceSampleTimeMs(row);
+      if (sampleT != null) captureT = math.max(captureT, sampleT);
+      if (row['type'] == 'proximity') {
+        profileEvents.add(RawSensingEvent.fromJson(row));
+      } else if (row['type'] == 'info' && row['proximityAvailable'] == false) {
+        // Device info t is not a sample timestamp. Apply loss at capture time.
+        profileEvents.add(DeviceInfo(t: captureT, proximityAvailable: false));
       }
       if (row['type'] == 'motion') {
         final t = row['t'] as num;
@@ -55,7 +74,18 @@ Future<TraceData> loadTrace(String path) async {
     }
   }
   if (lines.isEmpty) throw FormatException('$path: empty trace');
-  return TraceData(file.uri.pathSegments.last, motion, marks);
+  // Keep file order for same-time profile events.
+  final indexed = profileEvents.indexed.toList()
+    ..sort((a, b) {
+      final order = a.$2.t!.compareTo(b.$2.t!);
+      return order == 0 ? a.$1.compareTo(b.$1) : order;
+    });
+  return TraceData(
+    file.uri.pathSegments.last,
+    motion,
+    marks,
+    profileEvents: [for (final (_, event) in indexed) event],
+  );
 }
 
 Future<Map<String, List<double>>> loadExpectedTurns(String path) async {
@@ -80,15 +110,27 @@ ReplayResult replay(
   TraceData trace, {
   required double turnRateMin,
   required int turnSettleMs,
+  bool usePocketTurnProfile = tuning.usePocketTurnProfile,
+  double pocketTurnRateMin = tuning.pocketTurnRateMin,
+  int pocketTurnSettleMs = tuning.pocketTurnSettleMs,
 }) {
   final turns = <TurnEvent>[];
   final candidates = <TurnEvent>[];
   final detector = TurnDetector(
     turnRateMin: turnRateMin,
     turnSettleMs: turnSettleMs,
+    usePocketTurnProfile: usePocketTurnProfile,
+    pocketTurnRateMin: pocketTurnRateMin,
+    pocketTurnSettleMs: pocketTurnSettleMs,
     onSettled: (t, angle) => candidates.add(TurnEvent(t, angle)),
   );
+  var profileIndex = 0;
   for (final sample in trace.motion) {
+    for (; profileIndex < trace.profileEvents.length; profileIndex++) {
+      final raw = trace.profileEvents[profileIndex];
+      if (raw.t! > sample.t) break;
+      detector.onRaw(raw);
+    }
     final event = detector.onMotion(sample.t, sample.yawRate);
     if (event != null) turns.add(event);
   }
@@ -274,7 +316,14 @@ Future<void> main(List<String> args) async {
         for (final trace in traces) {
           currentReplayWork = 'rate=$rate settle=$settle trace=${trace.name}';
           stdout.writeln('PROGRESS starting $currentReplayWork');
-          final result = replay(trace, turnRateMin: rate, turnSettleMs: settle);
+          final result = replay(
+            trace,
+            turnRateMin: rate,
+            turnSettleMs: settle,
+            usePocketTurnProfile: options['pocket-profile'] == null
+                ? tuning.usePocketTurnProfile
+                : options['pocket-profile'] == 'true',
+          );
           if (rate == tuning.turnRateMin && settle == tuning.turnSettleMs) {
             baselineResults[trace.name] = result;
           }

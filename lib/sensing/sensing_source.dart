@@ -18,7 +18,18 @@ class SensingSource implements contracts.SensingSource {
     bool gravityFallbackLowPassEnabled = tuning.gravityFallbackLowPassEnabled,
     double gravityFallbackLowPassAlpha = tuning.gravityFallbackLowPassAlpha,
     bool lightCoalescingEnabled = tuning.lightCoalescingEnabled,
-  }) : _ownsRecorder = recorder == null,
+    bool usePocketTurnProfile = tuning.usePocketTurnProfile,
+    double pocketTurnRateMin = tuning.pocketTurnRateMin,
+    int pocketTurnSettleMs = tuning.pocketTurnSettleMs,
+  }) : _usePocketTurnProfile = usePocketTurnProfile,
+       _pocketTurnRateMin = pocketTurnRateMin,
+       _pocketTurnSettleMs = pocketTurnSettleMs,
+       _turns = TurnDetector(
+         usePocketTurnProfile: usePocketTurnProfile,
+         pocketTurnRateMin: pocketTurnRateMin,
+         pocketTurnSettleMs: pocketTurnSettleMs,
+       ),
+       _ownsRecorder = recorder == null,
        _recorder = recorder ?? TraceRecorder(),
        _filterConfig = {
          'gravityFallbackLowPassEnabled': gravityFallbackLowPassEnabled,
@@ -46,6 +57,9 @@ class SensingSource implements contracts.SensingSource {
     );
   }
 
+  final bool _usePocketTurnProfile;
+  final double _pocketTurnRateMin;
+  final int _pocketTurnSettleMs;
   final bool _ownsRecorder;
   final TraceRecorder _recorder;
   bool _startingTrace = false;
@@ -57,7 +71,7 @@ class SensingSource implements contracts.SensingSource {
   late final StreamController<Object> _events;
   StreamSubscription<dynamic>? _subscription;
   StepDetector _steps = StepDetector();
-  TurnDetector _turns = TurnDetector();
+  TurnDetector _turns;
   Completer<void>? _capability;
   bool _tracing = false;
   bool _disposed = false;
@@ -88,7 +102,11 @@ class SensingSource implements contracts.SensingSource {
     if (_disposed) throw StateError('Sensing source is disposed.');
     if (_subscription != null) return;
     _steps = StepDetector();
-    _turns = TurnDetector();
+    _turns = TurnDetector(
+      usePocketTurnProfile: _usePocketTurnProfile,
+      pocketTurnRateMin: _pocketTurnRateMin,
+      pocketTurnSettleMs: _pocketTurnSettleMs,
+    );
     _lastT = 0;
     _sinceSample.reset();
     hardwareStepDetector.value = null;
@@ -146,6 +164,7 @@ class SensingSource implements contracts.SensingSource {
               ));
       if (type == 'gravity' || type == 'proximity' || type == 'light') {
         final event = RawSensingEvent.fromJson(raw);
+        _turns.onRaw(event);
         if (event is ProximitySample) _proximityState = Map.of(raw);
         _observeTimestamp(event.t!);
         _events.add(event);
@@ -164,6 +183,7 @@ class SensingSource implements contracts.SensingSource {
           }.contains(key),
         )) {
           final event = RawSensingEvent.fromJson(raw) as DeviceInfo;
+          _turns.onRaw(event);
           _deviceInfo.addAll(event.toJson());
           if (event.proximityAvailable == false) _proximityState = null;
           _events.add(event);
