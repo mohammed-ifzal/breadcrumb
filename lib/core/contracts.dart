@@ -86,6 +86,8 @@ class Place {
     this.aliases = const [],
     required this.kind,
     this.floor = 0,
+    this.x,
+    this.y,
   });
 
   final String id;
@@ -96,12 +98,18 @@ class Place {
   /// The floor this node is on; 0 when the map has one floor (D24).
   final int floor;
 
+  /// Optional display coordinates in steps (+y forward, +x right). D33.
+  /// Complete finite pairs override legacy layout; not used for routing.
+  final double? x, y;
+
   factory Place.fromJson(Map<String, dynamic> json) => Place(
     id: json['id'] as String,
     name: json['name'] as String,
     aliases: [for (final a in (json['aliases'] as List? ?? const [])) a as String],
     kind: PlaceKind.values.byName(json['kind'] as String),
     floor: (json['floor'] as num? ?? 0).toInt(),
+    x: json['x'] == null ? null : (json['x'] as num).toDouble(),
+    y: json['y'] == null ? null : (json['y'] as num).toDouble(),
   );
 
   /// Leaves out `floor` when it is 0, so one-floor maps are written as before.
@@ -111,6 +119,8 @@ class Place {
     'aliases': aliases,
     'kind': kind.name,
     if (floor != 0) 'floor': floor,
+    if (x != null) 'x': x,
+    if (y != null) 'y': y,
   };
 }
 

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "Demo Map",
+  "start": "entrance",
+  "places": [
+    {"id":"entrance","name":"Entrance","aliases":[],"kind":"start"},
+    {"id":"j1","name":"Junction 1","aliases":[],"kind":"junction"},
+    {"id":"cafe","name":"Cafe","aliases":["coffee","food"],"kind":"place"},
+    {"id":"j2","name":"Junction 2","aliases":[],"kind":"junction"},
+    {"id":"stage","name":"Stage Side","aliases":[],"kind":"place"},
+    {"id":"restroom","name":"Restroom","aliases":[],"kind":"place"}
+  ],
+  "corridors": [
+    {"id":"c1","from":"entrance","to":"j1","steps":15,"heading":0},
+    {"id":"c2","from":"j1","to":"cafe","steps":10,"heading":90},
+    {"id":"c3","from":"j1","to":"j2","steps":20,"heading":0},
+    {"id":"c4","from":"j2","to":"stage","steps":12,"heading":270},
+    {"id":"c5","from":"j2","to":"restroom","steps":8,"heading":0}
+  ]
+}

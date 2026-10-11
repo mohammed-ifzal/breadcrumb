@@ -92,6 +92,7 @@ class _RecordScreenState extends State<RecordScreen> {
   bool _started = false;
   bool _recording = false;
   bool _saving = false;
+  bool _joining = false;
   String? _savedPath;
   String? _saveError;
   String? _sensorError;
@@ -189,11 +190,44 @@ class _RecordScreenState extends State<RecordScreen> {
     return null;
   }
 
+  Future<bool> _confirmJoin(String name) async {
+    final builder = _builder;
+    if (builder is! recording.MapBuilder) return true;
+    final preview = builder.previewLoopClosure(name);
+    if (preview == null || !preview.requiresConfirmation) return true;
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            scrollable: true,
+            title: const Text("Positions don't match well - join anyway?"),
+            content: Text(
+              'Position error: ${preview.errorSteps.toStringAsFixed(1)} steps '
+              'over ${preview.loopSteps} recorded loop steps.',
+            ),
+            actions: [
+              TextButton(
+                key: const ValueKey('loop-join-no'),
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('No'),
+              ),
+              TextButton(
+                key: const ValueKey('loop-join-yes'),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Yes'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   Future<void> _finishAtStart() async {
-    if (!_started || _saving || _finished != null) return;
+    if (!_recording || _saving || _joining || _finished != null) return;
+    setState(() => _joining = true);
     try {
       final map = _map!.value;
       final start = map.places.firstWhere((place) => place.id == map.start);
+      if (!await _confirmJoin(start.name) || !mounted || !_recording) return;
       _builder.addPlace(start.name, const []);
       _stepsAtLastMark = _steps;
       _map!.value = _builder.snapshot();
@@ -202,14 +236,21 @@ class _RecordScreenState extends State<RecordScreen> {
       await _stop();
     } catch (error) {
       _onSensorError(error);
+    } finally {
+      if (mounted) setState(() => _joining = false);
     }
   }
 
-  void _mark() {
+  Future<void> _mark() async {
     final name = _placeName.text.trim();
-    if (!_recording || name.isEmpty) return;
+    if (!_recording || _joining || name.isEmpty) return;
+    setState(() => _joining = true);
     try {
       final joined = _existingPlace(name);
+      if (joined != null && !await _confirmJoin(name)) return;
+      if (!mounted || !_recording) return;
+      // Sensors continue updating while the dialog is open. addPlace recomputes
+      // correction at confirmation time; No never consumes any recording data.
       _builder.addPlace(name, const []);
       _stepsAtLastMark = _steps;
       _traceMark(name);
@@ -224,6 +265,8 @@ class _RecordScreenState extends State<RecordScreen> {
       );
     } catch (error) {
       _onSensorError(error);
+    } finally {
+      if (mounted) setState(() => _joining = false);
     }
   }
 
@@ -593,7 +636,9 @@ class _RecordScreenState extends State<RecordScreen> {
                       OutlinedButton.icon(
                         key: const ValueKey('record-floor'),
                         onPressed:
-                            _floorChanging || _builder is! recording.MapBuilder
+                            _floorChanging ||
+                                _joining ||
+                                _builder is! recording.MapBuilder
                             ? null
                             : _changeFloor,
                         icon: const Icon(Icons.swap_vert),
@@ -638,7 +683,9 @@ class _RecordScreenState extends State<RecordScreen> {
                         valueListenable: _placeName,
                         builder: (_, value, _) => FilledButton(
                           key: const ValueKey('record-mark'),
-                          onPressed: value.text.trim().isEmpty ? null : _mark,
+                          onPressed: value.text.trim().isEmpty || _joining
+                              ? null
+                              : _mark,
                           child: const Text('Mark place'),
                         ),
                       ),
@@ -647,13 +694,15 @@ class _RecordScreenState extends State<RecordScreen> {
                     if (_recording)
                       OutlinedButton(
                         key: const ValueKey('record-finish-start'),
-                        onPressed: _saving ? null : _finishAtStart,
+                        onPressed: _saving || _joining ? null : _finishAtStart,
                         child: const Text('Finish at start'),
                       ),
                     const SizedBox(height: 16),
                     FilledButton(
                       key: const ValueKey('record-stop'),
-                      onPressed: _saving || _savedPath != null ? null : _stop,
+                      onPressed: _saving || _joining || _savedPath != null
+                          ? null
+                          : _stop,
                       child: Text(
                         _saving
                             ? 'Saving map…'

@@ -1,3 +1,11 @@
+Done (t2/loop-correction, D33): Reproduced drift before code changes; recorded display x/y now survives JSON and aliases. Length-weighted loop correction pins target, lead-in and earlier visits; steps/headings/routes unchanged. Legacy demo/sample layout+JSON+all-pairs routes match frozen pre-change baselines. >35% Yes/No tested for Mark and Finish at start; 10-degree projection tolerance never edits stored headings. Analyze clean; 27 focused and full serial 581 passed.
+Next: Open https://github.com/mohammed-ifzal/breadcrumb/pull/new/t2/loop-correction and smoke-test drifted loop plus both join decisions on the phone; demo fixture matches the existing built-in map.
+Blocked: None. Captain-approved alias/layout edits included; router/build files untouched; no packages or existing tuning values changed. User-provided bad_loop_map.json was empty and remains untracked/unmodified; synthetic 10/10/10/7 loop used instead.
+
+Done: t2/loop-correction reproduction test added; two expected failures (stored x=0.8 layouts as 0.0; recordings omit x/y). bad_loop_map.json is empty; no production edits.
+Next: Confirm x/y preservation in lib/ai/alias_suggester.dart, actual layout scope lib/core/trail_geometry.dart, and the missing assets/maps/demo_route.json fixture.
+Blocked: Stopped under user rule6 because alias application would discard new coordinates. No analyze/full suite/commit/push; tools/sample_map.json exists.
+
 Done (t2/loop-close): Named marks reuse existing start/place nodes (trimmed, case-insensitive), preserve steps/heading/aliases, ignore junction names and avoid zero-step self corridors; Finish at start joins and saves. Dijkstra chooses 7-step side over 20 both ways; closed-loop JSON round-trips. Analyze clean; isolated reload 2 passed; full serial suite 525 passed; loop UI file 5 passed after adding the square-loop widget regression. RoutePlanner/TrailView and existing tests unchanged.
 Next: Open https://github.com/mohammed-ifzal/breadcrumb/pull/new/t2/loop-close and smoke-test duplicate Mark place plus Finish at start on the phone.
 Blocked: None. Earlier parallel Windows temp-lock failure passed unchanged alone and in the single full serial run; no protected files or packages changed.

@@ -82,6 +82,9 @@ void main() {
       );
       await tester.pump();
       await support.tap(tester, 'record-mark');
+      if (find.byKey(const ValueKey('loop-join-yes')).evaluate().isNotEmpty) {
+        await support.tap(tester, 'loop-join-yes');
+      }
       expect(find.text('Joined to Entrance - loop closed'), findsOneWidget);
       final live = tester
           .widget<TrailView>(find.byType(TrailView))
@@ -123,6 +126,9 @@ void main() {
         }
         await tester.pumpAndSettle();
         await support.tap(tester, 'record-finish-start');
+        if (find.byKey(const ValueKey('loop-join-yes')).evaluate().isNotEmpty) {
+          await support.tap(tester, 'loop-join-yes');
+        }
         expect(find.text('Joined to Entrance - loop closed'), findsOneWidget);
         expect(find.text('Saved map: /maps/latest.json'), findsOneWidget);
         expect(saved!.places.where((p) => p.name == 'End of walk'), isEmpty);

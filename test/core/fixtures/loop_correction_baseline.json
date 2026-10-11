@@ -1,0 +1,1621 @@
+{
+  "assets/maps/demo_route.json": {
+    "map": {
+      "version": 1,
+      "name": "Demo Map",
+      "start": "entrance",
+      "places": [
+        {
+          "id": "entrance",
+          "name": "Entrance",
+          "aliases": [],
+          "kind": "start"
+        },
+        {
+          "id": "j1",
+          "name": "Junction 1",
+          "aliases": [],
+          "kind": "junction"
+        },
+        {
+          "id": "cafe",
+          "name": "Cafe",
+          "aliases": [
+            "coffee",
+            "food"
+          ],
+          "kind": "place"
+        },
+        {
+          "id": "j2",
+          "name": "Junction 2",
+          "aliases": [],
+          "kind": "junction"
+        },
+        {
+          "id": "stage",
+          "name": "Stage Side",
+          "aliases": [],
+          "kind": "place"
+        },
+        {
+          "id": "restroom",
+          "name": "Restroom",
+          "aliases": [],
+          "kind": "place"
+        }
+      ],
+      "corridors": [
+        {
+          "id": "c1",
+          "from": "entrance",
+          "to": "j1",
+          "steps": 15,
+          "heading": 0.0
+        },
+        {
+          "id": "c2",
+          "from": "j1",
+          "to": "cafe",
+          "steps": 10,
+          "heading": 90.0
+        },
+        {
+          "id": "c3",
+          "from": "j1",
+          "to": "j2",
+          "steps": 20,
+          "heading": 0.0
+        },
+        {
+          "id": "c4",
+          "from": "j2",
+          "to": "stage",
+          "steps": 12,
+          "heading": 270.0
+        },
+        {
+          "id": "c5",
+          "from": "j2",
+          "to": "restroom",
+          "steps": 8,
+          "heading": 0.0
+        }
+      ]
+    },
+    "layout": [
+      {
+        "id": "entrance",
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "id": "j1",
+        "x": 0.0,
+        "y": 15.0
+      },
+      {
+        "id": "cafe",
+        "x": -10.0,
+        "y": 15.0
+      },
+      {
+        "id": "j2",
+        "x": 0.0,
+        "y": 35.0
+      },
+      {
+        "id": "stage",
+        "x": 12.0,
+        "y": 35.0
+      },
+      {
+        "id": "restroom",
+        "x": 0.0,
+        "y": 43.0
+      }
+    ],
+    "routes": {
+      "entrance->entrance": {
+        "to": "entrance",
+        "steps": 0,
+        "legs": []
+      },
+      "entrance->j1": {
+        "to": "j1",
+        "steps": 15,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "entrance->cafe": {
+        "to": "cafe",
+        "steps": 25,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "entrance->j2": {
+        "to": "j2",
+        "steps": 35,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "entrance->stage": {
+        "to": "stage",
+        "steps": 47,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "entrance->restroom": {
+        "to": "restroom",
+        "steps": 43,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c5",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->entrance": {
+        "to": "entrance",
+        "steps": 15,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->j1": {
+        "to": "j1",
+        "steps": 0,
+        "legs": []
+      },
+      "j1->cafe": {
+        "to": "cafe",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->j2": {
+        "to": "j2",
+        "steps": 20,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->stage": {
+        "to": "stage",
+        "steps": 32,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->restroom": {
+        "to": "restroom",
+        "steps": 28,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c5",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->entrance": {
+        "to": "entrance",
+        "steps": 25,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->j1": {
+        "to": "j1",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->cafe": {
+        "to": "cafe",
+        "steps": 0,
+        "legs": []
+      },
+      "cafe->j2": {
+        "to": "j2",
+        "steps": 30,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->stage": {
+        "to": "stage",
+        "steps": 42,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->restroom": {
+        "to": "restroom",
+        "steps": 38,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c5",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->entrance": {
+        "to": "entrance",
+        "steps": 35,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->j1": {
+        "to": "j1",
+        "steps": 20,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->cafe": {
+        "to": "cafe",
+        "steps": 30,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->j2": {
+        "to": "j2",
+        "steps": 0,
+        "legs": []
+      },
+      "j2->stage": {
+        "to": "stage",
+        "steps": 12,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->restroom": {
+        "to": "restroom",
+        "steps": 8,
+        "legs": [
+          {
+            "id": "c5",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->entrance": {
+        "to": "entrance",
+        "steps": 47,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->j1": {
+        "to": "j1",
+        "steps": 32,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->cafe": {
+        "to": "cafe",
+        "steps": 42,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->j2": {
+        "to": "j2",
+        "steps": 12,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->stage": {
+        "to": "stage",
+        "steps": 0,
+        "legs": []
+      },
+      "stage->restroom": {
+        "to": "restroom",
+        "steps": 20,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c5",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "restroom->entrance": {
+        "to": "entrance",
+        "steps": 43,
+        "legs": [
+          {
+            "id": "c5",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "restroom->j1": {
+        "to": "j1",
+        "steps": 28,
+        "legs": [
+          {
+            "id": "c5",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "restroom->cafe": {
+        "to": "cafe",
+        "steps": 38,
+        "legs": [
+          {
+            "id": "c5",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 20,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "restroom->j2": {
+        "to": "j2",
+        "steps": 8,
+        "legs": [
+          {
+            "id": "c5",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "restroom->stage": {
+        "to": "stage",
+        "steps": 20,
+        "legs": [
+          {
+            "id": "c5",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 8,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "restroom->restroom": {
+        "to": "restroom",
+        "steps": 0,
+        "legs": []
+      }
+    }
+  },
+  "tools/sample_map.json": {
+    "map": {
+      "version": 1,
+      "name": "Sample Office Trail",
+      "start": "entrance",
+      "places": [
+        {
+          "id": "entrance",
+          "name": "Entrance",
+          "aliases": [
+            "main gate",
+            "front door"
+          ],
+          "kind": "start"
+        },
+        {
+          "id": "j1",
+          "name": "Junction 1",
+          "aliases": [],
+          "kind": "junction"
+        },
+        {
+          "id": "cafe",
+          "name": "Cafe",
+          "aliases": [
+            "coffee",
+            "cafeteria"
+          ],
+          "kind": "place"
+        },
+        {
+          "id": "j2",
+          "name": "Junction 2",
+          "aliases": [],
+          "kind": "junction"
+        },
+        {
+          "id": "stage",
+          "name": "Stage Side",
+          "aliases": [
+            "auditorium",
+            "hall"
+          ],
+          "kind": "place"
+        }
+      ],
+      "corridors": [
+        {
+          "id": "c1",
+          "from": "entrance",
+          "to": "j1",
+          "steps": 15,
+          "heading": 0.0
+        },
+        {
+          "id": "c2",
+          "from": "j1",
+          "to": "cafe",
+          "steps": 10,
+          "heading": 90.0
+        },
+        {
+          "id": "c3",
+          "from": "cafe",
+          "to": "j2",
+          "steps": 12,
+          "heading": 90.0
+        },
+        {
+          "id": "c4",
+          "from": "j2",
+          "to": "stage",
+          "steps": 15,
+          "heading": 0.0
+        }
+      ]
+    },
+    "layout": [
+      {
+        "id": "entrance",
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "id": "j1",
+        "x": 0.0,
+        "y": 15.0
+      },
+      {
+        "id": "cafe",
+        "x": -10.0,
+        "y": 15.0
+      },
+      {
+        "id": "j2",
+        "x": -22.0,
+        "y": 15.0
+      },
+      {
+        "id": "stage",
+        "x": -22.0,
+        "y": 30.0
+      }
+    ],
+    "routes": {
+      "entrance->entrance": {
+        "to": "entrance",
+        "steps": 0,
+        "legs": []
+      },
+      "entrance->j1": {
+        "to": "j1",
+        "steps": 15,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "entrance->cafe": {
+        "to": "cafe",
+        "steps": 25,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "entrance->j2": {
+        "to": "j2",
+        "steps": 37,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "entrance->stage": {
+        "to": "stage",
+        "steps": 52,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->entrance": {
+        "to": "entrance",
+        "steps": 15,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->j1": {
+        "to": "j1",
+        "steps": 0,
+        "legs": []
+      },
+      "j1->cafe": {
+        "to": "cafe",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->j2": {
+        "to": "j2",
+        "steps": 22,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->stage": {
+        "to": "stage",
+        "steps": 37,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->entrance": {
+        "to": "entrance",
+        "steps": 25,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->j1": {
+        "to": "j1",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->cafe": {
+        "to": "cafe",
+        "steps": 0,
+        "legs": []
+      },
+      "cafe->j2": {
+        "to": "j2",
+        "steps": 12,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "cafe->stage": {
+        "to": "stage",
+        "steps": 27,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->entrance": {
+        "to": "entrance",
+        "steps": 37,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->j1": {
+        "to": "j1",
+        "steps": 22,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->cafe": {
+        "to": "cafe",
+        "steps": 12,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->j2": {
+        "to": "j2",
+        "steps": 0,
+        "legs": []
+      },
+      "j2->stage": {
+        "to": "stage",
+        "steps": 15,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->entrance": {
+        "to": "entrance",
+        "steps": 52,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->j1": {
+        "to": "j1",
+        "steps": 37,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->cafe": {
+        "to": "cafe",
+        "steps": 27,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 12,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->j2": {
+        "to": "j2",
+        "steps": 15,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 15,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "stage->stage": {
+        "to": "stage",
+        "steps": 0,
+        "legs": []
+      }
+    }
+  },
+  "drifted_loop": {
+    "corridors": [
+      {
+        "id": "c1",
+        "from": "p0",
+        "to": "j1",
+        "steps": 10,
+        "heading": 0.0
+      },
+      {
+        "id": "c2",
+        "from": "j1",
+        "to": "j2",
+        "steps": 10,
+        "heading": 90.0
+      },
+      {
+        "id": "c3",
+        "from": "j2",
+        "to": "j3",
+        "steps": 10,
+        "heading": 180.0
+      },
+      {
+        "id": "c4",
+        "from": "j3",
+        "to": "p0",
+        "steps": 7,
+        "heading": 270.0
+      }
+    ],
+    "routes": {
+      "p0->p0": {
+        "to": "p0",
+        "steps": 0,
+        "legs": []
+      },
+      "p0->j1": {
+        "to": "j1",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "p0->j2": {
+        "to": "j2",
+        "steps": 17,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 90.0,
+            "steps": 7,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 0.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "p0->j3": {
+        "to": "j3",
+        "steps": 7,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 90.0,
+            "steps": 7,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->p0": {
+        "to": "p0",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->j1": {
+        "to": "j1",
+        "steps": 0,
+        "legs": []
+      },
+      "j1->j2": {
+        "to": "j2",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": false,
+            "heading": 90.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j1->j3": {
+        "to": "j3",
+        "steps": 17,
+        "legs": [
+          {
+            "id": "c1",
+            "reverse": true,
+            "heading": 180.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": true,
+            "heading": 90.0,
+            "steps": 7,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->p0": {
+        "to": "p0",
+        "steps": 17,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 180.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 270.0,
+            "steps": 7,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->j1": {
+        "to": "j1",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c2",
+            "reverse": true,
+            "heading": 270.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j2->j2": {
+        "to": "j2",
+        "steps": 0,
+        "legs": []
+      },
+      "j2->j3": {
+        "to": "j3",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": false,
+            "heading": 180.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j3->p0": {
+        "to": "p0",
+        "steps": 7,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 270.0,
+            "steps": 7,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j3->j1": {
+        "to": "j1",
+        "steps": 17,
+        "legs": [
+          {
+            "id": "c4",
+            "reverse": false,
+            "heading": 270.0,
+            "steps": 7,
+            "kind": "walk",
+            "floorDelta": 0
+          },
+          {
+            "id": "c1",
+            "reverse": false,
+            "heading": 0.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j3->j2": {
+        "to": "j2",
+        "steps": 10,
+        "legs": [
+          {
+            "id": "c3",
+            "reverse": true,
+            "heading": 0.0,
+            "steps": 10,
+            "kind": "walk",
+            "floorDelta": 0
+          }
+        ]
+      },
+      "j3->j3": {
+        "to": "j3",
+        "steps": 0,
+        "legs": []
+      }
+    }
+  }
+}

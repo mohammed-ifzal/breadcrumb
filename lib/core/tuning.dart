@@ -159,3 +159,11 @@ const int maxAliasWords = 3;
 
 /// Longest wait for Gemma's alias suggestions before the place keeps none.
 const int aliasSuggestTimeoutMs = 15000;
+
+/// D33: ask before joining when positional error is STRICTLY above this fraction
+/// of the walked loop length. Coordinates alone are corrected.
+const double loopClosureMaxErrorFraction = 0.35;
+
+/// D33: optional cardinal re-snap for display projection only, in degrees.
+/// Measured corridor headings remain unchanged.
+const double loopHeadingSnapToleranceDegrees = 10;
