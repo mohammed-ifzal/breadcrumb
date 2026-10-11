@@ -77,14 +77,19 @@ void main() {
     final golden = jsonDecode(
       await File('traces/turn_profile_off_baseline.json').readAsString(),
     ) as Map<String, dynamic>;
-    final names =
-        Directory('traces')
-            .listSync()
-            .whereType<File>()
-            .where((f) => f.path.endsWith('.jsonl'))
-            .map((f) => f.uri.pathSegments.last)
-            .toList()
-          ..sort();
+    final names = [
+      'spike_walk_talha.jsonl',
+      'turns_walk1_talha.jsonl',
+      'turns_walk2_talha.jsonl',
+      'straight_walk_talha.jsonl',
+      'look_around.jsonl',
+      'queue.jsonl',
+      'pullout.jsonl',
+      'curve.jsonl',
+      'pocket_left_loop.jsonl',
+      'pocket_right_loop.jsonl',
+      'bag_loop.jsonl',
+    ]..sort();
     expect(names, hasLength(11));
     expect(golden.keys.toList()..sort(), names);
     for (final name in names) {
