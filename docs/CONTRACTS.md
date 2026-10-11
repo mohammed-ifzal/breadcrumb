@@ -180,6 +180,8 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
    a sidestep and back (+90, -90) nets ~0 and is dropped (< `turnMinAngle`).
 3. Candidates that arrive during `MotionState.handling`, or with no following steps in
    the window, are dropped. Handling while a candidate waits drops it too.
+   Candidates with no step between them are a burst (looking around on the spot): the
+   burst is never confirmed, and a candidate after a step replaces it (D32).
 4. It sits between the `SensingSource` and both the Tracker and the MapBuilder.
 
 **Tracker**

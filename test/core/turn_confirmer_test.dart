@@ -121,7 +121,7 @@ void main() {
       );
     });
 
-    test('a turn made in two parts nets to one turn', () {
+    test('candidates with no step between them are not merged or confirmed (D32)', () {
       expect(
         _confirm([
           const TurnEvent(1000, 62),
@@ -129,7 +129,36 @@ void main() {
           const StepEvent(2000),
           const StepEvent(2500),
         ]),
-        [(1600, 127.0)],
+        isEmpty,
+      );
+    });
+
+    test('T2 look_around: -76, -81, +96 on the spot, then 2 steps: no turn (D32)', () {
+      // Raw candidates from traces/look_around.jsonl (branch t2/robust-sensing);
+      // merged they made -60 and were confirmed.
+      final script = [
+        for (var t = 2690000; t < 2700000; t += 2000) StepEvent(t),
+        const TurnEvent(2700886, -76),
+        const TurnEvent(2703566, -81),
+        const TurnEvent(2706506, 96),
+        const StepEvent(2707200),
+        const StepEvent(2707800),
+      ];
+      expect(_confirm(script), isEmpty);
+      expect(_confirm(script, c: StepTurnConfirmer()), isEmpty);
+    });
+
+    test('after a burst, a turn after a step stands on its own', () {
+      expect(
+        _confirm([
+          const TurnEvent(1000, -76),
+          const TurnEvent(1500, 96),
+          const StepEvent(2000),
+          const TurnEvent(2500, -90),
+          const StepEvent(3000),
+          const StepEvent(3500),
+        ]),
+        [(2500, -90.0)],
       );
     });
 
