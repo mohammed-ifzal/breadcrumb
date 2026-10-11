@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/app/wiring.dart';
 
@@ -54,6 +55,12 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _initializeCamera() async {
     if (widget.mockCapture != null) {
       // In test / mock mode
+      return;
+    }
+    // Request camera permission here (not at app start) — privacy requirement.
+    final status = await Permission.camera.request();
+    if (!status.isGranted) {
+      // Camera denied — graceful fallback; the preview stays hidden.
       return;
     }
     try {
