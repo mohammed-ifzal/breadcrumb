@@ -21,6 +21,9 @@ class MapBuilder implements contracts.MapBuilder {
   int _namedPlaces = 0;
   contracts.MapGraph? _finished;
 
+  /// Every mark that added a corridor, oldest first, for [undoLastMark].
+  final _marks = <_Mark>[];
+
   bool get _active => _from != null && _finished == null;
 
   @override
@@ -34,6 +37,7 @@ class MapBuilder implements contracts.MapBuilder {
     _junctions = 0;
     _namedPlaces = 0;
     _finished = null;
+    _marks.clear();
     _places.add(
       contracts.Place(
         id: 'p0',
@@ -85,12 +89,14 @@ class MapBuilder implements contracts.MapBuilder {
           existing.name.trim().toLowerCase() == key) {
         // Already standing here: do not add a zero-step self corridor.
         if (existing.id == _from && _steps == 0) return;
+        _marks.add(_Mark(existing.id, _corridors.length, created: false));
         _closeAt(existing);
         _floor = existing.floor;
         return;
       }
     }
     _namedPlaces++;
+    _marks.add(_Mark('p$_namedPlaces', _corridors.length, created: true));
     _closeAt(
       contracts.Place(
         id: 'p$_namedPlaces',
@@ -101,6 +107,68 @@ class MapBuilder implements contracts.MapBuilder {
       ),
     );
   }
+
+  /// How many marks [undoLastMark] can still take back.
+  int get undoableMarks => _active ? _marks.length : 0;
+
+  /// Takes back the newest [addPlace] and returns its name, or null when there
+  /// is nothing to undo. The walk stays: steps and turns are never removed.
+  /// - Nothing closed since the mark: its corridor folds back into the open
+  ///   one, as if the mark never happened.
+  /// - The walk went on past it (a turn, a floor change or a later mark): a new
+  ///   place becomes a junction; a loop join gets its own junction, so the
+  ///   loop is no longer closed there.
+  String? undoLastMark() {
+    if (!_active || _marks.isEmpty) return null;
+    final mark = _marks.removeLast();
+    final index = mark.corridor;
+    final corridor = _corridors[index];
+    final placeIndex = _places.indexWhere((p) => p.id == mark.placeId);
+    final place = _places[placeIndex];
+    if (index == _corridors.length - 1 && _from == place.id) {
+      _corridors.removeLast();
+      _from = corridor.from;
+      _steps += corridor.steps;
+      _floor = _places.firstWhere((p) => p.id == corridor.from).floor;
+      if (mark.created) {
+        _places.removeAt(placeIndex);
+        _namedPlaces--;
+      }
+    } else if (mark.created) {
+      _junctions++;
+      _places[placeIndex] = contracts.Place(
+        id: place.id,
+        name: 'Junction $_junctions',
+        kind: contracts.PlaceKind.junction,
+        floor: place.floor,
+      );
+    } else {
+      final junction = _junction(floor: place.floor);
+      _places.add(junction);
+      _corridors[index] = _moved(corridor, to: junction.id);
+      final next = index + 1;
+      if (next < _corridors.length && _corridors[next].from == place.id) {
+        _corridors[next] = _moved(_corridors[next], from: junction.id);
+      } else if (_from == place.id) {
+        _from = junction.id;
+      }
+    }
+    return place.name;
+  }
+
+  static contracts.Corridor _moved(
+    contracts.Corridor c, {
+    String? from,
+    String? to,
+  }) => contracts.Corridor(
+    id: c.id,
+    from: from ?? c.from,
+    to: to ?? c.to,
+    steps: c.steps,
+    heading: c.heading,
+    kind: c.kind,
+    floorDelta: c.floorDelta,
+  );
 
   @override
   contracts.MapGraph snapshot() {
@@ -142,13 +210,13 @@ class MapBuilder implements contracts.MapBuilder {
     return _finished = _map(_places, _corridors);
   }
 
-  contracts.Place _junction({String? name}) {
+  contracts.Place _junction({String? name, int? floor}) {
     _junctions++;
     return contracts.Place(
       id: 'j$_junctions',
       name: name ?? 'Junction $_junctions',
       kind: contracts.PlaceKind.junction,
-      floor: _floor,
+      floor: floor ?? _floor,
     );
   }
 
@@ -182,4 +250,13 @@ class MapBuilder implements contracts.MapBuilder {
     places: List<contracts.Place>.unmodifiable(places),
     corridors: List<contracts.Corridor>.unmodifiable(corridors),
   );
+}
+
+/// One [MapBuilder.addPlace] that closed corridor number [corridor] at
+/// [placeId]; [created] is false for a loop join to an existing place.
+class _Mark {
+  const _Mark(this.placeId, this.corridor, {required this.created});
+  final String placeId;
+  final int corridor;
+  final bool created;
 }

@@ -8,6 +8,8 @@ import 'package:breadcrumb/app/wiring.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'record_screen_test.dart' show confirmIfAsked;
 import 'package:path_provider/path_provider.dart';
 
 /// The iQOO loop bug: Home read maps/latest.json once at app start, before
@@ -38,6 +40,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(button);
     await tester.pumpAndSettle();
+    await confirmIfAsked(tester, key);
   }
 
   /// Records the loop from the iQOO test on the real RecordScreen and saves it
@@ -75,7 +78,7 @@ void main() {
     }
     await tapKey(tester, 'record-stop');
     await tester.runAsync(
-      () => saveLatestMap(saved!, documentsDirectory: () async => documents),
+      () => saveRecordedMap(saved!, documentsDirectory: () async => documents),
     );
     await tester.pumpWidget(const SizedBox.shrink());
     return saved!;
@@ -83,6 +86,9 @@ void main() {
 
   Future<void> openNavigate(WidgetTester tester) async {
     await tester.runAsync(() async {
+      // D33: the library does more file I/O than one latest.json read; load
+      // first so a busy test machine can't outrun the fixed delay below.
+      await wiring.reloadActiveMap();
       await tester.pumpWidget(const MaterialApp(home: DestinationListScreen()));
       // Let the real file read in initState finish.
       await Future<void>.delayed(const Duration(milliseconds: 200));

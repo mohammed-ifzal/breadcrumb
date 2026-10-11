@@ -2,32 +2,28 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../ai/alias_suggester.dart';
 import '../../core/contracts.dart' as contracts;
 import '../../core/map_builder.dart' as recording;
-import '../../core/map_json.dart';
 import '../../core/tuning.dart' show useTurnConfirmer;
 import '../../core/turn_confirmer.dart' show confirmedEvents;
 import '../../sensing/sensing_source.dart';
 import '../../sensing/trace_recorder.dart';
+import '../map_library.dart';
 import '../widgets/trail_view.dart';
 import '../wiring.dart';
 
-/// Saves a finished recording to the D22 location, replacing the previous map.
-/// The optional directory lookup allows disk tests without a platform plugin.
-Future<String> saveLatestMap(
+/// D33: saves a finished recording as a new map in the [MapLibrary] and makes
+/// it the active map; older maps are kept. The optional directory lookup
+/// allows disk tests without a platform plugin.
+Future<String> saveRecordedMap(
   contracts.MapGraph map, {
   Future<Directory> Function()? documentsDirectory,
 }) async {
-  final documents =
-      await (documentsDirectory ?? getApplicationDocumentsDirectory)();
-  final directory = Directory('${documents.path}${Platform.pathSeparator}maps');
-  await directory.create(recursive: true);
-  final file = File('${directory.path}${Platform.pathSeparator}latest.json');
-  await file.writeAsString(encodeMap(map), flush: true);
-  return file.path;
+  final saved = await MapLibrary(documentsDirectory: documentsDirectory)
+      .save(map);
+  return saved.path;
 }
 
 /// Return the full path after saving, or throw an error for the screen to display.
@@ -98,11 +94,15 @@ class _RecordScreenState extends State<RecordScreen> {
   String? _marked;
   final _aliasesById = <String, List<String>>{};
 
+  /// Step count at each mark still undoable, oldest first (for D23).
+  final _markSteps = <int?>[];
+  bool _asking = false;
+
   @override
   void initState() {
     super.initState();
     _builder = widget.mapBuilder ?? recording.MapBuilder();
-    _save = widget.save ?? saveLatestMap;
+    _save = widget.save ?? saveRecordedMap;
     _trace = widget.traceRecorder ?? TraceRecorder();
     _trace.state.addListener(_onTraceState);
   }
@@ -191,26 +191,104 @@ class _RecordScreenState extends State<RecordScreen> {
 
   Future<void> _finishAtStart() async {
     if (!_started || _saving || _finished != null) return;
+    final map = _map!.value;
+    final start = map.places.firstWhere((place) => place.id == map.start);
+    if (!await _confirm(
+      key: 'finish',
+      title: 'Finish at ${start.name}?',
+      body: 'This joins the loop at ${start.name} and saves the map.',
+      yes: 'Finish and save',
+    )) {
+      return;
+    }
+    if (!mounted || !_recording) return;
     try {
-      final map = _map!.value;
-      final start = map.places.firstWhere((place) => place.id == map.start);
       _builder.addPlace(start.name, const []);
       _stepsAtLastMark = _steps;
       _map!.value = _builder.snapshot();
       _traceMark(start.name);
       setState(() => _marked = 'Joined to ${start.name} - loop closed');
-      await _stop();
+      await _stop(confirmed: true);
     } catch (error) {
       _onSensorError(error);
     }
   }
 
-  void _mark() {
-    final name = _placeName.text.trim();
-    if (!_recording || name.isEmpty) return;
+  /// A yes/no dialog; true only on the yes button. Buttons have keys
+  /// `<key>-yes` and `<key>-no`.
+  Future<bool> _confirm({
+    required String key,
+    required String title,
+    required String body,
+    required String yes,
+    String no = 'Keep recording',
+  }) async {
+    if (_asking) return false;
+    _asking = true;
+    try {
+      final answer = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: Text(title),
+          content: Text(body),
+          actions: [
+            TextButton(
+              key: ValueKey('$key-no'),
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(no),
+            ),
+            FilledButton(
+              key: ValueKey('$key-yes'),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(yes),
+            ),
+          ],
+        ),
+      );
+      return answer ?? false;
+    } finally {
+      _asking = false;
+    }
+  }
+
+  /// [name] with the lowest free " 2", " 3"... suffix among marked places.
+  String _freeName(String name) {
+    for (var n = 2; ; n++) {
+      final candidate = '$name $n';
+      if (_existingPlace(candidate) == null) return candidate;
+    }
+  }
+
+  Future<void> _mark() async {
+    var name = _placeName.text.trim();
+    if (!_recording || name.isEmpty || _asking) return;
+    final existing = _existingPlace(name);
+    if (existing != null) {
+      // A wrong silent join would bend the whole trail, so ask first.
+      final join = await _confirm(
+        key: 'join',
+        title: 'Join loop at ${existing.name}?',
+        body:
+            'Yes: you are back at ${existing.name} and the loop closes here.\n'
+            'No: mark a new place called "${_freeName(existing.name)}".',
+        yes: 'Yes, join',
+        no: 'No, new place',
+      );
+      if (!mounted || !_recording) return;
+      if (!join) name = _freeName(existing.name);
+    }
     try {
       final joined = _existingPlace(name);
+      final builder = _builder;
+      final marksBefore = builder is recording.MapBuilder
+          ? builder.undoableMarks
+          : 0;
       _builder.addPlace(name, const []);
+      if (builder is recording.MapBuilder &&
+          builder.undoableMarks > marksBefore) {
+        _markSteps.add(_stepsAtLastMark);
+      }
       _stepsAtLastMark = _steps;
       _traceMark(name);
       final snapshot = _builder.snapshot();
@@ -227,8 +305,48 @@ class _RecordScreenState extends State<RecordScreen> {
     }
   }
 
-  Future<void> _stop() async {
+  void _undoMark() {
+    final builder = _builder;
+    if (!_recording || builder is! recording.MapBuilder) return;
+    try {
+      final before = _map!.value.places.map((p) => p.id).toSet();
+      final undone = builder.undoLastMark();
+      if (undone == null) return;
+      _stepsAtLastMark = _markSteps.isEmpty ? null : _markSteps.removeLast();
+      final snapshot = builder.snapshot();
+      // Aliases belong to the place; a place turned into a junction loses them.
+      for (final id in before) {
+        final place = snapshot.places.where((p) => p.id == id);
+        if (place.isEmpty || place.first.kind == contracts.PlaceKind.junction) {
+          _aliasesById.remove(id);
+        }
+      }
+      _map!.value = snapshot;
+      _traceMark('Undo mark: $undone');
+      setState(() => _marked = 'Removed mark: $undone');
+    } catch (error) {
+      _onSensorError(error);
+    }
+  }
+
+  bool get _canUndo {
+    final builder = _builder;
+    return _recording &&
+        builder is recording.MapBuilder &&
+        builder.undoableMarks > 0;
+  }
+
+  Future<void> _stop({bool confirmed = false}) async {
     if (!_started || _saving || _savedPath != null) return;
+    if (!confirmed && _finished == null) {
+      final stop = await _confirm(
+        key: 'stop',
+        title: 'Stop and save this map?',
+        body: 'Recording ends here. Older maps stay in Saved maps.',
+        yes: 'Stop and save',
+      );
+      if (!stop || !mounted || _saving || _savedPath != null) return;
+    }
     setState(() {
       _recording = false;
       _saving = true;
@@ -530,175 +648,199 @@ class _RecordScreenState extends State<RecordScreen> {
         ? Duration.zero
         : const Duration(milliseconds: 180);
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Record a trail')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!_started) ...[
-                    Text(
-                      'Where does your trail start?',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const ValueKey('start-name'),
-                      controller: _startName,
-                      decoration: const InputDecoration(
-                        labelText: 'Start place name',
+    // Leaving mid-walk would lose it, so Back asks first.
+    final unsaved = _started && _savedPath == null && !_saving;
+    return PopScope(
+      canPop: !unsaved,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final discard = await _confirm(
+          key: 'discard',
+          title: 'Discard this recording?',
+          body: 'The walk is not saved. Saved maps are not affected.',
+          yes: 'Discard',
+        );
+        // Navigator.pop is not blocked by canPop; only Back is.
+        if (discard && mounted) Navigator.of(this.context).pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Record a trail')),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!_started) ...[
+                      Text(
+                        'Where does your trail start?',
+                        style: theme.textTheme.titleLarge,
                       ),
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _start(),
-                    ),
-                    const SizedBox(height: 12),
-                    ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _startName,
-                      builder: (_, value, _) => FilledButton(
-                        key: const ValueKey('record-start'),
-                        onPressed: value.text.trim().isEmpty ? null : _start,
-                        child: const Text('Start'),
-                      ),
-                    ),
-                  ],
-                  if (_started) ...[
-                    Text(
-                      _recording ? 'Recording trail' : 'Recording stopped',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: duration,
-                      child: Text(
-                        'Steps: $_steps',
-                        key: ValueKey(_steps),
-                        style: theme.textTheme.headlineMedium,
-                      ),
-                    ),
-                    Text(
-                      _turns.isEmpty
-                          ? 'Last turn: none'
-                          : 'Last turn: ${_formatTurn(_turns.last)}',
-                    ),
-                    Text(
-                      'Current floor: ${_map!.value.places.last.floor}',
-                      key: const ValueKey('current-floor'),
-                    ),
-                    if (_recording)
-                      OutlinedButton.icon(
-                        key: const ValueKey('record-floor'),
-                        onPressed:
-                            _floorChanging || _builder is! recording.MapBuilder
-                            ? null
-                            : _changeFloor,
-                        icon: const Icon(Icons.swap_vert),
-                        label: const Text('Change floor'),
-                      ),
-                    if (_turns.length > 1) ...[
-                      const Text('Recent turns, newest first:'),
-                      for (final angle in _turns.reversed.take(3))
-                        Text(_formatTurn(angle)),
-                    ],
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: ColoredBox(
-                        color: theme.colorScheme.surfaceContainerLow,
-                        // A proportional canvas bounds TrailView's infinite
-                        // CustomPaint size inside the scroll view; no fixed height.
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: TrailView(mapNotifier: _map!),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _finished == null
-                          ? 'Your current position is the red dot.'
-                          : 'Your recorded trail.',
-                    ),
-                    if (_recording) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       TextField(
-                        key: const ValueKey('place-name'),
-                        controller: _placeName,
+                        key: const ValueKey('start-name'),
+                        controller: _startName,
                         decoration: const InputDecoration(
-                          labelText: 'Place name',
+                          labelText: 'Start place name',
                         ),
                         textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _mark(),
+                        onSubmitted: (_) => _start(),
                       ),
+                      const SizedBox(height: 12),
                       ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _placeName,
+                        valueListenable: _startName,
                         builder: (_, value, _) => FilledButton(
-                          key: const ValueKey('record-mark'),
-                          onPressed: value.text.trim().isEmpty ? null : _mark,
-                          child: const Text('Mark place'),
+                          key: const ValueKey('record-start'),
+                          onPressed: value.text.trim().isEmpty ? null : _start,
+                          child: const Text('Start'),
                         ),
                       ),
                     ],
-                    if (_marked != null) Text(_marked!),
-                    if (_recording)
-                      OutlinedButton(
-                        key: const ValueKey('record-finish-start'),
-                        onPressed: _saving ? null : _finishAtStart,
-                        child: const Text('Finish at start'),
-                      ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      key: const ValueKey('record-stop'),
-                      onPressed: _saving || _savedPath != null ? null : _stop,
-                      child: Text(
-                        _saving
-                            ? 'Saving map…'
-                            : _saveError != null
-                            ? 'Retry save'
-                            : 'Stop',
-                      ),
-                    ),
-                    AnimatedSwitcher(
-                      duration: duration,
-                      transitionBuilder: (child, animation) =>
-                          FadeTransition(opacity: animation, child: child),
-                      child: _savedPath == null
-                          ? const SizedBox.shrink()
-                          : SelectableText(
-                              'Saved map: $_savedPath',
-                              key: ValueKey(_savedPath),
-                            ),
-                    ),
-                    ValueListenableBuilder<TraceState>(
-                      valueListenable: _trace.state,
-                      builder: (_, trace, _) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (trace.path != null)
-                            SelectableText('Trace file: ${trace.path}'),
-                          if (trace.error != null || _traceFailure != null)
-                            Text(
-                              'Trace unavailable: ${trace.error ?? _traceFailure}. Map recording continues.',
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (_saveError != null)
+                    if (_started) ...[
                       Text(
-                        _saveError!,
+                        _recording ? 'Recording trail' : 'Recording stopped',
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      AnimatedSwitcher(
+                        duration: duration,
+                        child: Text(
+                          'Steps: $_steps',
+                          key: ValueKey(_steps),
+                          style: theme.textTheme.headlineMedium,
+                        ),
+                      ),
+                      Text(
+                        _turns.isEmpty
+                            ? 'Last turn: none'
+                            : 'Last turn: ${_formatTurn(_turns.last)}',
+                      ),
+                      Text(
+                        'Current floor: ${_map!.value.places.last.floor}',
+                        key: const ValueKey('current-floor'),
+                      ),
+                      if (_recording)
+                        OutlinedButton.icon(
+                          key: const ValueKey('record-floor'),
+                          onPressed:
+                              _floorChanging ||
+                                  _builder is! recording.MapBuilder
+                              ? null
+                              : _changeFloor,
+                          icon: const Icon(Icons.swap_vert),
+                          label: const Text('Change floor'),
+                        ),
+                      if (_turns.length > 1) ...[
+                        const Text('Recent turns, newest first:'),
+                        for (final angle in _turns.reversed.take(3))
+                          Text(_formatTurn(angle)),
+                      ],
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: ColoredBox(
+                          color: theme.colorScheme.surfaceContainerLow,
+                          // A proportional canvas bounds TrailView's infinite
+                          // CustomPaint size inside the scroll view; no fixed height.
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: TrailView(mapNotifier: _map!),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _finished == null
+                            ? 'Your current position is the red dot.'
+                            : 'Your recorded trail.',
+                      ),
+                      if (_recording) ...[
+                        const SizedBox(height: 16),
+                        TextField(
+                          key: const ValueKey('place-name'),
+                          controller: _placeName,
+                          decoration: const InputDecoration(
+                            labelText: 'Place name',
+                          ),
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _mark(),
+                        ),
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _placeName,
+                          builder: (_, value, _) => FilledButton(
+                            key: const ValueKey('record-mark'),
+                            onPressed: value.text.trim().isEmpty ? null : _mark,
+                            child: const Text('Mark place'),
+                          ),
+                        ),
+                      ],
+                      if (_marked != null) Text(_marked!),
+                      if (_canUndo)
+                        OutlinedButton.icon(
+                          key: const ValueKey('record-undo'),
+                          onPressed: _undoMark,
+                          icon: const Icon(Icons.undo_rounded),
+                          label: const Text('Undo last mark'),
+                        ),
+                      if (_recording)
+                        OutlinedButton(
+                          key: const ValueKey('record-finish-start'),
+                          onPressed: _saving ? null : _finishAtStart,
+                          child: const Text('Finish at start'),
+                        ),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        key: const ValueKey('record-stop'),
+                        onPressed: _saving || _savedPath != null ? null : _stop,
+                        child: Text(
+                          _saving
+                              ? 'Saving map…'
+                              : _saveError != null
+                              ? 'Retry save'
+                              : 'Stop',
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: duration,
+                        transitionBuilder: (child, animation) =>
+                            FadeTransition(opacity: animation, child: child),
+                        child: _savedPath == null
+                            ? const SizedBox.shrink()
+                            : SelectableText(
+                                'Saved map: $_savedPath',
+                                key: ValueKey(_savedPath),
+                              ),
+                      ),
+                      ValueListenableBuilder<TraceState>(
+                        valueListenable: _trace.state,
+                        builder: (_, trace, _) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (trace.path != null)
+                              SelectableText('Trace file: ${trace.path}'),
+                            if (trace.error != null || _traceFailure != null)
+                              Text(
+                                'Trace unavailable: ${trace.error ?? _traceFailure}. Map recording continues.',
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (_saveError != null)
+                        Text(
+                          _saveError!,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                    ],
+                    if (_sensorError != null)
+                      Text(
+                        'Sensing error: $_sensorError',
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
                   ],
-                  if (_sensorError != null)
-                    Text(
-                      'Sensing error: $_sensorError',
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                ],
+                ),
               ),
             ),
           ),

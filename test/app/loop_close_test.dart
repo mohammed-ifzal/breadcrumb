@@ -82,6 +82,9 @@ void main() {
       );
       await tester.pump();
       await support.tap(tester, 'record-mark');
+      // D33: a duplicate name asks before joining.
+      expect(find.text('Join loop at Entrance?'), findsOneWidget);
+      await support.tap(tester, 'join-yes');
       expect(find.text('Joined to Entrance - loop closed'), findsOneWidget);
       final live = tester
           .widget<TrailView>(find.byType(TrailView))
