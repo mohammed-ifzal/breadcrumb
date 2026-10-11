@@ -22,7 +22,6 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
   Future<void> _requestPermissions() async {
     try {
       final statusMap = await [
-        Permission.camera,
         Permission.microphone,
         Permission.activityRecognition,
       ].request();
@@ -46,7 +45,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
         setState(() {
           _checking = false;
           _error =
-              'Breadcrumb needs Camera, Microphone, and Activity Recognition permissions to work. Please grant them in Settings.';
+              'Breadcrumb needs Microphone and Activity Recognition permissions to work. Please grant them in Settings.';
         });
       }
     } catch (e) {

@@ -6,6 +6,7 @@ import '../wiring.dart';
 import 'package:breadcrumb/ai/device_tier.dart' show basicMatchingLabel;
 import 'destination_list_screen.dart';
 import 'record_screen.dart';
+import 'privacy_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -131,9 +132,38 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Center(
+              child: _PrivacyLink(),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PrivacyLink extends StatelessWidget {
+  const _PrivacyLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PrivacyScreen()),
+      ),
+      style: TextButton.styleFrom(
+        foregroundColor: BreadcrumbTheme.textFaint,
+        textStyle: const TextStyle(
+          fontSize: 13,
+          fontFamily: 'Inter',
+          decoration: TextDecoration.underline,
+        ),
+        minimumSize: const Size(44, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      ),
+      child: const Text('Privacy'),
     );
   }
 }
