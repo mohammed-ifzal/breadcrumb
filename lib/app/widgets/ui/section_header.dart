@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme.dart';
 
-/// An uppercase label above a group, with optional text on the right
+/// A caption above a group, with optional text on the right
 /// (for example "3 places").
 class SectionHeader extends StatelessWidget {
   const SectionHeader(this.title, {super.key, this.trailing});
@@ -21,13 +21,13 @@ class SectionHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: Text(title.toUpperCase(), style: BreadcrumbTheme.label),
+              child: Text(title, style: BreadcrumbTheme.label),
             ),
             if (trailing != null) ...[
               const SizedBox(width: 12),
               Text(
                 trailing,
-                style: BreadcrumbTheme.label.copyWith(color: BreadcrumbTheme.accent),
+                style: BreadcrumbTheme.label,
               ),
             ],
           ],

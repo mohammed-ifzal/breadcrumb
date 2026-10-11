@@ -8,12 +8,13 @@ import 'package:breadcrumb/core/route_runs.dart';
 import 'package:breadcrumb/core/tuning.dart' as tuning;
 import 'package:breadcrumb/app/theme.dart';
 import 'package:breadcrumb/app/wiring.dart';
+import 'package:breadcrumb/app/widgets/arrow_glyph.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
 import 'scan_screen.dart';
 
 /// Google-Maps-style navigation screen:
-/// - Top instruction card in accent colour with 56 dp arrow icon + confidence ring
-/// - Next instruction strip ("Then: ...")
+/// - Top instruction card: solid accent block, arrow glyph + confidence ring,
+///   with the "Then: ..." strip as its lower edge
 /// - TrailView filling the middle (the hero)
 /// - Bottom sheet with destination name, steps left, progress bar, and two equal buttons
 class NavigateScreen extends StatefulWidget {
@@ -310,32 +311,14 @@ class _NavigateScreenState extends State<NavigateScreen> {
     }
   }
 
-  IconData _getNextInstructionIcon(String text) {
+  ArrowKind _getNextArrowKind(String text) {
     final lower = text.toLowerCase();
-    if (lower.contains('left')) return Icons.turn_left_rounded;
-    if (lower.contains('right')) return Icons.turn_right_rounded;
-    if (lower.contains('around')) return Icons.u_turn_left_rounded;
-    if (lower.contains('stairs') || lower.contains('floor')) return Icons.stairs_rounded;
-    if (lower.contains('arrive')) return Icons.flag_rounded;
-    return Icons.arrow_upward_rounded;
-  }
-
-  IconData _getArrowIcon(InstructionKind? kind) {
-    if (kind == null) return Icons.arrow_upward_rounded;
-    switch (kind) {
-      case InstructionKind.turnLeft:
-        return Icons.turn_left_rounded;
-      case InstructionKind.turnRight:
-        return Icons.turn_right_rounded;
-      case InstructionKind.turnAround:
-        return Icons.u_turn_left_rounded;
-      case InstructionKind.arrive:
-        return Icons.flag_rounded;
-      case InstructionKind.changeFloor:
-        return Icons.stairs_rounded;
-      default:
-        return Icons.arrow_upward_rounded;
-    }
+    if (lower.contains('left')) return ArrowKind.left;
+    if (lower.contains('right')) return ArrowKind.right;
+    if (lower.contains('around')) return ArrowKind.uTurn;
+    if (lower.contains('stairs') || lower.contains('floor')) return ArrowKind.stairs;
+    if (lower.contains('arrive')) return ArrowKind.arrival;
+    return ArrowKind.straight;
   }
 
   @override
@@ -358,7 +341,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 64, color: BreadcrumbTheme.danger),
+                const Icon(Icons.error_outline, size: 48, color: BreadcrumbTheme.danger),
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage!,
@@ -401,7 +384,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
                   const StatusPill.simulated(),
                   const SizedBox(height: 16),
                 ],
-                const Icon(Icons.check_circle_outline, size: 64, color: BreadcrumbTheme.accent),
+                const ArrowGlyph(kind: ArrowKind.arrival, size: 48, color: BreadcrumbTheme.textPrimary),
                 const SizedBox(height: 16),
                 Text(
                   "You're already at $_alreadyTherePlace",
@@ -441,14 +424,16 @@ class _NavigateScreenState extends State<NavigateScreen> {
     final confidence = _getConfidence();
     final nextInstructionText = _getNextInstructionText(route, position, _currentInstruction);
 
+    // Secondary: outlined, same 52 dp height as the primary button.
     final actionButtonStyle = ElevatedButton.styleFrom(
-      backgroundColor: BreadcrumbTheme.surfaceRaised,
+      backgroundColor: Colors.transparent,
       foregroundColor: BreadcrumbTheme.textPrimary,
+      shadowColor: Colors.transparent,
       side: const BorderSide(color: BreadcrumbTheme.border),
       minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       shape: const RoundedRectangleBorder(borderRadius: BreadcrumbTheme.borderRadius),
-      textStyle: BreadcrumbTheme.button.copyWith(fontSize: 17),
+      textStyle: BreadcrumbTheme.button,
       elevation: 0,
     );
 
@@ -488,128 +473,120 @@ class _NavigateScreenState extends State<NavigateScreen> {
             if (showSimulated)
               Container(
                 width: double.infinity,
-                color: BreadcrumbTheme.warning.withValues(alpha: 0.15),
+                color: BreadcrumbTheme.surface,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: const Text(
                   'SIMULATED',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: BreadcrumbTheme.warning,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    letterSpacing: 2.0,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    letterSpacing: 1.0,
                   ),
                 ),
               ),
 
-            // Top instruction card in accent colour
+            // Instruction card: one solid accent block (turn banner) with the
+            // "Then:" strip as its lower edge.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: ClipRRect(
+                borderRadius: BreadcrumbTheme.borderRadius,
+                child: Container(
                   color: BreadcrumbTheme.accent,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: BreadcrumbTheme.accent.withValues(alpha: 0.25),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    ConfidenceRing(
-                      confidence: confidence,
-                      size: 56.0,
-                      child: Icon(
-                        _getArrowIcon(_currentInstruction?.kind),
-                        size: 32,
-                        color: BreadcrumbTheme.onAccent,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _currentInstruction?.text ?? 'Calculating...',
-                            style: const TextStyle(
-                              fontFamily: BreadcrumbTheme.fontFamily,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                              color: BreadcrumbTheme.onAccent,
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (stepsLeft != null && stepsLeft > 0) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              stepsLeft == 1 ? '1 step' : '$stepsLeft steps',
-                              style: const TextStyle(
-                                fontFamily: BreadcrumbTheme.fontFamily,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            ConfidenceRing(
+                              confidence: confidence,
+                              size: 56.0,
+                              child: ArrowGlyph(
+                                kind: arrowKindFor(_currentInstruction?.kind),
+                                size: 32,
                                 color: BreadcrumbTheme.onAccent,
-                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _currentInstruction?.text ?? 'Calculating...',
+                                    style: const TextStyle(
+                                      fontFamily: BreadcrumbTheme.fontFamily,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w600,
+                                      color: BreadcrumbTheme.onAccent,
+                                      height: 1.2,
+                                    ),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (stepsLeft != null && stepsLeft > 0) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      stepsLeft == 1 ? '1 step' : '$stepsLeft steps',
+                                      style: const TextStyle(
+                                        fontFamily: BreadcrumbTheme.fontFamily,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: BreadcrumbTheme.onAccent,
+                                        fontFeatures: [FontFeature.tabularFigures()],
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Next instruction strip ("Then: ...")
-            if (nextInstructionText != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: BreadcrumbTheme.surfaceRaised,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: BreadcrumbTheme.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _getNextInstructionIcon(nextInstructionText),
-                        size: 16,
-                        color: BreadcrumbTheme.textSecondary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          nextInstructionText,
-                          style: const TextStyle(
-                            fontFamily: BreadcrumbTheme.fontFamily,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: BreadcrumbTheme.textSecondary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (nextInstructionText != null)
+                        Container(
+                          color: BreadcrumbTheme.onAccent.withValues(alpha: 0.12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              ArrowGlyph(
+                                kind: _getNextArrowKind(nextInstructionText),
+                                size: 20,
+                                color: BreadcrumbTheme.onAccent,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  nextInstructionText,
+                                  style: const TextStyle(
+                                    fontFamily: BreadcrumbTheme.fontFamily,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: BreadcrumbTheme.onAccent,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ),
+            ),
 
             // TrailView fills the middle (the hero)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 120),
                   decoration: BoxDecoration(
@@ -657,11 +634,11 @@ class _NavigateScreenState extends State<NavigateScreen> {
             // Bottom sheet: destination name, steps left, thin progress bar, two equal buttons
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+              padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
                 color: BreadcrumbTheme.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                border: Border(top: BorderSide(color: BreadcrumbTheme.border, width: 1.5)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(BreadcrumbTheme.radius)),
+                border: Border(top: BorderSide(color: BreadcrumbTheme.border)),
               ),
               child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
@@ -677,8 +654,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
                             destName,
                             style: const TextStyle(
                               fontFamily: BreadcrumbTheme.fontFamily,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                               color: BreadcrumbTheme.textPrimary,
                             ),
                             maxLines: 1,
@@ -691,8 +668,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
                             '$remainingSteps steps left',
                             style: const TextStyle(
                               fontFamily: BreadcrumbTheme.fontFamily,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
                               color: BreadcrumbTheme.textSecondary,
                               fontFeatures: [FontFeature.tabularFigures()],
                             ),

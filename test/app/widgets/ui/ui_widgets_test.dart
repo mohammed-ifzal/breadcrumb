@@ -10,7 +10,7 @@ Widget _host(Widget child) => MaterialApp(
 
 void main() {
   group('PrimaryButton', () {
-    testWidgets('shows the label, is at least 56 dp tall and calls onPressed', (tester) async {
+    testWidgets('shows the label, is at least 52 dp tall and calls onPressed', (tester) async {
       var taps = 0;
       await tester.pumpWidget(_host(PrimaryButton(label: 'Go', onPressed: () => taps++)));
 
@@ -110,9 +110,9 @@ void main() {
       expect(text.style?.color, BreadcrumbTheme.warning);
     });
 
-    testWidgets('AI on-device is teal when ready and grey while warming', (tester) async {
+    testWidgets('AI on-device is bright when ready and grey while warming', (tester) async {
       await tester.pumpWidget(_host(const StatusPill.aiOnDevice(ready: true)));
-      expect(tester.widget<Text>(find.text('AI on-device')).style?.color, BreadcrumbTheme.accent);
+      expect(tester.widget<Text>(find.text('AI on-device')).style?.color, BreadcrumbTheme.textPrimary);
 
       await tester.pumpWidget(_host(const StatusPill.aiOnDevice(ready: false)));
       expect(tester.widget<Text>(find.text('AI on-device')).style?.color,
@@ -121,15 +121,15 @@ void main() {
   });
 
   group('SectionHeader', () {
-    testWidgets('upper-cases the title and shows the trailing text', (tester) async {
+    testWidgets('shows the title and the trailing text', (tester) async {
       await tester.pumpWidget(_host(const SectionHeader('Marked places', trailing: '3 places')));
-      expect(find.text('MARKED PLACES'), findsOneWidget);
+      expect(find.text('Marked places'), findsOneWidget);
       expect(find.text('3 places'), findsOneWidget);
     });
 
     testWidgets('trailing text is optional', (tester) async {
       await tester.pumpWidget(_host(const SectionHeader('Start')));
-      expect(find.text('START'), findsOneWidget);
+      expect(find.text('Start'), findsOneWidget);
     });
   });
 
@@ -165,20 +165,20 @@ void main() {
     });
   });
 
-  testWidgets('the app theme is dark with the agreed colours and 56 dp targets', (tester) async {
+  testWidgets('the app theme is dark with the agreed colours and 52 dp targets', (tester) async {
     final theme = BreadcrumbTheme.themeData;
     expect(theme.brightness, Brightness.dark);
-    expect(theme.scaffoldBackgroundColor, const Color(0xFF0B0F14));
-    expect(theme.colorScheme.surface, const Color(0xFF141A22));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFF0E1116));
+    expect(theme.colorScheme.surface, const Color(0xFF161B22));
     expect(theme.colorScheme.primary, const Color(0xFF2DE2C3));
     expect(BreadcrumbTheme.warning, const Color(0xFFFFB020));
     expect(BreadcrumbTheme.textPrimary, const Color(0xFFF2F5F7));
-    expect(BreadcrumbTheme.textSecondary, const Color(0xFF9AA4AE));
-    expect(BreadcrumbTheme.radius, 20);
-    expect(theme.textTheme.displayLarge?.fontSize, greaterThanOrEqualTo(40));
-    expect(theme.textTheme.headlineMedium?.fontSize, 28);
-    expect(theme.textTheme.bodyMedium?.fontSize, 17);
-    // System font only: Roboto ships with Android, nothing is downloaded.
+    expect(BreadcrumbTheme.textSecondary, const Color(0xFF8B949E));
+    expect(BreadcrumbTheme.radius, 14);
+    expect(theme.textTheme.displayLarge?.fontSize, greaterThanOrEqualTo(32));
+    expect(theme.textTheme.headlineMedium?.fontSize, 24);
+    expect(theme.textTheme.bodyMedium?.fontSize, 16);
+    // Inter is bundled, nothing is downloaded.
     expect(theme.textTheme.bodyMedium?.fontFamily, anyOf(isNull, 'Roboto', 'Inter'));
     expect(
       theme.elevatedButtonTheme.style?.minimumSize?.resolve({}),

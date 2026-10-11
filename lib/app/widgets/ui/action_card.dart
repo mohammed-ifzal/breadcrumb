@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../theme.dart';
 
-/// A large tappable card: icon tile, title, subtitle and an arrow.
-/// [highlighted] gives the recommended action a teal edge and glow.
+/// A list row: icon, title, caption and a chevron. Flat surface, 1 px border.
+/// [highlighted] is kept for callers but no longer changes the look: the
+/// accent colour is reserved for the route, the primary button and the
+/// instruction card.
 class ActionCard extends StatelessWidget {
   const ActionCard({
     super.key,
@@ -22,81 +24,53 @@ class ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final edge = highlighted
-        ? BreadcrumbTheme.accent.withValues(alpha: 0.55)
-        : BreadcrumbTheme.border;
-
     return Semantics(
       button: true,
       enabled: onTap != null,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
+      child: Material(
+        color: BreadcrumbTheme.surface,
+        shape: const RoundedRectangleBorder(
           borderRadius: BreadcrumbTheme.borderRadius,
-          boxShadow: highlighted
-              ? [
-                  BoxShadow(
-                    color: BreadcrumbTheme.accent.withValues(alpha: 0.12),
-                    blurRadius: 28,
-                  ),
-                ]
-              : null,
+          side: BorderSide(color: BreadcrumbTheme.border),
         ),
-        child: Material(
-          color: BreadcrumbTheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BreadcrumbTheme.borderRadius,
-            side: BorderSide(color: edge),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: BreadcrumbTheme.minTouch),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: highlighted
-                            ? BreadcrumbTheme.accent
-                            : BreadcrumbTheme.surfaceRaised,
-                        borderRadius: const BorderRadius.all(Radius.circular(16)),
-                      ),
-                      child: Icon(
-                        icon,
-                        size: 28,
-                        color: highlighted
-                            ? BreadcrumbTheme.onAccent
-                            : BreadcrumbTheme.accent,
-                      ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: BreadcrumbTheme.minTouch),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: BreadcrumbTheme.surfaceRaised,
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title, style: BreadcrumbTheme.title),
-                          const SizedBox(height: 6),
-                          Text(subtitle, style: BreadcrumbTheme.bodySecondary),
-                        ],
-                      ),
+                    child: Icon(icon, size: 22, color: BreadcrumbTheme.textPrimary),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: BreadcrumbTheme.body.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(subtitle, style: BreadcrumbTheme.caption),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 14),
-                      child: Icon(
-                        Icons.arrow_forward_rounded,
-                        color: highlighted
-                            ? BreadcrumbTheme.accent
-                            : BreadcrumbTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: BreadcrumbTheme.textSecondary,
+                  ),
+                ],
               ),
             ),
           ),

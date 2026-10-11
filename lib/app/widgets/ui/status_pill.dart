@@ -20,7 +20,7 @@ class StatusPill extends StatelessWidget {
         icon = Icons.wifi_off_rounded,
         tone = StatusTone.neutral;
 
-  /// Gemma and speech run on the phone. Teal once the model is loaded.
+  /// Gemma and speech run on the phone. Brighter once the model is loaded.
   const StatusPill.aiOnDevice({super.key, bool ready = true})
       : label = 'AI on-device',
         icon = Icons.memory_rounded,
@@ -45,20 +45,20 @@ class StatusPill extends StatelessWidget {
           BreadcrumbTheme.border,
         ),
       StatusTone.accent => (
-          BreadcrumbTheme.accent,
-          BreadcrumbTheme.accent.withValues(alpha: 0.08),
-          BreadcrumbTheme.accent.withValues(alpha: 0.35),
+          BreadcrumbTheme.textPrimary,
+          BreadcrumbTheme.surface,
+          BreadcrumbTheme.border,
         ),
       StatusTone.warning => (
           BreadcrumbTheme.warning,
-          BreadcrumbTheme.warning.withValues(alpha: 0.10),
+          BreadcrumbTheme.surface,
           BreadcrumbTheme.warning,
         ),
     };
 
     return Container(
-      constraints: const BoxConstraints(minHeight: 32),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      constraints: const BoxConstraints(minHeight: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: const BorderRadius.all(Radius.circular(999)),
@@ -68,13 +68,13 @@ class StatusPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 16, color: fg),
+            Icon(icon, size: 14, color: fg),
             const SizedBox(width: 6),
           ],
           Flexible(
             child: Text(
               label,
-              style: BreadcrumbTheme.label.copyWith(color: fg, letterSpacing: 0.6),
+              style: BreadcrumbTheme.label.copyWith(color: fg),
             ),
           ),
         ],

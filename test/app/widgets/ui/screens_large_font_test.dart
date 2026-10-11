@@ -87,7 +87,7 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.text('Where do you want to go?'), findsWidgets);
-    expect(find.text('MARKED PLACES'), findsOneWidget);
+    expect(find.text('Marked places'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'I need some snacks');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Submit'));
