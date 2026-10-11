@@ -186,6 +186,8 @@ MapGraph applyAliases(MapGraph map, Map<String, List<String>> aliasesById) {
       aliases: [...p.aliases, ...added],
       kind: p.kind,
       floor: p.floor,
+      x: p.x,
+      y: p.y,
     );
   }
   places = List.unmodifiable(places);

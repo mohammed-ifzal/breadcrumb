@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../ai/alias_suggester.dart';
 import '../../core/contracts.dart' as contracts;
 import '../../core/map_builder.dart' as recording;
-import '../../core/tuning.dart' show useTurnConfirmer;
+import '../../core/tuning.dart' as tuning;
 import '../../core/turn_confirmer.dart' show confirmedEvents;
 import '../../sensing/sensing_source.dart';
 import '../../sensing/trace_recorder.dart';
@@ -41,8 +41,11 @@ class RecordScreen extends StatefulWidget {
     this.traceRecorder,
     this.sensingSource,
     this.aliasSuggester,
+    this.useLoopCorrection = tuning.useLoopCorrection,
   });
 
+  /// D34: also controls the default builder's coordinate-free fallback.
+  final bool useLoopCorrection;
   final contracts.MapBuilder? mapBuilder;
   final Stream<Object>? events;
   final RecordMapSave? save;
@@ -101,7 +104,9 @@ class _RecordScreenState extends State<RecordScreen> {
   @override
   void initState() {
     super.initState();
-    _builder = widget.mapBuilder ?? recording.MapBuilder();
+    _builder =
+        widget.mapBuilder ??
+        recording.MapBuilder(useLoopCorrection: widget.useLoopCorrection);
     _save = widget.save ?? saveRecordedMap;
     _trace = widget.traceRecorder ?? TraceRecorder();
     _trace.state.addListener(_onTraceState);
@@ -128,7 +133,7 @@ class _RecordScreenState extends State<RecordScreen> {
       // as the Tracker in Navigate.
       final events =
           widget.events ??
-          (useTurnConfirmer
+          (tuning.useTurnConfirmer
               ? confirmedEvents(_traceSource!)
               : _traceSource!.events());
       _subscription = events.listen(
@@ -189,12 +194,23 @@ class _RecordScreenState extends State<RecordScreen> {
     return null;
   }
 
+  /// The main confirmation remains unchanged unless display drift is too large.
+  recording.LoopClosurePreview? _closureWarning(String name) {
+    final builder = _builder;
+    if (!widget.useLoopCorrection || builder is! recording.MapBuilder) {
+      return null;
+    }
+    final preview = builder.previewLoopClosure(name);
+    return preview != null && preview.requiresConfirmation ? preview : null;
+  }
+
   Future<void> _finishAtStart() async {
     if (!_started || _saving || _finished != null) return;
     final map = _map!.value;
     final start = map.places.firstWhere((place) => place.id == map.start);
     if (!await _confirm(
       key: 'finish',
+      warning: _closureWarning(start.name),
       title: 'Finish at ${start.name}?',
       body: 'This joins the loop at ${start.name} and saves the map.',
       yes: 'Finish and save',
@@ -222,6 +238,7 @@ class _RecordScreenState extends State<RecordScreen> {
     required String body,
     required String yes,
     String no = 'Keep recording',
+    recording.LoopClosurePreview? warning,
   }) async {
     if (_asking) return false;
     _asking = true;
@@ -231,7 +248,21 @@ class _RecordScreenState extends State<RecordScreen> {
         builder: (context) => AlertDialog(
           scrollable: true,
           title: Text(title),
-          content: Text(body),
+          content: warning == null
+              ? Text(body)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(body),
+                    const SizedBox(height: 12),
+                    const Text("Positions don't match well - join anyway?"),
+                    Text(
+                      'Position error: ${warning.errorSteps.toStringAsFixed(1)} steps '
+                      'over ${warning.loopSteps} recorded loop steps.',
+                    ),
+                  ],
+                ),
           actions: [
             TextButton(
               key: ValueKey('$key-no'),
@@ -268,6 +299,7 @@ class _RecordScreenState extends State<RecordScreen> {
       // A wrong silent join would bend the whole trail, so ask first.
       final join = await _confirm(
         key: 'join',
+        warning: _closureWarning(existing.name),
         title: 'Join loop at ${existing.name}?',
         body:
             'Yes: you are back at ${existing.name} and the loop closes here.\n'
