@@ -118,6 +118,10 @@ const double confidenceCornerReset = 0.9;
 /// Below this the Guide asks "Are you at {next place}?", once per leg.
 const double confidenceAskBelow = 0.5;
 
+/// Off route, up to this many net steps away from the path, facing the leg
+/// again rejoins it; further, the Guide says "Walk back about N steps" (D31).
+const int walkBackMinSteps = 2;
+
 /// Arrive only after enough steps on the final leg and all its turns (D29).
 const bool useArrivalGuard = true;
 
@@ -133,6 +137,15 @@ const double handlingRotationMin = 120;
 
 /// Total RAM (MB) at or above which the device is DeviceTier.full.
 const int fullTierMinRamMb = 8000;
+
+/// Optional proximity-dependent turn thresholds; keep OFF until phone verified.
+const bool usePocketTurnProfile = false;
+
+/// deg/s required while the latest recorded proximity state is near.
+const double pocketTurnRateMin = 30;
+
+/// Quiet ms required to settle a turn while proximity is near.
+const int pocketTurnSettleMs = 300;
 
 // ---------------------------------------------------------------------------
 // D30: aliases and device tier.

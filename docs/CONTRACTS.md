@@ -139,7 +139,7 @@ detector) or `"accel"` (the Dart `StepDetector` fallback).
 | `PlaceMatch` | `placeId`, `score` (0–1) |
 | `Leg` | `corridorId`, `reversed`, `heading`, `steps`, `kind` (default walk), `floorDelta` (as walked: negated when reversed; default 0), `isTransition` (D24) |
 | `RoutePlan` | ordered `legs`, `totalSteps`, `toId` |
-| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool), `orienting` (bool, default false), `facing` (double?, assumed facing while orienting, null = unknown) (D27), `confidence` (double 0-1, default 1.0, D29), `unconfirmedArrival` (bool, default false: at or past the destination without the arrival guard met, D29) |
+| `Position` | `legIndex`, `stepsAlong`, `anchoredBy` (start / turn / sign / tap / floor), `offRoute` (bool), `needsReplan` (bool), `orienting` (bool, default false), `facing` (double?, assumed facing while orienting, null = unknown) (D27), `confidence` (double 0-1, default 1.0, D29), `unconfirmedArrival` (bool, default false: at or past the destination without the arrival guard met, D29), `stepsOffRoute` (int, default 0), `awayHeading` (double?), `backOnRoute` (bool, default false) (D31); `facing` is also the running facing while `offRoute` (D31) |
 | `Instruction` | `kind` (straight, turnLeft, turnRight, turnAround, arrive, offRoute, rescan, changeFloor, arrivingConfirm, maybePassed, confirmPlace (D29)), `steps` (int?), `placeName` (String?), `text` |
 
 ## Interfaces (one owner each)
@@ -180,6 +180,8 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
    a sidestep and back (+90, -90) nets ~0 and is dropped (< `turnMinAngle`).
 3. Candidates that arrive during `MotionState.handling`, or with no following steps in
    the window, are dropped. Handling while a candidate waits drops it too.
+   Candidates with no step between them are a burst (looking around on the spot): the
+   burst is never confirmed, and a candidate after a step replaces it (D32).
 4. It sits between the `SensingSource` and both the Tracker and the MapBuilder.
 
 **Tracker**
@@ -202,6 +204,13 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 - **Auto-recover (D27).** While off route, a turn in the direction the next turning
   point needs, within 2 × `snapSteps` of it (before or after), snaps position to the
   start of the leg after it and clears `offRoute`. Other turns are ignored.
+- **Rejoin (D31).** Leaving the route starts a running facing (the leg's heading turned by
+  that turn); every off-route turn updates it. Off-route steps count net steps away
+  (`stepsOffRoute`: along `awayHeading` up, the opposite way down, sideways not). Facing
+  the current leg within `straightTolerance` at most `walkBackMinSteps` away rejoins the
+  same leg at the step count it was left at, with `backOnRoute` on that one position.
+  This is checked before auto-recover; a turn-around never auto-recovers onto a left or
+  right corner.
 - Turns after arriving (last leg, its steps done) are ignored (D26).
 - **Confidence (D29, `useConfidence`).** x `confidenceDecayPerStep` on every counted
   step; up to `confidenceCornerReset` on a snapped corner (never lowered); 1.0 on
@@ -246,7 +255,12 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 - **Arrival guard (D29).** When `Position.unconfirmedArrival`, instead of arrival: "{place}
   should be right here — tap I'm here to confirm" (`arrivingConfirm`); further than
   `overwalk` x the leg past it: "You may have passed {place}" (`maybePassed`).
-- Off route → "Looks like you went off the path. Go back to the last corner or tap I'm
+- **Off route (D31).** From `facing` vs the current leg: about 180° → "Turn around to get
+  back on the path." (`turnAround`); otherwise "Turn left/right to face the path."
+  (`turnLeft` / `turnRight`, no steps). More than `walkBackMinSteps` away: "Walk back about
+  N steps, then turn left/right." (`turnAround`; `straight` once facing back). On
+  `backOnRoute`: "Back on route. " + the normal instruction.
+- Off route with no facing → "Looks like you went off the path. Go back to the last corner or tap I'm
   here." The Guide no longer gives `rescan` (D27); the Scan sign button stays.
 - Before a transition, `changeFloor` replaces the turn: "In about {steps} steps, take
   the {kind} {up/down} to Floor {N}.", then "Take the {kind} {up/down} to Floor {N}."
@@ -305,6 +319,7 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `confidenceCornerReset` | 0.9 | Confidence after a snapped corner (D29) |
 | `confidenceAskBelow` | 0.5 | Ask "Are you at {place}?" below this (D29) |
 | `useArrivalGuard` | false | Flag: arrival guard (D29) |
+| `walkBackMinSteps` | 2 | Off route, facing the leg again this close rejoins it; further, "Walk back about N steps" (D31) |
 | `arrivalMinFraction` | 0.7 | Fraction of the final leg needed before arrival (D29) |
 | `stillAfterMs` | 1500 | No step for this long -> `MotionState.still` (T2, D29) |
 | `handlingRotationMin` | 120 | deg/s of non-yaw rotation -> `MotionState.handling` (T2, D29) |
@@ -322,7 +337,9 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | orienting (D27) | "Turn around, then walk straight." / "Turn left, then walk straight." / "Face {place} and start walking." |
 | turnAround | "Turn around." |
 | arrive | "{placeName} is here." |
-| offRoute | "Looks like you went off the path. Go back to the last corner or tap I'm here." (D27) |
+| offRoute | "Looks like you went off the path. Go back to the last corner or tap I'm here." (D27, no facing) |
+| off route (D31) | "Turn around to get back on the path." / "Turn left to face the path." / "Walk back about {N} steps, then turn right." |
+| back on route (D31) | "Back on route. " + the normal instruction |
 | confirmPlace | "Are you at {place}?" / "Are you at the next corner?" (D29) |
 | arrivingConfirm | "{place} should be right here — tap I'm here to confirm." (D29) |
 | maybePassed | "You may have passed {place}." (D29) |

@@ -3,6 +3,19 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sun 11 Oct ~09:30, pre-demo: demo-final + D31/D32 (branch ifzal/recalibrate, PR #31)
+Done on main: #27, #28 (useArrivalGuard on; confirmer + confidence on, gates off), #30 (T3
+privacy). Tag demo-final -> 8b70871 (tag-only force push, approved). iQOO: 8b70871 installed
+with -r, Gemma 1.8 s, no FATAL; PSS 954 MB, debug APK 269.7 MB. CI goes red only at
+artifact upload: Actions storage full (115 artifacts) - delete old ones.
+PR #31 (open, not merged, not installed): D31 off-route rejoin (running facing; face the leg
+within walkBackMinSteps=2 -> same leg, "Back on route."; "Turn around / Turn left|right to
+face the path / Walk back about N steps, then turn X"). D32 TurnConfirmer: zero-step bursts
+never confirmed (look_around -76,-81,+96 -> 0 turns). One D27 range test re-set; "two
+parts" test now expects nothing. analyze clean, 529 green, replay 9/9 0 false.
+Next: CI on #31, merge, install -r, try debug buttons right/left, move demo-final if good.
+Blocked: nothing. T2 pushes to t2/robust-sensing with no PR. Last commit: this handoff.
+
 ## Sun 11 Oct 02:30, captain merge round 1 (main bf7f47b)
 Merged: #23 c7b4311, #22 a9e93c3, #24 74584cd (main merged into t2/robust-sensing:
 tuning both sides; sensing_source keeps main's pending-trace buffer + T2 snapshots),

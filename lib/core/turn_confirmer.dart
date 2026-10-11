@@ -11,7 +11,8 @@ import 'tuning.dart';
 /// [windowMs]; then its net angle (every candidate since the last confirmed
 /// heading added up) is emitted on [confirmed], if it is at least [minAngle].
 /// Candidates during [MotionState.handling], or with no steps in the window, are
-/// dropped.
+/// dropped. Candidates with no step between them are a burst (looking around
+/// on the spot, D32): never confirmed, and a candidate after steps replaces it.
 class StepTurnConfirmer implements TurnConfirmer {
   StepTurnConfirmer({
     this.confirmSteps = turnConfirmSteps,
@@ -36,6 +37,9 @@ class StepTurnConfirmer implements TurnConfirmer {
   /// Steps since the latest candidate.
   int _steps = 0;
 
+  /// True when two waiting candidates came with no step between them (D32).
+  bool _burst = false;
+
   @override
   Stream<TurnEvent> get confirmed => _confirmed.stream;
 
@@ -49,6 +53,13 @@ class StepTurnConfirmer implements TurnConfirmer {
   void onTurn(TurnEvent e) {
     _expire(e.t);
     if (_state == MotionState.handling) return;
+    if (_lastT != null) {
+      if (_steps == 0) {
+        _burst = true;
+      } else if (_burst) {
+        _drop();
+      }
+    }
     _net += e.angle;
     _since ??= e.t;
     _lastT = e.t;
@@ -62,8 +73,9 @@ class StepTurnConfirmer implements TurnConfirmer {
     if (last == null) return;
     if (++_steps < confirmSteps) return;
     final net = _net;
+    final burst = _burst;
     _drop();
-    if (net.abs() >= minAngle) _confirmed.add(TurnEvent(last, net));
+    if (!burst && net.abs() >= minAngle) _confirmed.add(TurnEvent(last, net));
   }
 
   @override
@@ -85,6 +97,7 @@ class StepTurnConfirmer implements TurnConfirmer {
     _since = null;
     _lastT = null;
     _steps = 0;
+    _burst = false;
   }
 }
 

@@ -30,16 +30,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          padding: const EdgeInsets.fromLTRB(
+            BreadcrumbTheme.screenPadding,
+            24,
+            BreadcrumbTheme.screenPadding,
+            24,
+          ),
           children: [
-            const SizedBox(height: 8),
             const _Wordmark(),
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
             const Text(
               'Find your way back. No GPS, no internet.',
-              style: TextStyle(fontSize: 20, height: 1.35, color: BreadcrumbTheme.textSecondary),
+              style: BreadcrumbTheme.bodySecondary,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             ValueListenableBuilder<AiStatus>(
               valueListenable: Wiring.instance.aiStatus,
               builder: (context, status, _) => Wrap(
@@ -62,34 +66,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (status.reason != null && status.reason!.isNotEmpty)
                       Text(
                         status.reason!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: BreadcrumbTheme.textSecondary,
-                        ),
+                        style: BreadcrumbTheme.caption,
                       ),
                   ],
                 ],
               ),
             ),
-            const SizedBox(height: 36),
-            const SectionHeader('Start'),
-            ActionCard(
-              icon: Icons.navigation_rounded,
-              title: 'Navigate',
-              subtitle: 'Say or type a place. Follow the arrow back along the trail.',
-              highlighted: true,
-              onTap: () async {
-                await Wiring.instance.reloadActiveMap();
-                if (!context.mounted) return;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const DestinationListScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
             ActionCard(
               icon: Icons.directions_walk_rounded,
               title: 'Record a trail',
@@ -103,9 +86,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             ActionCard(
-              icon: Icons.map_rounded,
+              icon: Icons.navigation_outlined,
+              title: 'Navigate',
+              subtitle: 'Say or type a place. Follow the arrow back along the trail.',
+              onTap: () async {
+                await Wiring.instance.reloadActiveMap();
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DestinationListScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            ActionCard(
+              icon: Icons.map_outlined,
               title: 'View floor map',
               subtitle: 'Full trail, all marked places and route preview.',
               onTap: () {
@@ -117,23 +116,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.airplanemode_active_rounded,
-                    size: 18, color: BreadcrumbTheme.textFaint),
-                SizedBox(width: 10),
+                    size: 16, color: BreadcrumbTheme.textSecondary),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Works in aeroplane mode. Position comes from steps and turns.',
-                    style: TextStyle(fontSize: 15, height: 1.4, color: BreadcrumbTheme.textFaint),
+                    style: BreadcrumbTheme.caption,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Center(
+            const SizedBox(height: 8),
+            const Center(
               child: _PrivacyLink(),
             ),
           ],
@@ -154,11 +153,10 @@ class _PrivacyLink extends StatelessWidget {
         MaterialPageRoute(builder: (_) => const PrivacyScreen()),
       ),
       style: TextButton.styleFrom(
-        foregroundColor: BreadcrumbTheme.textFaint,
+        foregroundColor: BreadcrumbTheme.textSecondary,
         textStyle: const TextStyle(
           fontSize: 13,
-          fontFamily: 'Inter',
-          decoration: TextDecoration.underline,
+          fontFamily: BreadcrumbTheme.fontFamily,
         ),
         minimumSize: const Size(44, 44),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -179,29 +177,15 @@ class _Wordmark extends StatelessWidget {
       child: ExcludeSemantics(
         child: Row(
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: BreadcrumbTheme.surface,
-                borderRadius: const BorderRadius.all(Radius.circular(14)),
-                border: Border.all(color: BreadcrumbTheme.border),
-                boxShadow: BreadcrumbTheme.accentGlow,
-              ),
-              child: const CustomPaint(painter: _CrumbsPainter()),
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CustomPaint(painter: _CrumbsPainter()),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 8),
             Flexible(
-              child: Text.rich(
-                TextSpan(
-                  text: 'Breadcrumb',
-                  children: [
-                    TextSpan(
-                      text: '.',
-                      style: TextStyle(color: BreadcrumbTheme.accent),
-                    ),
-                  ],
-                ),
+              child: Text(
+                'Breadcrumb',
                 style: BreadcrumbTheme.display,
               ),
             ),
@@ -212,20 +196,20 @@ class _Wordmark extends StatelessWidget {
   }
 }
 
-/// The logo: a dotted trail ending in a solid dot.
+/// The logo: a dotted trail ending in a solid dot, in neutral white.
 class _CrumbsPainter extends CustomPainter {
   const _CrumbsPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final dim = Paint()..color = BreadcrumbTheme.accent.withValues(alpha: 0.45);
-    final bright = Paint()..color = BreadcrumbTheme.accent;
+    final dim = Paint()..color = BreadcrumbTheme.textPrimary.withValues(alpha: 0.4);
+    final bright = Paint()..color = BreadcrumbTheme.textPrimary;
     final w = size.width;
     final h = size.height;
-    canvas.drawCircle(Offset(w * 0.28, h * 0.72), 2.2, dim);
-    canvas.drawCircle(Offset(w * 0.42, h * 0.56), 2.2, dim);
-    canvas.drawCircle(Offset(w * 0.56, h * 0.44), 2.2, dim);
-    canvas.drawCircle(Offset(w * 0.70, h * 0.30), 5, bright);
+    canvas.drawCircle(Offset(w * 0.18, h * 0.82), 2, dim);
+    canvas.drawCircle(Offset(w * 0.40, h * 0.60), 2, dim);
+    canvas.drawCircle(Offset(w * 0.60, h * 0.42), 2.5, dim);
+    canvas.drawCircle(Offset(w * 0.82, h * 0.20), 4, bright);
   }
 
   @override

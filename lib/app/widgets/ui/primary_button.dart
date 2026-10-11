@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import 'thinking_indicator.dart';
 
-/// The one main action on a screen: full width, teal, at least 56 dp tall.
+/// The one main action on a screen: full width, accent, 52 dp tall.
 /// While [busy] it is disabled and shows a [ThinkingIndicator] with
 /// [busyLabel] instead of [label].
 class PrimaryButton extends StatelessWidget {
@@ -33,7 +33,7 @@ class PrimaryButton extends StatelessWidget {
       content = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 24),
+          Icon(icon, size: 22),
           const SizedBox(width: 10),
           Flexible(child: Text(label, textAlign: TextAlign.center)),
         ],
@@ -42,17 +42,10 @@ class PrimaryButton extends StatelessWidget {
       content = Text(label, textAlign: TextAlign.center);
     }
 
-    final enabled = onPressed != null && !busy;
-    final button = DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BreadcrumbTheme.borderRadius,
-        boxShadow: enabled ? BreadcrumbTheme.accentGlow : null,
-      ),
-      child: ElevatedButton(
-        style: BreadcrumbTheme.primaryButton,
-        onPressed: busy ? null : onPressed,
-        child: content,
-      ),
+    final button = ElevatedButton(
+      style: BreadcrumbTheme.primaryButton,
+      onPressed: busy ? null : onPressed,
+      child: content,
     );
 
     return expand ? SizedBox(width: double.infinity, child: button) : button;

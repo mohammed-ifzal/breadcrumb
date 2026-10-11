@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Breadcrumb's dark theme: colours, sizes, type scale and the app-wide
 /// [ThemeData]. `main.dart` applies [BreadcrumbTheme.themeData], so every
-/// screen inherits it. System font only: the demo runs offline, so no font
-/// downloads.
+/// screen inherits it. Inter is bundled (the demo runs offline).
 class BreadcrumbTheme {
   BreadcrumbTheme._();
 
@@ -16,82 +15,83 @@ class BreadcrumbTheme {
   );
 
   // Colours.
-  static const Color background = Color(0xFF0B0F14);
-  static const Color surface = Color(0xFF141A22);
-  static const Color surfaceRaised = Color(0xFF1A222C);
-  static const Color border = Color(0xFF1E2734);
+  static const Color background = Color(0xFF0E1116);
+  static const Color surface = Color(0xFF161B22);
+  static const Color surfaceRaised = Color(0xFF1C222B);
+  static const Color border = Color(0xFF262C36);
   static const Color accent = Color(0xFF2DE2C3);
-  static const Color onAccent = Color(0xFF0B0F14);
+  static const Color onAccent = Color(0xFF0E1116);
   static const Color warning = Color(0xFFFFB020);
   static const Color danger = Color(0xFFFF6B5E);
   static const Color textPrimary = Color(0xFFF2F5F7);
-  static const Color textSecondary = Color(0xFF9AA4AE);
+  static const Color textSecondary = Color(0xFF8B949E);
   static const Color textFaint = Color(0xFF6B7785);
 
-  /// Soft teal glow for the one active element on a screen.
-  static List<BoxShadow> get accentGlow => [
-        BoxShadow(
-          color: accent.withValues(alpha: 0.25),
-          blurRadius: 24,
-        ),
-      ];
-
   // Sizes.
-  static const double radius = 20;
-  static const double minTouch = 56;
+  static const double radius = 14;
+  static const double minTouch = 52;
+
+  /// 8-pt grid; screens pad 16.
+  static const double screenPadding = 16;
   static const BorderRadius borderRadius = BorderRadius.all(Radius.circular(radius));
 
-  // Type scale.
+  // Type scale: Inter. Titles 22 semibold, body 16, captions 13.
   static const TextStyle liveInstruction = TextStyle(
-    fontSize: 42,
-    fontWeight: FontWeight.w800,
-    height: 1.1,
-    letterSpacing: -0.8,
+    fontSize: 32,
+    fontWeight: FontWeight.w600,
+    height: 1.15,
+    letterSpacing: -0.4,
     color: textPrimary,
   );
   static const TextStyle display = TextStyle(
-    fontSize: 40,
-    fontWeight: FontWeight.w800,
-    height: 1.1,
-    letterSpacing: -1.0,
+    fontSize: 28,
+    fontWeight: FontWeight.w600,
+    height: 1.15,
+    letterSpacing: -0.5,
     color: textPrimary,
   );
   static const TextStyle heading = TextStyle(
-    fontSize: 28,
-    fontWeight: FontWeight.w700,
+    fontSize: 24,
+    fontWeight: FontWeight.w600,
     height: 1.2,
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
     color: textPrimary,
   );
   static const TextStyle title = TextStyle(
     fontSize: 22,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     height: 1.25,
     color: textPrimary,
   );
   static const TextStyle body = TextStyle(
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: FontWeight.w400,
     height: 1.4,
     color: textPrimary,
   );
   static const TextStyle bodySecondary = TextStyle(
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: FontWeight.w400,
     height: 1.4,
     color: textSecondary,
   );
+  static const TextStyle caption = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    height: 1.35,
+    color: textSecondary,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
   static const TextStyle label = TextStyle(
     fontSize: 13,
-    fontWeight: FontWeight.w700,
-    height: 1.3,
-    letterSpacing: 1.2,
+    fontWeight: FontWeight.w500,
+    height: 1.35,
     color: textSecondary,
+    fontFeatures: [FontFeature.tabularFigures()],
   );
   static const TextStyle button = TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 0.2,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
   );
 
   // Button styles.
@@ -101,7 +101,7 @@ class BreadcrumbTheme {
     disabledBackgroundColor: surfaceRaised,
     disabledForegroundColor: textSecondary,
     minimumSize: const Size(minTouch, minTouch),
-    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     shape: const RoundedRectangleBorder(borderRadius: borderRadius),
     textStyle: button,
     elevation: 0,
@@ -109,13 +109,13 @@ class BreadcrumbTheme {
 
   static final ButtonStyle secondaryButton = OutlinedButton.styleFrom(
     foregroundColor: textPrimary,
-    backgroundColor: surface,
+    backgroundColor: Colors.transparent,
     side: const BorderSide(color: border),
     minimumSize: const Size(minTouch, minTouch),
     // Tighter than the primary button so rows of secondary actions fit 360 dp.
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     shape: const RoundedRectangleBorder(borderRadius: borderRadius),
-    textStyle: button.copyWith(fontSize: 17),
+    textStyle: button,
   );
 
   // Names used by the t3/real-sensors screens.
@@ -160,14 +160,14 @@ class BreadcrumbTheme {
         headlineMedium: heading,
         headlineSmall: title,
         titleLarge: title,
-        titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textPrimary),
-        titleSmall: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary),
+        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary),
+        titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
         bodyLarge: body,
         bodyMedium: body,
-        bodySmall: TextStyle(fontSize: 15, height: 1.4, color: textSecondary),
+        bodySmall: caption,
         labelLarge: button,
         labelMedium: label,
-        labelSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.8, color: textSecondary),
+        labelSmall: caption,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: background,
@@ -177,13 +177,13 @@ class BreadcrumbTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         toolbarHeight: 64,
-        titleTextStyle: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: textPrimary),
+        titleTextStyle: TextStyle(fontFamily: fontFamily, fontSize: 22, fontWeight: FontWeight.w600, color: textPrimary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(style: primaryButton),
       outlinedButtonTheme: OutlinedButtonThemeData(style: secondaryButton),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: accent,
+          foregroundColor: textPrimary,
           minimumSize: const Size(minTouch, minTouch),
           textStyle: button,
         ),
@@ -197,13 +197,13 @@ class BreadcrumbTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: outline,
         enabledBorder: outline,
-        focusedBorder: outline.copyWith(borderSide: const BorderSide(color: accent, width: 2)),
-        hintStyle: const TextStyle(fontSize: 17, color: textFaint),
-        labelStyle: const TextStyle(fontSize: 17, color: textSecondary),
-        floatingLabelStyle: const TextStyle(color: accent),
+        focusedBorder: outline.copyWith(borderSide: const BorderSide(color: textSecondary, width: 1.5)),
+        hintStyle: const TextStyle(fontSize: 16, color: textFaint),
+        labelStyle: const TextStyle(fontSize: 16, color: textSecondary),
+        floatingLabelStyle: const TextStyle(color: textSecondary),
       ),
       cardTheme: const CardThemeData(
         color: surface,

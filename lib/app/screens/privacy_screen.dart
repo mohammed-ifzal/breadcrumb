@@ -30,11 +30,10 @@ class PrivacyScreen extends StatelessWidget {
                   color: BreadcrumbTheme.surface,
                   borderRadius: const BorderRadius.all(Radius.circular(14)),
                   border: Border.all(color: BreadcrumbTheme.border),
-                  boxShadow: BreadcrumbTheme.accentGlow,
                 ),
                 child: const Icon(
                   Icons.lock_rounded,
-                  color: BreadcrumbTheme.accent,
+                  color: BreadcrumbTheme.textPrimary,
                   size: 28,
                 ),
               ),
@@ -42,7 +41,7 @@ class PrivacyScreen extends StatelessWidget {
               Text(
                 'Your data stays here.',
                 style: BreadcrumbTheme.heading.copyWith(
-                  color: BreadcrumbTheme.accent,
+                  color: BreadcrumbTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 20),
@@ -115,7 +114,7 @@ class _BulletRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: BreadcrumbTheme.accent),
+        Icon(icon, size: 20, color: BreadcrumbTheme.textPrimary),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
