@@ -17,7 +17,7 @@ const _truth = {
 };
 const _notes = {
   'pocket_left_2': 'fresh validation walk, 4-step legs, phone in left pocket, four right turns; earlier label (+90) was wrong; step count not recorded; not used for tuning',
-  'hand_prox': "fresh validation walk, 4-step legs, finger covered the sensor during the middle turn, first mark misspelled 'hamd prox'; not used for tuning",
+  'hand_prox': "fresh validation walk, 4-step legs; tester reports finger over the sensor during the middle turn but the trace recorded no near interval, so it does not exercise the near profile; first mark misspelled 'hamd prox'; not used for tuning",
 };
 String _n(num? value) => value == null ? 'NA' : value.toStringAsFixed(2);
 String _angles(List<TurnEvent> turns) => turns.isEmpty

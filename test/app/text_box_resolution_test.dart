@@ -44,7 +44,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: DestinationListScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('AI unavailable'), findsOneWidget);
+      expect(find.text('Basic matching'), findsOneWidget);
 
       // Enter exact place name 'Cafe'
       await tester.enterText(find.byType(TextField), 'Cafe');
@@ -85,7 +85,7 @@ void main() {
       await tester.pump();
 
       // Immediately shows message without spinner
-      expect(find.text("AI isn't ready. Pick from the list"), findsOneWidget);
+      expect(find.text('No match. Pick from the list'), findsOneWidget);
       expect(find.text('Thinking...'), findsNothing);
 
       // Destination list remains visible and usable

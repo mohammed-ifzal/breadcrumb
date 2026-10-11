@@ -5,6 +5,7 @@ import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/app/theme.dart';
 import 'package:breadcrumb/app/widgets/ui/ui.dart';
 import 'package:breadcrumb/app/wiring.dart';
+import 'package:breadcrumb/ai/device_tier.dart' show basicMatchingLabel;
 import 'navigate_screen.dart';
 
 class DestinationListScreen extends StatefulWidget {
@@ -138,7 +139,9 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
     if (!wiring.aiStatus.value.isReady) {
       setState(() {
         _isThinking = false;
-        _feedbackMessage = "AI isn't ready. Pick from the list";
+        _feedbackMessage = wiring.aiStatus.value.isUnavailable
+            ? 'No match. Pick from the list'
+            : "AI isn't ready. Pick from the list";
       });
       return;
     }
@@ -318,9 +321,10 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const StatusPill(
-                        label: 'AI unavailable',
-                        icon: Icons.cloud_off_rounded,
-                        tone: StatusTone.warning,
+                        // D30: unavailable is the basic tier (matcher + aliases).
+                        label: basicMatchingLabel,
+                        icon: Icons.manage_search_rounded,
+                        tone: StatusTone.neutral,
                       ),
                       if (status.reason != null && status.reason!.isNotEmpty) ...[
                         const SizedBox(width: 6),

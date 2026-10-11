@@ -134,7 +134,7 @@ detector) or `"accel"` (the Dart `StepDetector` fallback).
 | `TurnEvent` | `t`, `angle` (double, total angle of the completed turn) |
 | `MotionStateEvent` | `state` (walking / still / handling), `tMs` (D29) |
 | `PlacementEvent` | `placement` (hand / pocket / unknown), `tMs` (D29) |
-| `DeviceTier` | enum: full / basic; full when `totalRamMb()` >= `fullTierMinRamMb` (D29) |
+| `DeviceTier` | enum: full / basic; full when `totalRamMb()` >= `fullTierMinRamMb` (or 0 = unknown) **and** Gemma loads, else basic; basic never loads Gemma (D29, D30, `lib/ai/device_tier.dart` `AiTierGate`) |
 | `SignReading` | `t`, `text`, `reader` (mlkit / gemma) |
 | `PlaceMatch` | `placeId`, `score` (0–1) |
 | `Leg` | `corridorId`, `reversed`, `heading`, `steps`, `kind` (default walk), `floorDelta` (as walked: negated when reversed; default 0), `isTransition` (D24) |
@@ -156,7 +156,8 @@ detector) or `"accel"` (the Dart `StepDetector` fallback).
 | `SensingSource` | `Stream<Object> events()` (StepEvent or TurnEvent), `startTrace(meta)`, `stopTrace()`, `mark(note)`, `Stream<MotionStateEvent> motionStates()`, `Stream<PlacementEvent> placements()`, `Future<int> totalRamMb()` (0 = unknown) (D29) | Teammate 2 |
 | `TurnConfirmer` | `onStep(StepEvent)`, `onTurn(TurnEvent)`, `onMotionState(MotionStateEvent)`, `Stream<TurnEvent> confirmed` (rules below, D29) | Ifzal |
 | `SignReader` | `Future<SignReading?> read(String imagePath)`; `MlKitSignReader` is required, `GemmaSignReader` is a stretch goal | Teammate 3 / Ifzal |
-| `DestinationResolver` | `Future<PlaceMatch?> resolve(String utterance, MapGraph map)`: fuzzy match first, Gemma fallback, always validated | Ifzal |
+| `DestinationResolver` | `Future<PlaceMatch?> resolve(String utterance, MapGraph map)`: fuzzy match first, Gemma fallback, always validated. Basic tier: `BasicDestinationResolver`, PlaceMatcher over names + aliases only; the AI chip says "Basic matching" (D30) | Ifzal |
+| `AliasSuggester` (D30, `lib/ai/alias_suggester.dart`) | `Future<List<String>> suggest(String placeName, Iterable<Place> otherPlaces)`: one Gemma call, returns at most `maxAliases` validated aliases (lowercase, 1 to `maxAliasWords` words, filler trimmed, no duplicates, none that belongs to another place), `[]` on the basic tier, an error or `aliasSuggestTimeoutMs`. `MapGraph applyAliases(MapGraph map, Map<String, List<String>> aliasesById)` merges them into `Place.aliases`, re-validated against the whole map | Ifzal |
 | `Speaker` | `speak(Instruction i)`, `vibrate(InstructionKind k)` | Teammate 3 |
 
 Every interface has a `Fake...` version committed in hour 0, so nobody waits.
@@ -308,6 +309,9 @@ Every interface has a `Fake...` version committed in hour 0, so nobody waits.
 | `stillAfterMs` | 1500 | No step for this long -> `MotionState.still` (T2, D29) |
 | `handlingRotationMin` | 120 | deg/s of non-yaw rotation -> `MotionState.handling` (T2, D29) |
 | `fullTierMinRamMb` | 8000 | Total RAM for `DeviceTier.full` (D29) |
+| `maxAliases` | 8 | Aliases kept per suggested place (D30) |
+| `maxAliasWords` | 3 | Words in one alias (D30) |
+| `aliasSuggestTimeoutMs` | 15000 | Wait for Gemma's alias reply (D30) |
 
 ## Instruction text (English; Hindi strings are a stretch goal)
 

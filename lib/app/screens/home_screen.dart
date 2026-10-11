@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../widgets/ui/ui.dart';
 import '../wiring.dart';
+import 'package:breadcrumb/ai/device_tier.dart' show basicMatchingLabel;
 import 'destination_list_screen.dart';
 import 'record_screen.dart';
 
@@ -52,9 +53,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const StatusPill.aiOnDevice(ready: false)
                   else ...[
                     const StatusPill(
-                      label: 'AI unavailable',
-                      icon: Icons.cloud_off_rounded,
-                      tone: StatusTone.warning,
+                      // D30: unavailable is the basic tier (matcher + aliases).
+                      label: basicMatchingLabel,
+                      icon: Icons.manage_search_rounded,
+                      tone: StatusTone.neutral,
                     ),
                     if (status.reason != null && status.reason!.isNotEmpty)
                       Text(

@@ -3,6 +3,33 @@
 Newest entries go at the top. Add 3 lines at every sync and before sleeping. Agents add
 their handoff here before a session ends.
 
+## Sun 11 Oct 02:30, captain merge round 1 (main bf7f47b)
+Merged: #23 c7b4311, #22 a9e93c3, #24 74584cd (main merged into t2/robust-sensing:
+tuning both sides; sensing_source keeps main's pending-trace buffer + T2 snapshots),
+#25 c811884, #26 bf7f47b (captain wiring + flags). Skipped: step 1, no origin/t2/final-map.
+#26: record_screen suggests aliases after Mark place (full tier only, background; a
+reply after Stop is dropped); AiStatus.tier; warmAi RAM gate; chip "Basic matching".
+Flags: useTurnConfirmer, useConfidence on; useArrivalGuard, useBoutGating,
+useHandlingGate, usePlacement off. Replay 2 steps/8000 ms: 9/9, 0 false, 0 missed;
+synthetic straight 8 false -> 0. analyze clean, 510 green.
+iQOO: main bf7f47b installed, launched, Gemma loaded 1.8 s, no FATAL / E/flutter.
+Next: walk the loop with the flags on; T2 records the final map (no final map yet).
+Blocked: nothing. Last commit: this handoff.
+
+## Sun 11 Oct 00:55, D30 AI tier + aliases (branch ifzal/ai-tier)
+Done: lib/ai/alias_suggester.dart (AliasSuggester.suggest, validateAliases, applyAliases,
+fillerWords), lib/ai/device_tier.dart (AiTierGate, ramAllowsGemma, BasicDestinationResolver,
+destinationResolverFor, aiChipLabel "Basic matching"), GemmaService.suggestAliases; tuning
+maxAliases 8 / maxAliasWords 3 / aliasSuggestTimeoutMs; D30, CONTRACTS, BENCHMARKS.
+iQOO benchmark (names-only demo map): matcher 45/120, + aliases 63/120, + Gemma 90/120,
+0 false positives each; Gemma median 529 ms. analyze clean, 406 green. Main app reinstalled.
+Not wired (other owners' paths, see PR): T2 record_screen calls suggest after Mark place;
+T3 wiring.warmAi uses AiTierGate + destinationResolverFor, chip shows aiChipLabel(tier).
+Open: Gemma aliases name the place, not what's there (no coffee/tea/show); RAM 0 (T2 stub)
+lets the load decide. PR #25 open, CI green, not merged. PR #23 still open.
+Next: merge PR #25; T2/T3 wire it (code in the PR body); merge PR #23 and walk the loop with D29 flags.
+Blocked: nothing. Last commit: this handoff.
+
 ## Sat 10 Oct 23:50, D29 robust core (branch ifzal/robust-core)
 Done: PR #21 (D29 contracts + tuning flags) merged de810fe, CI green. Steps 1-4 on the
 branch: lib/core/turn_confirmer.dart (StepTurnConfirmer + order-keeping ConfirmedEvents),

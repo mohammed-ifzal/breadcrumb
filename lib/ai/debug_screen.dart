@@ -6,14 +6,21 @@
 /// loading: 3 rounds, with one reused chat, a new chat per request, or both
 /// interleaved round by round. Requests are 2 s apart, like spoken ones.
 /// Every result is logged as `BENCH ...`.
+///
+/// `--dart-define=BENCH=tiers` runs the D30 benchmark instead: Gemma suggests
+/// aliases for each place of the names-only demo map, then 3 rounds each of
+/// matcher only (names), matcher + aliases (the basic tier), and matcher +
+/// aliases + Gemma fallback (the full tier).
 library;
 
 import 'package:flutter/material.dart';
 
 import '../core/contracts.dart';
 import '../core/place_matcher.dart';
+import 'alias_suggester.dart';
 import 'benchmark.dart';
 import 'destination_resolver.dart';
+import 'device_tier.dart';
 import 'gemma_service.dart';
 import 'speech_input.dart';
 
@@ -96,7 +103,11 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
     }
     if (mounted) setState(() => _busy = false);
     await _checkSpeech();
-    if (_autoBench.isNotEmpty && _gemma.isLoaded) await _bench(_autoBench);
+    if (_autoBench == 'tiers' && _gemma.isLoaded) {
+      await _benchTiers();
+    } else if (_autoBench.isNotEmpty && _gemma.isLoaded) {
+      await _bench(_autoBench);
+    }
   }
 
   Future<void> _checkSpeech() async {
@@ -178,6 +189,70 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
       _benchStatus = lines.join('\n');
     });
   }
+
+  /// The D30 benchmark: aliases from Gemma, then the three modes.
+  Future<void> _benchTiers() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _benchStatus = 'Tier benchmark: suggesting aliases…';
+    });
+    final namesOnly = _namesOnly(debugDemoMap);
+    final logging = _LoggingAliasModel(_gemma);
+    final suggester = AliasSuggester(model: logging);
+    final generated = <String, List<String>>{};
+    for (final p in choosablePlaces(namesOnly)) {
+      final watch = Stopwatch()..start();
+      final aliases = await suggester.suggest(p.name, namesOnly.places);
+      generated[p.id] = aliases;
+      final raw = (logging.lastReply ?? '').replaceAll('\n', ' / ');
+      debugPrint('BENCH alias ${p.id}|${watch.elapsedMilliseconds}|${aliases.join(', ')}|raw: $raw');
+    }
+    final aliased = applyAliases(namesOnly, generated);
+    for (final p in choosablePlaces(aliased)) {
+      debugPrint('BENCH aliased ${p.id}|${p.aliases.join(', ')}');
+    }
+
+    final modes = <String, (DestinationResolver, MapGraph, Duration)>{
+      'matcher': (BasicDestinationResolver(_matcher), namesOnly, Duration.zero),
+      'aliases': (BasicDestinationResolver(_matcher), aliased, Duration.zero),
+      'gemma': (_resolver, aliased, const Duration(seconds: 2)),
+    };
+    final lines = <String>[];
+    var done = 0;
+    for (final MapEntry(key: label, value: (resolver, map, gap)) in modes.entries) {
+      final results = await runBench(
+        resolver: resolver,
+        map: map,
+        isMatcherHit: (r) => label != 'gemma' || _matcher.match(r, map) != null,
+        rounds: 3,
+        gap: gap,
+        onResult: (r) {
+          debugPrint('BENCH t $label|${r.toLine()}|${r.us}us');
+          done++;
+          if (mounted) setState(() => _benchStatus = 'Tier benchmark: $done done…');
+        },
+      );
+      final line = '$label: ${BenchSummary(results).describe()}';
+      debugPrint('BENCH summary $line');
+      lines.add(line);
+    }
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _benchStatus = lines.join('\n');
+    });
+  }
+
+  static MapGraph _namesOnly(MapGraph map) => MapGraph(
+    name: map.name,
+    start: map.start,
+    places: [
+      for (final p in map.places)
+        Place(id: p.id, name: p.name, kind: p.kind, floor: p.floor),
+    ],
+    corridors: map.corridors,
+  );
 
   Future<void> _ask(String request) async {
     if (request.trim().isEmpty || _busy) return;
@@ -269,6 +344,10 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
             onPressed: _busy ? null : () => _bench('reuse'),
             child: const Text('Benchmark: 40 requests × 3'),
           ),
+          OutlinedButton(
+            onPressed: _busy ? null : _benchTiers,
+            child: const Text('Tier benchmark: matcher / aliases / Gemma'),
+          ),
           if (_benchStatus.isNotEmpty) Text(_benchStatus),
           if (_busy) const Padding(
             padding: EdgeInsets.all(16),
@@ -284,5 +363,19 @@ class _GemmaDebugScreenState extends State<GemmaDebugScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Passes alias questions to Gemma and keeps the last raw reply for the log.
+class _LoggingAliasModel implements AliasModel {
+  _LoggingAliasModel(this.inner);
+
+  final AliasModel inner;
+  String? lastReply;
+
+  @override
+  Future<String?> suggestAliases(String placeName) async {
+    lastReply = null;
+    return lastReply = await inner.suggestAliases(placeName);
   }
 }
