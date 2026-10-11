@@ -6,6 +6,9 @@ import 'contracts.dart';
 import 'route_runs.dart';
 import 'tuning.dart';
 
+/// "1 step", "2 steps": the count with the right noun, for every instruction.
+String stepCount(int n) => n == 1 ? '1 step' : '$n steps';
+
 class RouteGuide implements Guide {
   RouteGuide(this.map);
 
@@ -56,7 +59,7 @@ class RouteGuide implements Guide {
     if (p.stepsOffRoute > walkBackMinSteps && away != null) {
       final back = normalizeHeading(away + 180);
       final then = turnBetween(back, leg);
-      final walkBack = 'Walk back about ${p.stepsOffRoute} steps';
+      final walkBack = 'Walk back about ${stepCount(p.stepsOffRoute)}';
       return Instruction(
         kind: turnBetween(facing, back).abs() < straightTolerance
             ? InstructionKind.straight
@@ -104,7 +107,7 @@ class RouteGuide implements Guide {
       return Instruction(
         kind: InstructionKind.straight,
         steps: steps,
-        text: 'Walk straight, about $steps steps.',
+        text: 'Walk straight, about ${stepCount(steps)}.',
       );
     }
 
@@ -119,7 +122,7 @@ class RouteGuide implements Guide {
           : Instruction(
               kind: InstructionKind.straight,
               steps: steps,
-              text: 'Walk straight, about $steps steps.',
+              text: 'Walk straight, about ${stepCount(steps)}.',
             );
     }
 
@@ -134,7 +137,7 @@ class RouteGuide implements Guide {
           ? 'Turn $side at the corner.'
           : now
           ? 'Get ready to turn $side.'
-          : 'In about $steps steps, turn $side.',
+          : 'In about ${stepCount(steps)}, turn $side.',
     );
   }
 
@@ -229,7 +232,7 @@ class RouteGuide implements Guide {
       steps: steps,
       text: steps == null || steps <= turnNowSteps
           ? 'Take $take'
-          : 'In about $steps steps, take $take',
+          : 'In about ${stepCount(steps)}, take $take',
     );
   }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/core/contracts.dart';
+import 'package:breadcrumb/core/guide.dart' show stepCount;
 import 'package:breadcrumb/core/route_runs.dart';
 import 'package:breadcrumb/core/tuning.dart' as tuning;
 import 'package:breadcrumb/app/theme.dart';
@@ -628,7 +629,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '$remainingSteps steps left',
+                                '${stepCount(remainingSteps)} left',
                                 style: BreadcrumbTheme.secondary.copyWith(fontFeatures: BreadcrumbTheme.tabular),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,

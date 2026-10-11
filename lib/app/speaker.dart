@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vibration/vibration.dart';
 import 'package:breadcrumb/core/contracts.dart';
+import 'package:breadcrumb/core/guide.dart' show stepCount;
 import 'package:breadcrumb/core/tuning.dart' as tuning;
 
 typedef SpeakFn = Future<void> Function(String text);
@@ -70,10 +71,10 @@ class AppSpeaker implements Speaker {
         return 'Walk straight.';
       case InstructionKind.turnLeft:
         if (i.steps == null || i.steps! <= tuning.turnNowSteps) return i.text;
-        return 'In ${i.steps} steps, turn left.';
+        return 'In ${stepCount(i.steps!)}, turn left.';
       case InstructionKind.turnRight:
         if (i.steps == null || i.steps! <= tuning.turnNowSteps) return i.text;
-        return 'In ${i.steps} steps, turn right.';
+        return 'In ${stepCount(i.steps!)}, turn right.';
       case InstructionKind.turnAround:
         return i.text;
       case InstructionKind.arrive:

@@ -96,7 +96,7 @@ class _TrailViewState extends State<TrailView> with SingleTickerProviderStateMix
 }
 
 /// A label to draw: the node it belongs to, its laid-out text and whether it
-/// must always show (start, destination, next place).
+/// is placed first (start, destination, next place).
 class _Label {
   _Label(this.offset, this.text, this.important);
   final Offset offset;
@@ -111,8 +111,6 @@ class TrailPainter extends CustomPainter {
   static const Color labelBackgroundColor = BreadcrumbTheme.surface2;
   static const Color canvasBackgroundColor = BreadcrumbTheme.bg;
 
-  /// Two labels closer than this: the less important one is a dot only.
-  static const double labelMinGap = 32;
   static const double routeWidth = 6;
 
   /// WCAG 2.1 relative luminance for contrast calculation.
@@ -195,6 +193,16 @@ class TrailPainter extends CustomPainter {
   final List<(Offset, _NodeStyle)> _nodes = [];
   final List<(_Label, Rect)> _labels = [];
 
+  /// The labels laid out for [size]: text and pill rectangle, for tests.
+  @visibleForTesting
+  List<(String, Rect)> labelsFor(Size size) {
+    _prepare(size);
+    return [
+      for (final (label, rect) in _labels)
+        ((label.text.text! as TextSpan).text!, rect),
+    ];
+  }
+
   Offset toOffset(double x, double y, Size size, {List<TrailPoint>? precomputedPoints}) {
     final points = precomputedPoints ?? _points;
     if (points.isEmpty) return Offset.zero;
@@ -268,24 +276,34 @@ class TrailPainter extends CustomPainter {
   }
 
   /// Where to draw a label for the dot at [dot]: below, above, right or left,
-  /// whichever first stays clear of [placed] labels, kept inside the canvas.
-  /// Null when every spot overlaps and [force] is false.
-  Offset? _labelOffset(Offset dot, Size text, Size canvas, List<Rect> placed, {required bool force}) {
+  /// then the same four a step further out, kept inside the canvas. The first
+  /// slot clear of [placed] labels and of other places' [dots] wins; failing
+  /// that, the first clear of labels only; failing that, below. A place label
+  /// is never dropped.
+  Offset _labelOffset(Offset dot, Size text, Size canvas, List<Rect> placed, List<Offset> dots) {
     final candidates = [
-      dot + Offset(-text.width / 2, 12),
-      dot + Offset(-text.width / 2, -12 - text.height),
-      dot + Offset(14, -text.height / 2),
-      dot + Offset(-14 - text.width, -text.height / 2),
+      for (final gap in [12.0, 20.0 + text.height]) ...[
+        dot + Offset(-text.width / 2, gap),
+        dot + Offset(-text.width / 2, -gap - text.height),
+        dot + Offset(gap + 2, -text.height / 2),
+        dot + Offset(-gap - 2 - text.width, -text.height / 2),
+      ],
     ];
     Offset clamp(Offset o) => Offset(
           o.dx.clamp(10.0, math.max(10.0, canvas.width - text.width - 10)),
           o.dy.clamp(6.0, math.max(6.0, canvas.height - text.height - 6)),
         );
-    for (final c in candidates) {
-      final o = clamp(c);
-      if (!placed.any((r) => r.inflate(2).overlaps(_pillRect(o, text)))) return o;
+    bool clearOfLabels(Rect pill) => !placed.any((r) => r.inflate(2).overlaps(pill));
+    bool clearOfDots(Rect pill) =>
+        !dots.any((d) => d != dot && Rect.fromCircle(center: d, radius: 7).overlaps(pill));
+    for (final avoidDots in [true, false]) {
+      for (final c in candidates) {
+        final o = clamp(c);
+        final pill = _pillRect(o, text);
+        if (clearOfLabels(pill) && (!avoidDots || clearOfDots(pill))) return o;
+      }
     }
-    return force ? clamp(candidates.first) : null;
+    return clamp(candidates.first);
   }
 
   static Rect _pillRect(Offset textOffset, Size text) =>
@@ -400,21 +418,16 @@ class TrailPainter extends CustomPainter {
       }
     }
 
-    // Important labels first; any other label closer than [labelMinGap] to one
-    // already shown, or with nowhere free to go, stays a dot.
+    // Every place keeps its label. Important labels are placed first; a label
+    // that would collide moves to the next free side of its dot instead.
     candidates.sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
     final placed = <Rect>[];
-    final shownAt = <Offset>[];
+    final dots = [for (final label in candidates) label.offset];
     for (final label in candidates) {
-      if (!label.important && shownAt.any((o) => (o - label.offset).distance < labelMinGap)) {
-        continue;
-      }
       final textSize = Size(label.text.width, label.text.height);
-      final o = _labelOffset(label.offset, textSize, size, placed, force: label.important);
-      if (o == null) continue;
+      final o = _labelOffset(label.offset, textSize, size, placed, dots);
       final rect = _pillRect(o, textSize);
       placed.add(rect);
-      shownAt.add(label.offset);
       _labels.add((_Label(o, label.text, label.important), rect));
     }
 
