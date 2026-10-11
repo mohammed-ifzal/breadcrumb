@@ -1,4 +1,4 @@
-/// A recorded walk as a chain of places and junctions. No file or Flutter I/O.
+/// A recorded walk of connected places and junctions. No file or Flutter I/O.
 library;
 
 import 'contracts.dart' as contracts;
@@ -79,11 +79,22 @@ class MapBuilder implements contracts.MapBuilder {
   @override
   void addPlace(String name, List<String> aliases) {
     if (!_active) return;
+    final key = name.trim().toLowerCase();
+    for (final existing in _places) {
+      if (existing.kind != contracts.PlaceKind.junction &&
+          existing.name.trim().toLowerCase() == key) {
+        // Already standing here: do not add a zero-step self corridor.
+        if (existing.id == _from && _steps == 0) return;
+        _closeAt(existing);
+        _floor = existing.floor;
+        return;
+      }
+    }
     _namedPlaces++;
     _closeAt(
       contracts.Place(
         id: 'p$_namedPlaces',
-        name: name,
+        name: name.trim(),
         aliases: List<String>.unmodifiable(aliases),
         kind: contracts.PlaceKind.place,
         floor: _floor,
@@ -157,7 +168,7 @@ class MapBuilder implements contracts.MapBuilder {
         floorDelta: floorDelta,
       ),
     );
-    _places.add(place);
+    if (!_places.any((existing) => existing.id == place.id)) _places.add(place);
     _from = place.id;
     _steps = 0;
   }

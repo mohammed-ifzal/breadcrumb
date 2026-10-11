@@ -178,18 +178,50 @@ class _RecordScreenState extends State<RecordScreen> {
     if (mounted) setState(() => _sensorError = error.toString());
   }
 
+  contracts.Place? _existingPlace(String name) {
+    final key = name.trim().toLowerCase();
+    for (final place in _map!.value.places) {
+      if (place.kind != contracts.PlaceKind.junction &&
+          place.name.trim().toLowerCase() == key) {
+        return place;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _finishAtStart() async {
+    if (!_started || _saving || _finished != null) return;
+    try {
+      final map = _map!.value;
+      final start = map.places.firstWhere((place) => place.id == map.start);
+      _builder.addPlace(start.name, const []);
+      _stepsAtLastMark = _steps;
+      _map!.value = _builder.snapshot();
+      _traceMark(start.name);
+      setState(() => _marked = 'Joined to ${start.name} - loop closed');
+      await _stop();
+    } catch (error) {
+      _onSensorError(error);
+    }
+  }
+
   void _mark() {
     final name = _placeName.text.trim();
     if (!_recording || name.isEmpty) return;
     try {
+      final joined = _existingPlace(name);
       _builder.addPlace(name, const []);
       _stepsAtLastMark = _steps;
       _traceMark(name);
       final snapshot = _builder.snapshot();
       _map!.value = snapshot;
-      unawaited(_suggestAliases(name, snapshot.places));
+      if (joined == null) unawaited(_suggestAliases(name, snapshot.places));
       _placeName.clear();
-      setState(() => _marked = 'Marked place: $name');
+      setState(
+        () => _marked = joined == null
+            ? 'Marked place: $name'
+            : 'Joined to ${joined.name} - loop closed',
+      );
     } catch (error) {
       _onSensorError(error);
     }
@@ -438,7 +470,10 @@ class _RecordScreenState extends State<RecordScreen> {
         await _trace.finalizeMetadata({
           'completed': _finished != null,
           'mapSaved': _savedPath != null,
-          if (places != null && places.isNotEmpty) 'to': places.last.id,
+          if (places != null && places.isNotEmpty)
+            'to': _finished!.corridors.isEmpty
+                ? _finished!.start
+                : _finished!.corridors.last.to,
         });
       }
     } catch (error) {
@@ -609,6 +644,12 @@ class _RecordScreenState extends State<RecordScreen> {
                       ),
                     ],
                     if (_marked != null) Text(_marked!),
+                    if (_recording)
+                      OutlinedButton(
+                        key: const ValueKey('record-finish-start'),
+                        onPressed: _saving ? null : _finishAtStart,
+                        child: const Text('Finish at start'),
+                      ),
                     const SizedBox(height: 16),
                     FilledButton(
                       key: const ValueKey('record-stop'),
