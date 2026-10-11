@@ -17,12 +17,71 @@ class RouteGuide implements Guide {
 
   @override
   Instruction next(RoutePlan r, Position p) {
-    if (p.offRoute) {
+    if (p.offRoute) return _offRoute(r, p);
+    final n = _onRoute(r, p);
+    return p.backOnRoute ? _backOnRoute(n) : n;
+  }
+
+  /// "Back on route." before the normal instruction (D31). The step count is
+  /// dropped unless near a corner, so the Speaker speaks the whole text.
+  Instruction _backOnRoute(Instruction n) {
+    final keep = n.kind != InstructionKind.straight && n.steps != null && n.steps! <= turnNowSteps;
+    return Instruction(
+      kind: n.kind,
+      steps: keep ? n.steps : null,
+      placeName: n.placeName,
+      text: 'Back on route. ${n.text}',
+    );
+  }
+
+  /// Off route (D31): from the running facing, turn to face the path, or, more
+  /// than [walkBackMinSteps] away, walk back first. Without a facing, the D27
+  /// message.
+  Instruction _offRoute(RoutePlan r, Position p) {
+    final facing = p.facing;
+    final legHeading = r.legs.isEmpty
+        ? null
+        : r.legs[p.legIndex.clamp(0, r.legs.length - 1)].heading;
+    if (facing == null ||
+        legHeading == null ||
+        (p.stepsOffRoute <= walkBackMinSteps &&
+            turnBetween(facing, legHeading).abs() < straightTolerance)) {
       return const Instruction(
         kind: InstructionKind.offRoute,
         text: "Looks like you went off the path. Go back to the last corner or tap I'm here.",
       );
     }
+    final leg = legHeading;
+    final away = p.awayHeading;
+    if (p.stepsOffRoute > walkBackMinSteps && away != null) {
+      final back = normalizeHeading(away + 180);
+      final then = turnBetween(back, leg);
+      final walkBack = 'Walk back about ${p.stepsOffRoute} steps';
+      return Instruction(
+        kind: turnBetween(facing, back).abs() < straightTolerance
+            ? InstructionKind.straight
+            : InstructionKind.turnAround,
+        text: then.abs() < straightTolerance
+            ? '$walkBack.'
+            : '$walkBack, then turn ${_side(then)}.',
+      );
+    }
+    final turn = turnBetween(facing, leg);
+    if (turn.abs() > turnAroundAngle) {
+      return const Instruction(
+        kind: InstructionKind.turnAround,
+        text: 'Turn around to get back on the path.',
+      );
+    }
+    return Instruction(
+      kind: turn > 0 ? InstructionKind.turnLeft : InstructionKind.turnRight,
+      text: 'Turn ${_side(turn)} to face the path.',
+    );
+  }
+
+  static String _side(double turn) => turn > 0 ? 'left' : 'right';
+
+  Instruction _onRoute(RoutePlan r, Position p) {
     final last = r.legs.length - 1;
     final i = p.legIndex.clamp(0, last < 0 ? 0 : last);
     if (r.legs.isEmpty || (i == last && p.stepsAlong >= legLength(r.legs[last]))) {

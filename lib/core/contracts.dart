@@ -312,6 +312,9 @@ class Position {
     this.facing,
     this.confidence = 1.0,
     this.unconfirmedArrival = false,
+    this.stepsOffRoute = 0,
+    this.awayHeading,
+    this.backOnRoute = false,
   });
 
   final int legIndex;
@@ -326,7 +329,8 @@ class Position {
   final bool orienting;
 
   /// While [orienting]: the direction the walker is assumed to face, in map
-  /// degrees, or null when unknown (D27).
+  /// degrees, or null when unknown (D27). While [offRoute]: the running facing
+  /// from every turn since leaving the route, starting at the leg's heading (D31).
   final double? facing;
 
   /// How sure the Tracker is of [stepsAlong], 0 to 1 (D29). Decays every step,
@@ -339,6 +343,18 @@ class Position {
   /// few of its steps were walked. The Guide asks for "I'm here" instead of
   /// announcing arrival. Always false when `useArrivalGuard` is off.
   final bool unconfirmedArrival;
+
+  /// While [offRoute]: net steps walked away from the path since leaving it;
+  /// steps walked back the other way count down (D31). 0 on route.
+  final int stepsOffRoute;
+
+  /// While [offRoute] and after a step: the heading walked away from the path
+  /// on, or null (D31).
+  final double? awayHeading;
+
+  /// True on the position where the facing came back to the leg's heading and
+  /// the walker rejoined the same leg; the next event clears it (D31).
+  final bool backOnRoute;
 }
 
 class Instruction {

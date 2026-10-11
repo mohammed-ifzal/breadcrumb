@@ -42,6 +42,15 @@ class RouteTracker implements Tracker {
   int _finalNeed = 0;
   int _finalWalked = 0;
 
+  /// Off route (D31): the running facing, the heading walked away on (set by the
+  /// first step), net steps away from the path, and the step count on the leg
+  /// when it was left. [_backOnRoute] marks the one position after rejoining.
+  double? _offFacing;
+  double? _away;
+  int _offSteps = 0;
+  int _offAlong = 0;
+  bool _backOnRoute = false;
+
   static const _origin = Position(
     legIndex: 0,
     stepsAlong: 0,
@@ -92,6 +101,7 @@ class RouteTracker implements Tracker {
   Position onStep(StepEvent e) {
     _orienting = false;
     if (_onTransition) return _set(_position);
+    if (_position.offRoute) _countOffStep();
     _confidence *= confidenceDecayPerStep;
     if (_inFinal) _finalWalked++;
     var overwalked = false;
@@ -159,8 +169,9 @@ class RouteTracker implements Tracker {
   /// turning point, or where the route goes straight on sets [Position.offRoute].
   ///
   /// Before the first step a turn only updates the assumed facing (D27). While
-  /// off route, only a turn that matches the next turning point within
-  /// 2 x [snapSteps] counts: it snaps back onto the route (D27). Turns after
+  /// off route, every turn updates the running facing; facing the leg again near
+  /// the path rejoins it (D31), else a turn that matches the next turning point
+  /// within 2 x [snapSteps] snaps back onto the route (D27). Turns after
   /// arriving are ignored, and so is the turn at a node the position already
   /// moved past ("I am here", a sign or a turn snap) when it comes within
   /// [lateTurnSteps] of that node in the expected direction (D26). Turns on a
@@ -175,7 +186,10 @@ class RouteTracker implements Tracker {
       return _set(_position);
     }
     if (_onTransition) return _position;
-    if (_position.offRoute) return _set(_recover(route, e) ?? _position);
+    if (_position.offRoute) {
+      _offFacing = normalizeHeading((_offFacing ?? 0) + e.angle);
+      return _set(_rejoin(route) ?? _recover(route, e) ?? _position);
+    }
 
     final i = _position.legIndex;
     final last = route.legs.length - 1;
@@ -190,7 +204,7 @@ class RouteTracker implements Tracker {
     }
 
     final j = runEnd(route, i);
-    if (j == last) return _set(_copy(offRoute: true));
+    if (j == last) return _leaveRoute(route, e);
 
     final needed = turnBetween(route.legs[j].heading, route.legs[j + 1].heading);
     final run = stepsBetween(route, i, j);
@@ -198,16 +212,54 @@ class RouteTracker implements Tracker {
     final near = toTurn <= snapSteps || toTurn <= run * snapZone;
 
     if (near && _isRightWay(e.angle, needed)) return _set(_cornerSnap(j));
+    return _leaveRoute(route, e);
+  }
+
+  /// Sets [Position.offRoute] and starts the running facing at the current leg's
+  /// heading turned by [e] (D31).
+  Position _leaveRoute(RoutePlan route, TurnEvent e) {
+    _offFacing = normalizeHeading(route.legs[_position.legIndex].heading + e.angle);
+    _away = null;
+    _offSteps = 0;
+    _offAlong = _position.stepsAlong;
     return _set(_copy(offRoute: true));
   }
 
+  /// One step off route (D31): the first sets the heading walked away on; steps
+  /// along it count up, steps the opposite way count down, sideways steps not.
+  void _countOffStep() {
+    final facing = _offFacing;
+    if (facing == null) return;
+    final away = _away ??= facing;
+    final diff = turnBetween(away, facing).abs();
+    if (diff < straightTolerance) {
+      _offSteps++;
+    } else if (diff > turnAroundAngle && _offSteps > 0) {
+      _offSteps--;
+    }
+  }
+
+  /// Off route, facing the current leg's heading again within
+  /// [straightTolerance] and no more than [walkBackMinSteps] from the path:
+  /// back on the same leg at the step count it was left at (D31).
+  Position? _rejoin(RoutePlan route) {
+    final facing = _offFacing;
+    if (facing == null || _offSteps > walkBackMinSteps) return null;
+    final i = _position.legIndex;
+    if (turnBetween(facing, route.legs[i].heading).abs() >= straightTolerance) return null;
+    _backOnRoute = true;
+    return Position(legIndex: i, stepsAlong: _offAlong, anchoredBy: _position.anchoredBy);
+  }
+
   /// Off route: a turn in the direction the next turning point needs, within
-  /// 2 x [snapSteps] of it either side, puts the position back after it.
+  /// 2 x [snapSteps] of it either side, puts the position back after it. A
+  /// turn-around is walking back (D31), never a left or right corner.
   Position? _recover(RoutePlan route, TurnEvent e) {
     final i = _position.legIndex;
     final j = runEnd(route, i);
     if (j >= route.legs.length - 1) return null;
     final needed = turnBetween(route.legs[j].heading, route.legs[j + 1].heading);
+    if (e.angle.abs() > turnAroundAngle && needed.abs() <= turnAroundAngle) return null;
     final toTurn = stepsBetween(route, i, j) - _position.stepsAlong;
     if (toTurn.abs() > 2 * snapSteps || !_isRightWay(e.angle, needed)) return null;
     return _cornerSnap(j);
@@ -277,6 +329,9 @@ class RouteTracker implements Tracker {
   /// [p] was reached by an overwalk.
   Position _set(Position p, {bool evidence = true}) {
     final unconfirmed = _arrivalCheck(p, evidence);
+    final back = _backOnRoute;
+    _backOnRoute = false;
+    final off = p.offRoute;
     return _position = Position(
       legIndex: p.legIndex,
       stepsAlong: p.stepsAlong,
@@ -284,9 +339,16 @@ class RouteTracker implements Tracker {
       offRoute: p.offRoute,
       needsReplan: p.needsReplan,
       orienting: _orienting,
-      facing: _orienting ? _facing : null,
+      facing: _orienting
+          ? _facing
+          : off
+          ? _offFacing
+          : null,
       confidence: confidenceOn ? _confidence : 1,
       unconfirmedArrival: arrivalGuardOn && unconfirmed,
+      stepsOffRoute: off ? _offSteps : 0,
+      awayHeading: off ? _away : null,
+      backOnRoute: back && !off,
     );
   }
 
