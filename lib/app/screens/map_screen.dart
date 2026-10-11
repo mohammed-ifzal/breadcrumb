@@ -320,13 +320,13 @@ class _MapScreenState extends State<MapScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: BreadcrumbTheme.warning.withValues(alpha: 0.1),
+                    color: BreadcrumbTheme.error.withValues(alpha: 0.1),
                     borderRadius: BreadcrumbTheme.borderRadius,
-                    border: Border.all(color: BreadcrumbTheme.warning.withValues(alpha: 0.4)),
+                    border: Border.all(color: BreadcrumbTheme.error.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning_amber_rounded, color: BreadcrumbTheme.warning, size: 24),
+                      const Icon(Icons.error_outline_rounded, color: BreadcrumbTheme.error, size: 24),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -334,7 +334,7 @@ class _MapScreenState extends State<MapScreen> {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: BreadcrumbTheme.warning,
+                            color: BreadcrumbTheme.error,
                           ),
                         ),
                       ),

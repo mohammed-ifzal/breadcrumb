@@ -127,7 +127,7 @@ class _SavedMapsScreenState extends State<SavedMapsScreen> {
                     const SizedBox(height: 8),
                     Text(
                       _error!,
-                      style: const TextStyle(color: BreadcrumbTheme.warning),
+                      style: const TextStyle(color: BreadcrumbTheme.error),
                     ),
                   ],
                   const SizedBox(height: 12),

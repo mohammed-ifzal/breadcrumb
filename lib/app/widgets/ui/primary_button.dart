@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme.dart';
+import 'press_scale.dart';
 import 'thinking_indicator.dart';
 
 /// The one main action on a screen: full width, accent, 52 dp tall.
@@ -48,6 +49,8 @@ class PrimaryButton extends StatelessWidget {
       child: content,
     );
 
-    return expand ? SizedBox(width: double.infinity, child: button) : button;
+    return PressScale(
+      child: expand ? SizedBox(width: double.infinity, child: button) : button,
+    );
   }
 }
