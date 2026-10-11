@@ -134,6 +134,15 @@ const double handlingRotationMin = 120;
 /// Total RAM (MB) at or above which the device is DeviceTier.full.
 const int fullTierMinRamMb = 8000;
 
+/// Optional proximity-dependent turn thresholds; keep OFF until phone verified.
+const bool usePocketTurnProfile = false;
+
+/// deg/s required while the latest recorded proximity state is near.
+const double pocketTurnRateMin = 30;
+
+/// Quiet ms required to settle a turn while proximity is near.
+const int pocketTurnSettleMs = 300;
+
 // ---------------------------------------------------------------------------
 // D30: aliases and device tier.
 // ---------------------------------------------------------------------------

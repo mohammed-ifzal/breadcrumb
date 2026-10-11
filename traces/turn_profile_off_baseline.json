@@ -1,0 +1,13 @@
+{
+  "bag_loop.jsonl": "[{\"type\":\"turn\",\"t\":2594866,\"angle\":-378.16829707887945}]",
+  "curve.jsonl": "[{\"type\":\"turn\",\"t\":2809726,\"angle\":-76.87001746852185}]",
+  "look_around.jsonl": "[{\"type\":\"turn\",\"t\":2700886,\"angle\":-76.08221145575757},{\"type\":\"turn\",\"t\":2703566,\"angle\":-80.56878427514746},{\"type\":\"turn\",\"t\":2706506,\"angle\":96.30355004696918}]",
+  "pocket_left_loop.jsonl": "[{\"type\":\"turn\",\"t\":2553266,\"angle\":-429.5053186369074}]",
+  "pocket_right_loop.jsonl": "[{\"type\":\"turn\",\"t\":2511026,\"angle\":-257.6943766575494}]",
+  "pullout.jsonl": "[]",
+  "queue.jsonl": "[{\"type\":\"turn\",\"t\":2640386,\"angle\":90.82729833628272}]",
+  "spike_walk_talha.jsonl": "[{\"type\":\"turn\",\"t\":1079545,\"angle\":-87.73698697877887},{\"type\":\"turn\",\"t\":1094485,\"angle\":92.48290285492057},{\"type\":\"turn\",\"t\":1110145,\"angle\":-87.51578040359252}]",
+  "straight_walk_talha.jsonl": "[]",
+  "turns_walk1_talha.jsonl": "[{\"type\":\"turn\",\"t\":8043,\"angle\":92.90647301249878},{\"type\":\"turn\",\"t\":25743,\"angle\":-84.54282431252442},{\"type\":\"turn\",\"t\":32723,\"angle\":-79.2531852489747}]",
+  "turns_walk2_talha.jsonl": "[{\"type\":\"turn\",\"t\":8826,\"angle\":83.61766443022907},{\"type\":\"turn\",\"t\":25186,\"angle\":-88.95588059529796},{\"type\":\"turn\",\"t\":36426,\"angle\":-81.77417812065569}]"
+}

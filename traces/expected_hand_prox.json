@@ -1,0 +1,10 @@
+{
+  "trace": "hand_prox.jsonl",
+  "turns": [
+    -90,
+    90,
+    -90
+  ],
+  "steps": null,
+  "notes":    "fresh validation walk, 4-step legs; tester reports finger over the sensor during the middle turn but the trace recorded no near interval, so it does not exercise the near profile; first mark misspelled 'hamd prox'; not used for tuning"
+}
