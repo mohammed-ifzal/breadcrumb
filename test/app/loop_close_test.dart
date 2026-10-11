@@ -11,6 +11,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'record_screen_test.dart' as support;
 
+/// Tap without the main test helper's automatic Stop/Finish confirmation.
+/// These regressions inspect that same dialog and choose its answer explicitly.
+Future<void> tap(WidgetTester tester, String key) async {
+  final button = find.byKey(ValueKey(key));
+  await tester.ensureVisible(button);
+  await tester.pumpAndSettle();
+  await tester.tap(button);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets(
     'TrailView builds and paints a closed square loop without exception',
@@ -81,10 +91,10 @@ void main() {
         ' ENTRANCE ',
       );
       await tester.pump();
-      await support.tap(tester, 'record-mark');
-      if (find.byKey(const ValueKey('loop-join-yes')).evaluate().isNotEmpty) {
-        await support.tap(tester, 'loop-join-yes');
-      }
+      await tap(tester, 'record-mark');
+      // D33: a duplicate name asks before joining.
+      expect(find.text('Join loop at Entrance?'), findsOneWidget);
+      await tap(tester, 'join-yes');
       expect(find.text('Joined to Entrance - loop closed'), findsOneWidget);
       final live = tester
           .widget<TrailView>(find.byType(TrailView))
@@ -92,7 +102,8 @@ void main() {
           .value;
       expect(live.corridors.first.to, live.start);
       expect(live.places.where((p) => p.name == 'Entrance'), hasLength(1));
-      await support.tap(tester, 'record-stop');
+      await tap(tester, 'record-stop');
+      await tap(tester, 'stop-yes');
       expect(saved!.places.where((p) => p.name == 'End of walk'), isEmpty);
       expect(saved!.corridors.last.to, saved!.start);
       expect(tester.takeException(), isNull);
@@ -125,10 +136,9 @@ void main() {
           events.add(c.StepEvent(i));
         }
         await tester.pumpAndSettle();
-        await support.tap(tester, 'record-finish-start');
-        if (find.byKey(const ValueKey('loop-join-yes')).evaluate().isNotEmpty) {
-          await support.tap(tester, 'loop-join-yes');
-        }
+        await tap(tester, 'record-finish-start');
+        expect(find.text('Finish at Entrance?'), findsOneWidget);
+        await tap(tester, 'finish-yes');
         expect(find.text('Joined to Entrance - loop closed'), findsOneWidget);
         expect(find.text('Saved map: /maps/latest.json'), findsOneWidget);
         expect(saved!.places.where((p) => p.name == 'End of walk'), isEmpty);

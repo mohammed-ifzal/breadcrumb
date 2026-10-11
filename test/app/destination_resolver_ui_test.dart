@@ -78,7 +78,7 @@ void main() {
     await tester.tap(find.textContaining('You are at:'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Change Start Location'), findsOneWidget);
+    expect(find.text('Where are you?'), findsOneWidget);
   });
 
   testWidgets('valid resolved place navigates to NavigateScreen', (tester) async {

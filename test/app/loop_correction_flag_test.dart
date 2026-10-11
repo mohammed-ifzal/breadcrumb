@@ -11,6 +11,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'record_screen_test.dart' as support;
 
+/// Tap without the main test helper's automatic Stop/Finish confirmation.
+/// These regressions inspect that same dialog and choose its answer explicitly.
+Future<void> tap(WidgetTester tester, String key) async {
+  final button = find.byKey(ValueKey(key));
+  await tester.ensureVisible(button);
+  await tester.pumpAndSettle();
+  await tester.tap(button);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   for (final finish in [false, true]) {
     testWidgets(
@@ -49,14 +59,47 @@ void main() {
           );
           await tester.pump();
         }
-        await support.tap(
-          tester,
-          finish ? 'record-finish-start' : 'record-mark',
+        await tap(tester, finish ? 'record-finish-start' : 'record-mark');
+        expect(find.byType(AlertDialog), findsOneWidget);
+        final dialog = tester.widget<AlertDialog>(find.byType(AlertDialog));
+        expect(
+          (dialog.title! as Text).data,
+          finish ? 'Finish at Entrance?' : 'Join loop at Entrance?',
         );
+        expect(
+          (dialog.content! as Text).data,
+          finish ? 'This joins the loop at Entrance and saves the map.' : 'Yes: you are back at Entrance and the loop closes here.\nNo: mark a new place called "Entrance 2".',
+        );
+        expect(dialog.actions, hasLength(2));
+        expect(
+          (dialog.actions![0] as TextButton).key,
+          ValueKey(finish ? 'finish-no' : 'join-no'),
+        );
+        expect(
+          ((dialog.actions![0] as TextButton).child as Text).data,
+          finish ? 'Keep recording' : 'No, new place',
+        );
+        expect(
+          (dialog.actions![1] as FilledButton).key,
+          ValueKey(finish ? 'finish-yes' : 'join-yes'),
+        );
+        expect(
+          ((dialog.actions![1] as FilledButton).child as Text).data,
+          finish ? 'Finish and save' : 'Yes, join',
+        );
+        expect(
+          find.text("Positions don't match well - join anyway?"),
+          findsNothing,
+        );
+        await tap(tester, finish ? 'finish-yes' : 'join-yes');
         expect(find.byType(AlertDialog), findsNothing);
         expect(find.text('Joined to Entrance - loop closed'), findsOneWidget);
-        if (!finish) await support.tap(tester, 'record-stop');
-        // Frozen pre-D33 graph: one place and a measured four-step self corridor.
+        if (!finish) {
+          await tap(tester, 'record-stop');
+          expect(find.text('Stop and save this map?'), findsOneWidget);
+          await tap(tester, 'stop-yes');
+        }
+        // Frozen pre-D34 graph: one place and a measured four-step self corridor.
         final legacy = MapGraph(
           name: 'Entrance',
           start: 'p0',
@@ -68,11 +111,19 @@ void main() {
           ],
         );
         await tester.runAsync(() async {
-          final path = await saveLatestMap(
+          final path = await saveRecordedMap(
             saved!,
             documentsDirectory: () async => directory,
           );
           expect(await File(path).readAsBytes(), encodeMap(legacy).codeUnits);
+          expect(
+            await File('${directory.path}/maps/latest.json').readAsBytes(),
+            encodeMap(legacy).codeUnits,
+          );
+          expect(
+            await File('${directory.path}/maps/active.txt').readAsString(),
+            File(path).uri.pathSegments.last,
+          );
         });
         final drawn = tester
             .widget<TrailView>(find.byType(TrailView))
@@ -86,6 +137,88 @@ void main() {
     );
   }
 
+  for (final finish in [false, true]) {
+    testWidgets(
+      'flag off: main No behaviour for ${finish ? "Finish" : "Mark"}',
+      (tester) async {
+        final events = StreamController<Object>.broadcast(sync: true);
+        addTearDown(events.close);
+        final builder = recording.MapBuilder(useLoopCorrection: false);
+        MapGraph? saved;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: RecordScreen(
+              useLoopCorrection: false,
+              mapBuilder: builder,
+              events: events.stream,
+              traceRecorder: support.MemoryWalkTrace(),
+              save: (map) async {
+                saved = map;
+                return '/maps/latest.json';
+              },
+            ),
+          ),
+        );
+        await support.start(tester);
+        for (var i = 0; i < 4; i++) {
+          events.add(StepEvent(i));
+        }
+        await tester.pumpAndSettle();
+        final before = encodeMap(builder.snapshot());
+        if (!finish) {
+          await tester.ensureVisible(find.byKey(const ValueKey('place-name')));
+          await tester.enterText(
+            find.byKey(const ValueKey('place-name')),
+            'Entrance',
+          );
+          await tester.pump();
+        }
+        await tap(tester, finish ? 'record-finish-start' : 'record-mark');
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.text("Positions don't match well - join anyway?"),
+          findsNothing,
+        );
+        await tap(tester, finish ? 'finish-no' : 'join-no');
+        expect(saved, isNull);
+        expect(find.text('Recording trail'), findsOneWidget);
+        if (finish) {
+          expect(encodeMap(builder.snapshot()), before);
+          events.add(const StepEvent(5));
+          await tester.pumpAndSettle();
+          expect(find.text('Steps: 5'), findsOneWidget);
+        } else {
+          expect(find.text('Marked place: Entrance 2'), findsOneWidget);
+          await tap(tester, 'record-stop');
+          expect(find.text('Stop and save this map?'), findsOneWidget);
+          await tap(tester, 'stop-yes');
+          final legacy = MapGraph(
+            name: 'Entrance',
+            start: 'p0',
+            places: const [
+              Place(id: 'p0', name: 'Entrance', kind: PlaceKind.start),
+              Place(id: 'p1', name: 'Entrance 2', kind: PlaceKind.place),
+            ],
+            corridors: const [
+              Corridor(id: 'c1', from: 'p0', to: 'p1', steps: 4, heading: 0),
+            ],
+          );
+          expect(encodeMap(saved!), encodeMap(legacy));
+        }
+        expect(
+          builder.snapshot().places.every((p) => p.x == null && p.y == null),
+          isTrue,
+        );
+        expect(
+          builder.snapshot().corridors.where((c) => c.to == 'p0'),
+          isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      },
+    );
+  }
   testWidgets('injected flag-off builder also skips drift confirmation', (
     tester,
   ) async {
@@ -104,7 +237,13 @@ void main() {
     await support.start(tester);
     events.add(const StepEvent(0));
     await tester.pumpAndSettle();
-    await support.tap(tester, 'record-finish-start');
+    await tap(tester, 'record-finish-start');
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.text("Positions don't match well - join anyway?"),
+      findsNothing,
+    );
+    await tap(tester, 'finish-yes');
     expect(find.byType(AlertDialog), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());

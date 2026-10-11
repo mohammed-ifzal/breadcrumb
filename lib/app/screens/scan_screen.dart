@@ -17,12 +17,22 @@ class ScanScreen extends StatefulWidget {
     this.currentRoute,
     this.onReplan,
     this.mockCapture,
+    this.findStart = false,
   });
+
+  /// D33: "Where are you?" mode. A matched place pops this screen with that
+  /// [Place] as the result; no route is planned and the tracker is not moved.
+  const ScanScreen.forStart({super.key, this.mockCapture})
+    : destinationId = '',
+      currentRoute = null,
+      onReplan = null,
+      findStart = true;
 
   final String destinationId;
   final RoutePlan? currentRoute;
   final void Function(RoutePlan newRoute, Position newPosition)? onReplan;
   final Future<String?> Function()? mockCapture;
+  final bool findStart;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -148,6 +158,17 @@ class _ScanScreenState extends State<ScanScreen> {
           _recognizedText = text;
           _statusMessage = "Couldn't read that, try again";
         });
+        return;
+      }
+
+      if (widget.findStart) {
+        setState(() {
+          _isProcessing = false;
+          _recognizedText = text;
+          _matchedPlace = place;
+          _statusMessage = "You're at ${place.name}";
+        });
+        if (mounted) Navigator.of(context).pop(place);
         return;
       }
 

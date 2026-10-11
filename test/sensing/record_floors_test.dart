@@ -11,6 +11,8 @@ import 'package:breadcrumb/sensing/trace_recorder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../app/record_screen_test.dart' show confirmIfAsked;
+
 class WalkSource implements contracts.SensingSource {
   WalkSource({this.recorder});
   final TraceRecorder? recorder;
@@ -59,6 +61,7 @@ Future<void> tap(WidgetTester tester, String key) async {
   await tester.pumpAndSettle();
   await tester.tap(finder);
   await tester.pumpAndSettle();
+  await confirmIfAsked(tester, key);
 }
 
 Future<WalkSource> begin(

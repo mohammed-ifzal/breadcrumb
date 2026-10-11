@@ -98,7 +98,7 @@ class Place {
   /// The floor this node is on; 0 when the map has one floor (D24).
   final int floor;
 
-  /// Optional display coordinates in steps (+y forward, +x right). D33.
+  /// Optional display coordinates in steps (+y forward, +x right). D34.
   /// Complete finite pairs override legacy layout; not used for routing.
   final double? x, y;
 

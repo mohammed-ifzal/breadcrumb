@@ -12,7 +12,7 @@ import 'loop_correction_test.dart' show allRoutes;
 
 void main() {
   test(
-    'D33 defaults on; flag off keeps legacy recording and saved bytes',
+    'D34 defaults on; flag off keeps legacy recording and saved bytes',
     () async {
       expect(tuning.useLoopCorrection, isTrue);
       final builder = recording.MapBuilder(useLoopCorrection: false)

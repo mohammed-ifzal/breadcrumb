@@ -27,7 +27,7 @@ class LoopClosurePreview {
 class MapBuilder implements contracts.MapBuilder {
   MapBuilder({this.useLoopCorrection = tuning.useLoopCorrection});
 
-  /// D33: disabled recordings use the original coordinate-free map shape.
+  /// D34: disabled recordings use the original coordinate-free map shape.
   final bool useLoopCorrection;
   final _places = <contracts.Place>[];
   final _corridors = <contracts.Corridor>[];
@@ -38,6 +38,10 @@ class MapBuilder implements contracts.MapBuilder {
   double _heading = 0;
   int _junctions = 0, _namedPlaces = 0;
   contracts.MapGraph? _finished;
+
+  /// Every mark that added a corridor, oldest first, for [undoLastMark].
+  final _marks = <_Mark>[];
+
   bool get _active => _from != null && _finished == null;
 
   @override
@@ -54,6 +58,7 @@ class MapBuilder implements contracts.MapBuilder {
     _junctions = 0;
     _namedPlaces = 0;
     _finished = null;
+    _marks.clear();
     _places.add(
       contracts.Place(
         id: 'p0',
@@ -123,15 +128,29 @@ class MapBuilder implements contracts.MapBuilder {
   @override
   void addPlace(String name, List<String> aliases) {
     if (!_active) return;
-    final existing = _existing(name);
-    if (existing != null) {
-      if (existing.id == _from && _steps == 0) return;
-      if (useLoopCorrection) _correctLoop(existing);
-      _closeAt(existing);
-      _floor = existing.floor;
-      return;
+    final key = name.trim().toLowerCase();
+    for (final existing in _places) {
+      if (existing.kind != contracts.PlaceKind.junction &&
+          existing.name.trim().toLowerCase() == key) {
+        // Already standing here: do not add a zero-step self corridor.
+        if (existing.id == _from && _steps == 0) return;
+        _marks.add(
+          _Mark(
+            existing.id,
+            _corridors.length,
+            created: false,
+            beforeCorrection: useLoopCorrection ? List.of(_places) : null,
+            closingPosition: useLoopCorrection ? _endPosition() : null,
+          ),
+        );
+        if (useLoopCorrection) _correctLoop(existing);
+        _closeAt(existing);
+        _floor = existing.floor;
+        return;
+      }
     }
     _namedPlaces++;
+    _marks.add(_Mark('p$_namedPlaces', _corridors.length, created: true));
     _closeAt(
       contracts.Place(
         id: 'p$_namedPlaces',
@@ -171,37 +190,138 @@ class MapBuilder implements contracts.MapBuilder {
     }
   }
 
-  ({double x, double y}) _endPosition() {
-    final from = _places.firstWhere((p) => p.id == _from);
+  ({double x, double y}) _endPosition() =>
+      _advance(_places.firstWhere((p) => p.id == _from), _steps, _heading);
+
+  ({double x, double y}) _advance(
+    contracts.Place from,
+    int steps,
+    double measuredHeading,
+  ) {
     final nearest = contracts.normalizeHeading(
-      (_heading / tuning.turnSnapDegrees).roundToDouble() *
+      (measuredHeading / tuning.turnSnapDegrees).roundToDouble() *
           tuning.turnSnapDegrees,
     );
     // Optional cardinal projection snap, never a change to stored headings.
     final heading =
-        contracts.turnBetween(nearest, _heading).abs() <=
+        contracts.turnBetween(nearest, measuredHeading).abs() <=
             tuning.loopHeadingSnapToleranceDegrees
         ? nearest
-        : _heading;
+        : measuredHeading;
     // Exact cardinal vectors make a zero-error square exactly zero, without
     // treating a nonzero closure error as zero via an arbitrary epsilon.
     switch (heading) {
       case 0:
-        return (x: from.x!, y: from.y! + _steps);
+        return (x: from.x!, y: from.y! + steps);
       case 90:
-        return (x: from.x! - _steps, y: from.y!);
+        return (x: from.x! - steps, y: from.y!);
       case 180:
-        return (x: from.x!, y: from.y! - _steps);
+        return (x: from.x!, y: from.y! - steps);
       case 270:
-        return (x: from.x! + _steps, y: from.y!);
+        return (x: from.x! + steps, y: from.y!);
       default:
         final rad = heading * math.pi / 180;
         return (
-          x: from.x! - _steps * math.sin(rad),
-          y: from.y! + _steps * math.cos(rad),
+          x: from.x! - steps * math.sin(rad),
+          y: from.y! + steps * math.cos(rad),
         );
     }
   }
+
+  /// How many marks [undoLastMark] can still take back.
+  int get undoableMarks => _active ? _marks.length : 0;
+
+  /// Takes back the newest [addPlace] and returns its name, or null when there
+  /// is nothing to undo. The walk stays: steps and turns are never removed.
+  /// - Nothing closed since the mark: its corridor folds back into the open
+  ///   one, as if the mark never happened.
+  /// - The walk went on past it (a turn, a floor change or a later mark): a new
+  ///   place becomes a junction; a loop join gets its own junction, so the
+  ///   loop is no longer closed there.
+  String? undoLastMark() {
+    if (!_active || _marks.isEmpty) return null;
+    final mark = _marks.removeLast();
+    // D34: restore only display coordinates; keep main's mark/edge Undo rules.
+    final oldPositions = mark.beforeCorrection;
+    if (oldPositions != null) {
+      final byId = {for (final p in oldPositions) p.id: p};
+      for (var i = 0; i < _places.length; i++) {
+        final p = _places[i];
+        final old = byId[p.id];
+        if (old != null) _places[i] = _positioned(p, old.x!, old.y!);
+      }
+    }
+    final index = mark.corridor;
+    final corridor = _corridors[index];
+    final placeIndex = _places.indexWhere((p) => p.id == mark.placeId);
+    final place = _places[placeIndex];
+    if (index == _corridors.length - 1 && _from == place.id) {
+      _corridors.removeLast();
+      _travelled -= corridor.steps;
+      _visits.removeLast();
+      _distances.removeLast();
+      _from = corridor.from;
+      _steps += corridor.steps;
+      _floor = _places.firstWhere((p) => p.id == corridor.from).floor;
+      if (mark.created) {
+        _places.removeAt(placeIndex);
+        _namedPlaces--;
+      }
+    } else if (mark.created) {
+      _junctions++;
+      _places[placeIndex] = contracts.Place(
+        id: place.id,
+        name: 'Junction $_junctions',
+        kind: contracts.PlaceKind.junction,
+        floor: place.floor,
+        x: place.x,
+        y: place.y,
+      );
+    } else {
+      final unpositioned = _junction(floor: place.floor);
+      final end = mark.closingPosition;
+      final junction = end == null
+          ? unpositioned
+          : _positioned(unpositioned, end.x, end.y);
+      _places.add(junction);
+      _visits[index + 1] = junction.id;
+      _corridors[index] = _moved(corridor, to: junction.id);
+      final next = index + 1;
+      if (next < _corridors.length && _corridors[next].from == place.id) {
+        _corridors[next] = _moved(_corridors[next], from: junction.id);
+      } else if (_from == place.id) {
+        _from = junction.id;
+      }
+    }
+    // Any later turn/floor-change junction was projected from the corrected
+    // join. Reproject that suffix from the detached visit, pinning older nodes.
+    if (oldPositions != null && index < _corridors.length) {
+      final pinned = oldPositions.map((p) => p.id).toSet();
+      for (var i = index + 1; i < _corridors.length; i++) {
+        final c = _corridors[i];
+        if (pinned.contains(c.to)) continue;
+        final from = _places.firstWhere((p) => p.id == c.from);
+        final end = _advance(from, c.steps, c.heading);
+        final to = _places.indexWhere((p) => p.id == c.to);
+        _places[to] = _positioned(_places[to], end.x, end.y);
+      }
+    }
+    return place.name;
+  }
+
+  static contracts.Corridor _moved(
+    contracts.Corridor c, {
+    String? from,
+    String? to,
+  }) => contracts.Corridor(
+    id: c.id,
+    from: from ?? c.from,
+    to: to ?? c.to,
+    steps: c.steps,
+    heading: c.heading,
+    kind: c.kind,
+    floorDelta: c.floorDelta,
+  );
 
   @override
   contracts.MapGraph snapshot() {
@@ -244,13 +364,13 @@ class MapBuilder implements contracts.MapBuilder {
     return _finished = _map(_places, _corridors);
   }
 
-  contracts.Place _junction({String? name}) {
+  contracts.Place _junction({String? name, int? floor}) {
     _junctions++;
     return contracts.Place(
       id: 'j$_junctions',
       name: name ?? 'Junction $_junctions',
       kind: contracts.PlaceKind.junction,
-      floor: _floor,
+      floor: floor ?? _floor,
     );
   }
 
@@ -301,4 +421,21 @@ class MapBuilder implements contracts.MapBuilder {
     places: List.unmodifiable(places),
     corridors: List.unmodifiable(corridors),
   );
+}
+
+/// One [MapBuilder.addPlace] that closed corridor number [corridor] at
+/// [placeId]; [created] is false for a loop join to an existing place.
+class _Mark {
+  const _Mark(
+    this.placeId,
+    this.corridor, {
+    required this.created,
+    this.beforeCorrection,
+    this.closingPosition,
+  });
+  final String placeId;
+  final int corridor;
+  final bool created;
+  final List<contracts.Place>? beforeCorrection;
+  final ({double x, double y})? closingPosition;
 }
