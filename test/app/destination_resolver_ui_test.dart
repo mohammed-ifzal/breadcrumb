@@ -52,12 +52,12 @@ void main() {
     expect(micButton.onPressed, isNotNull);
 
     // AI indicator shows warming
-    expect(find.text('AI warming...'), findsOneWidget);
+    expect(find.text('AI warming up…'), findsOneWidget);
 
     // Change to ready
     Wiring.instance.aiStatus.value = const AiStatus.ready();
     await tester.pump();
-    expect(find.text('AI ready'), findsOneWidget);
+    expect(find.text('On-device AI ready'), findsOneWidget);
   });
 
   testWidgets('D23: displays "You are at:" selector defaulting to last place', (tester) async {

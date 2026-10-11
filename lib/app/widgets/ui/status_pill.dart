@@ -12,29 +12,36 @@ class StatusPill extends StatelessWidget {
     required this.label,
     this.icon,
     this.tone = StatusTone.neutral,
+    this.dotColor,
   });
 
   /// The app makes no network calls at runtime.
   const StatusPill.offline({super.key})
       : label = 'Offline',
         icon = Icons.wifi_off_rounded,
-        tone = StatusTone.neutral;
+        tone = StatusTone.neutral,
+        dotColor = null;
 
   /// Gemma and speech run on the phone. Brighter once the model is loaded.
   const StatusPill.aiOnDevice({super.key, bool ready = true})
       : label = 'AI on-device',
         icon = Icons.memory_rounded,
-        tone = ready ? StatusTone.accent : StatusTone.neutral;
+        tone = ready ? StatusTone.accent : StatusTone.neutral,
+        dotColor = null;
 
   /// Shown whenever steps or turns come from a simulation, not the sensors.
   const StatusPill.simulated({super.key})
       : label = 'SIMULATED',
         icon = Icons.science_outlined,
-        tone = StatusTone.warning;
+        tone = StatusTone.warning,
+        dotColor = null;
 
   final String label;
   final IconData? icon;
   final StatusTone tone;
+
+  /// A small state dot drawn instead of [icon].
+  final Color? dotColor;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +74,14 @@ class StatusPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
+          if (dotColor != null) ...[
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+          ] else if (icon != null) ...[
             Icon(icon, size: 14, color: fg),
             const SizedBox(width: 6),
           ],

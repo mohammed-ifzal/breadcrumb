@@ -132,7 +132,7 @@ void main() {
       events.add(const contracts.StepEvent(20));
       events.add(const contracts.StepEvent(40));
       await tester.pumpAndSettle();
-      expect(find.text('Steps: 2'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const ValueKey('record-steps'))).data, '2');
       await tap(tester, 'record-stop');
       expect(find.text('Saved map: /maps/latest.json'), findsOneWidget);
       expect(
@@ -208,8 +208,8 @@ void main() {
       events.add(const contracts.TurnEvent(60, 89));
       events.add(const contracts.StepEvent(80));
       await tester.pumpAndSettle();
-      expect(find.text('Steps: 3'), findsOneWidget);
-      expect(find.text('Last turn: +89.0° (left)'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const ValueKey('record-steps'))).data, '3');
+      expect(find.descendant(of: find.byKey(const ValueKey('record-timeline')), matching: find.text('Left')), findsOneWidget);
       expect(notifier.value.places.last.id, contracts.hereId);
       expect(notifier.value.corridors.last.heading, 90);
       expect(notifier.value.corridors.last.steps, 1);
@@ -286,7 +286,7 @@ void main() {
       events.add(const contracts.StepEvent(60));
       saved.complete('/documents/maps/latest.json');
       await tester.pumpAndSettle();
-      expect(find.text('Steps: 2'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const ValueKey('record-steps'))).data, '2');
       expect(
         find.text('Saved map: /documents/maps/latest.json'),
         findsOneWidget,
