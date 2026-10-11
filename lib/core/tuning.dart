@@ -119,7 +119,7 @@ const double confidenceCornerReset = 0.9;
 const double confidenceAskBelow = 0.5;
 
 /// Arrive only after enough steps on the final leg and all its turns (D29).
-const bool useArrivalGuard = false;
+const bool useArrivalGuard = true;
 
 /// Fraction of the final leg's steps needed before arrival counts.
 const double arrivalMinFraction = 0.7;
