@@ -5,6 +5,8 @@ import 'package:breadcrumb/app/theme.dart';
 import 'package:breadcrumb/core/contracts.dart';
 import 'package:breadcrumb/core/trail_geometry.dart';
 
+/// The trail, north-up and auto-fitted to the box. No rotation and no camera
+/// follow: gyro drift would spin the map.
 class TrailView extends StatefulWidget {
   static bool defaultAnimate = !WidgetsBinding.instance.runtimeType.toString().contains('Test');
 
@@ -29,6 +31,7 @@ class TrailView extends StatefulWidget {
 }
 
 class _TrailViewState extends State<TrailView> with SingleTickerProviderStateMixin {
+  /// The position dot's pulse ring: one 2 s loop.
   late final AnimationController _controller;
 
   bool get _animate => widget.animate ?? TrailView.defaultAnimate;
@@ -38,10 +41,10 @@ class _TrailViewState extends State<TrailView> with SingleTickerProviderStateMix
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(seconds: 2),
     );
     if (_animate) {
-      _controller.repeat(reverse: true);
+      _controller.repeat();
     }
   }
 
@@ -51,7 +54,7 @@ class _TrailViewState extends State<TrailView> with SingleTickerProviderStateMix
     final oldAnimate = oldWidget.animate ?? TrailView.defaultAnimate;
     if (_animate != oldAnimate) {
       if (_animate) {
-        if (!_controller.isAnimating) _controller.repeat(reverse: true);
+        if (!_controller.isAnimating) _controller.repeat();
       } else {
         _controller.stop();
       }
@@ -64,14 +67,18 @@ class _TrailViewState extends State<TrailView> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  Widget _buildPainter(MapGraph currentMap, double pulse) {
-    return CustomPaint(
-      size: Size.infinite,
-      painter: TrailPainter(
-        currentMap,
-        widget.route,
-        widget.position,
-        pulseValue: pulse,
+  Widget _buildPainter(MapGraph currentMap) {
+    // The pulse repaints the painter directly; the widget tree is not rebuilt
+    // every frame, and the boundary keeps those repaints off the rest of the screen.
+    return RepaintBoundary(
+      child: CustomPaint(
+        size: Size.infinite,
+        painter: TrailPainter(
+          currentMap,
+          widget.route,
+          widget.position,
+          pulse: _animate ? _controller : null,
+        ),
       ),
     );
   }
@@ -81,33 +88,32 @@ class _TrailViewState extends State<TrailView> with SingleTickerProviderStateMix
     if (widget.mapNotifier != null) {
       return ValueListenableBuilder<MapGraph>(
         valueListenable: widget.mapNotifier!,
-        builder: (context, currentMap, _) {
-          if (!_animate) {
-            return _buildPainter(currentMap, 0.0);
-          }
-          return AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) => _buildPainter(currentMap, _controller.value),
-          );
-        },
+        builder: (context, currentMap, _) => _buildPainter(currentMap),
       );
     }
-
-    if (!_animate) {
-      return _buildPainter(widget.map!, 0.0);
-    }
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) => _buildPainter(widget.map!, _controller.value),
-    );
+    return _buildPainter(widget.map!);
   }
 }
 
+/// A label to draw: the node it belongs to, its laid-out text and whether it
+/// must always show (start, destination, next place).
+class _Label {
+  _Label(this.offset, this.text, this.important);
+  final Offset offset;
+  final TextPainter text;
+  final bool important;
+}
+
+enum _NodeStyle { start, destination, next, place, junction }
+
 class TrailPainter extends CustomPainter {
   static const Color labelColor = BreadcrumbTheme.textPrimary;
-  static const Color labelBackgroundColor = BreadcrumbTheme.surface;
-  static const Color canvasBackgroundColor = BreadcrumbTheme.background;
+  static const Color labelBackgroundColor = BreadcrumbTheme.surface2;
+  static const Color canvasBackgroundColor = BreadcrumbTheme.bg;
+
+  /// Two labels closer than this: the less important one is a dot only.
+  static const double labelMinGap = 32;
+  static const double routeWidth = 6;
 
   /// WCAG 2.1 relative luminance for contrast calculation.
   static double relativeLuminance(Color color) {
@@ -127,20 +133,70 @@ class TrailPainter extends CustomPainter {
     return (lighter + 0.05) / (darker + 0.05);
   }
 
+  // Paints are made once and shared by every painter.
+  static Paint _stroke(Color color, double width) => Paint()
+    ..color = color
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = width
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+  static Paint _fill(Color color) => Paint()..color = color;
+
+  static final Paint _bgPaint = _fill(canvasBackgroundColor);
+  static final Paint _gridPaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.035)
+    ..strokeWidth = 1.0;
+  static final Paint _trailPaint = _stroke(BreadcrumbTheme.accent, routeWidth);
+  static final Paint _offRoutePaint = _stroke(BreadcrumbTheme.borderActive, routeWidth);
+  static final Paint _routePaint = _stroke(BreadcrumbTheme.accent, routeWidth);
+  static final Paint _walkedPaint = _stroke(BreadcrumbTheme.accentWalked, routeWidth);
+  static final Paint _outlinePaint = _fill(canvasBackgroundColor);
+  static final Paint _whitePaint = _fill(BreadcrumbTheme.textPrimary);
+  static final Paint _placePaint = _fill(BreadcrumbTheme.textSecondary);
+  static final Paint _junctionPaint = _fill(BreadcrumbTheme.textMuted);
+  static final Paint _startRingPaint = _stroke(BreadcrumbTheme.textPrimary, 2);
+  static final Paint _accentFillPaint = _fill(BreadcrumbTheme.accent);
+  static final Paint _labelBgPaint = _fill(labelBackgroundColor);
+  static final Paint _labelBorderPaint = _stroke(BreadcrumbTheme.borderActive, 1);
+  static final Paint _pulsePaint = _stroke(BreadcrumbTheme.accent, 2);
+  static const TextStyle _labelStyle = TextStyle(
+    fontFamily: BreadcrumbTheme.fontFamily,
+    color: labelColor,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+  );
+
   final MapGraph map;
   final RoutePlan? route;
   final Position? position;
   final double pulseValue;
+
+  /// Drives the pulse ring and repaints without rebuilding. Null: a still ring.
+  final Animation<double>? pulse;
 
   TrailPainter(
     this.map,
     this.route,
     this.position, {
     this.pulseValue = 0.0,
-  });
+    this.pulse,
+  }) : super(repaint: pulse);
+
+  late final List<TrailPoint> _points = layoutMap(map);
+
+  // Everything except the pulse is laid out once per size.
+  Size? _preparedFor;
+  Path? _trail;
+  Path? _offRoute;
+  Path? _route;
+  Path? _walked;
+  Offset? _dot;
+  final List<(Offset, _NodeStyle)> _nodes = [];
+  final List<(_Label, Rect)> _labels = [];
 
   Offset toOffset(double x, double y, Size size, {List<TrailPoint>? precomputedPoints}) {
-    final points = precomputedPoints ?? layoutMap(map);
+    final points = precomputedPoints ?? _points;
     if (points.isEmpty) return Offset.zero;
 
     double minX = points.first.x, maxX = points.first.x;
@@ -176,260 +232,277 @@ class TrailPainter extends CustomPainter {
     );
   }
 
-  void _drawHereMarker(Canvas canvas, Offset offset) {
-    final clampedPulse = pulseValue.clamp(0.0, 1.0);
-    // Soft pulse
-    final haloRadius = 9.0 + 9.0 * clampedPulse;
-    final haloAlpha = (1.0 - clampedPulse).clamp(0.0, 1.0) * 0.25;
-    canvas.drawCircle(
-      offset,
-      haloRadius,
-      Paint()..color = BreadcrumbTheme.textPrimary.withValues(alpha: haloAlpha),
-    );
-    // Solid dot with a thin ring in the canvas colour so it reads on the route
-    canvas.drawCircle(offset, 8.0, Paint()..color = canvasBackgroundColor);
-    canvas.drawCircle(offset, 6.0, Paint()..color = BreadcrumbTheme.textPrimary);
+  Corridor? _corridor(String id) {
+    for (final c in map.corridors) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  Place? _place(String id) {
+    for (final p in map.places) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  /// The node a leg starts from and the node it ends at.
+  (String, String)? _ends(Leg leg) {
+    final c = _corridor(leg.corridorId);
+    if (c == null) return null;
+    return leg.reversed ? (c.to, c.from) : (c.from, c.to);
+  }
+
+  /// The first named place the route still reaches from the current leg.
+  String? _nextPlaceId() {
+    final r = route;
+    if (r == null || r.legs.isEmpty) return null;
+    final from = (position?.legIndex ?? 0).clamp(0, r.legs.length - 1);
+    for (var i = from; i < r.legs.length; i++) {
+      final end = _ends(r.legs[i])?.$2;
+      if (end == null) continue;
+      final place = _place(end);
+      if (place != null && place.kind != PlaceKind.junction) return end;
+    }
+    return null;
   }
 
   /// Where to draw a label for the dot at [dot]: below, above, right or left,
   /// whichever first stays clear of [placed] labels, kept inside the canvas.
-  Offset _labelOffset(Offset dot, Size text, Size canvas, List<Rect> placed) {
+  /// Null when every spot overlaps and [force] is false.
+  Offset? _labelOffset(Offset dot, Size text, Size canvas, List<Rect> placed, {required bool force}) {
     final candidates = [
-      dot + const Offset(-10, 12),
-      dot + Offset(-10, -12 - text.height),
+      dot + Offset(-text.width / 2, 12),
+      dot + Offset(-text.width / 2, -12 - text.height),
       dot + Offset(14, -text.height / 2),
       dot + Offset(-14 - text.width, -text.height / 2),
     ];
     Offset clamp(Offset o) => Offset(
-          o.dx.clamp(6.0, math.max(6.0, canvas.width - text.width - 6)),
-          o.dy.clamp(4.0, math.max(4.0, canvas.height - text.height - 4)),
+          o.dx.clamp(10.0, math.max(10.0, canvas.width - text.width - 10)),
+          o.dy.clamp(6.0, math.max(6.0, canvas.height - text.height - 6)),
         );
     for (final c in candidates) {
       final o = clamp(c);
-      final rect = Rect.fromLTWH(o.dx - 4, o.dy - 2, text.width + 8, text.height + 4);
-      if (!placed.any((r) => r.inflate(2).overlaps(rect))) return o;
+      if (!placed.any((r) => r.inflate(2).overlaps(_pillRect(o, text)))) return o;
     }
-    return clamp(candidates.first);
+    return force ? clamp(candidates.first) : null;
+  }
+
+  static Rect _pillRect(Offset textOffset, Size text) =>
+      Rect.fromLTWH(textOffset.dx - 8, textOffset.dy - 3, text.width + 16, text.height + 6);
+
+  void _prepare(Size size) {
+    if (_preparedFor == size) return;
+    _preparedFor = size;
+    _nodes.clear();
+    _labels.clear();
+    _trail = null;
+    _offRoute = null;
+    _route = null;
+    _walked = null;
+    _dot = null;
+    if (_points.isEmpty) return;
+
+    final pointMap = {for (final p in _points) p.placeId: p};
+    Offset at(String id) {
+      final p = pointMap[id]!;
+      return toOffset(p.x, p.y, size, precomputedPoints: _points);
+    }
+
+    // Recorded corridors. With no route they are the trail itself (accent);
+    // under a route they step back to neutral so the route is the only accent.
+    final r = route;
+    final hasRoute = r != null && r.legs.isNotEmpty;
+    final corridors = Path();
+    for (final c in map.corridors) {
+      if (pointMap[c.from] == null || pointMap[c.to] == null) continue;
+      final a = at(c.from);
+      final b = at(c.to);
+      corridors
+        ..moveTo(a.dx, a.dy)
+        ..lineTo(b.dx, b.dy);
+    }
+    if (hasRoute) {
+      _offRoute = corridors;
+    } else {
+      _trail = corridors;
+    }
+
+    // Planned route; the walked part is dimmed.
+    if (hasRoute) {
+      final ahead = Path();
+      final walked = Path();
+      final currentLeg = position?.legIndex;
+      for (var i = 0; i < r.legs.length; i++) {
+        final leg = r.legs[i];
+        final ends = _ends(leg);
+        if (ends == null || pointMap[ends.$1] == null || pointMap[ends.$2] == null) continue;
+        final o1 = at(ends.$1);
+        final o2 = at(ends.$2);
+        if (currentLeg == null || i > currentLeg) {
+          ahead
+            ..moveTo(o1.dx, o1.dy)
+            ..lineTo(o2.dx, o2.dy);
+        } else if (i < currentLeg) {
+          walked
+            ..moveTo(o1.dx, o1.dy)
+            ..lineTo(o2.dx, o2.dy);
+        } else {
+          final f = leg.steps == 0 ? 0.0 : (position!.stepsAlong / leg.steps).clamp(0.0, 1.0);
+          final mid = Offset.lerp(o1, o2, f)!;
+          walked
+            ..moveTo(o1.dx, o1.dy)
+            ..lineTo(mid.dx, mid.dy);
+          ahead
+            ..moveTo(mid.dx, mid.dy)
+            ..lineTo(o2.dx, o2.dy);
+        }
+      }
+      _route = ahead;
+      _walked = walked;
+    }
+
+    // Nodes and labels.
+    final startId = hasRoute ? (_ends(r.legs.first)?.$1 ?? map.start) : map.start;
+    final destId = r?.toId;
+    final nextId = _nextPlaceId();
+    final candidates = <_Label>[];
+    for (final p in _points) {
+      final offset = at(p.placeId);
+      if (p.placeId == hereId) {
+        // D19: the walker's position while recording.
+        _dot = offset;
+        continue;
+      }
+      final place = _place(p.placeId);
+      final isStart = p.placeId == startId || (place != null && place.kind == PlaceKind.start);
+      final isDest = (destId != null && p.placeId == destId) ||
+          (destId == null && place != null && place.name == 'End of walk');
+      final isNext = nextId != null && p.placeId == nextId;
+      final style = isStart
+          ? _NodeStyle.start
+          : isDest
+          ? _NodeStyle.destination
+          : isNext
+          ? _NodeStyle.next
+          : (place == null || place.kind == PlaceKind.junction)
+          ? _NodeStyle.junction
+          : _NodeStyle.place;
+      _nodes.add((offset, style));
+      if (place != null && place.kind != PlaceKind.junction) {
+        final text = TextPainter(
+          text: TextSpan(text: place.name, style: _labelStyle),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+          ellipsis: '…',
+        )..layout(maxWidth: math.max(40, size.width * 0.45));
+        candidates.add(_Label(offset, text, isStart || isDest || isNext));
+      }
+    }
+
+    // Important labels first; any other label closer than [labelMinGap] to one
+    // already shown, or with nowhere free to go, stays a dot.
+    candidates.sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
+    final placed = <Rect>[];
+    final shownAt = <Offset>[];
+    for (final label in candidates) {
+      if (!label.important && shownAt.any((o) => (o - label.offset).distance < labelMinGap)) {
+        continue;
+      }
+      final textSize = Size(label.text.width, label.text.height);
+      final o = _labelOffset(label.offset, textSize, size, placed, force: label.important);
+      if (o == null) continue;
+      final rect = _pillRect(o, textSize);
+      placed.add(rect);
+      shownAt.add(label.offset);
+      _labels.add((_Label(o, label.text, label.important), rect));
+    }
+
+    // The navigation position on the route.
+    if (hasRoute && position != null) {
+      final pos = position!;
+      if (pos.legIndex < r.legs.length) {
+        final leg = r.legs[pos.legIndex];
+        final ends = _ends(leg);
+        if (ends != null && pointMap[ends.$1] != null && pointMap[ends.$2] != null) {
+          final f = leg.steps == 0 ? 0.0 : (pos.stepsAlong / leg.steps).clamp(0.0, 1.0);
+          _dot = Offset.lerp(at(ends.$1), at(ends.$2), f);
+        }
+      } else if (pos.legIndex == r.legs.length) {
+        // Arrived at the final destination.
+        final end = _ends(r.legs.last)?.$2;
+        if (end != null && pointMap[end] != null) _dot = at(end);
+      }
+    }
+  }
+
+  void _drawNode(Canvas canvas, Offset o, _NodeStyle style) {
+    switch (style) {
+      case _NodeStyle.start:
+        canvas.drawCircle(o, 6, _outlinePaint);
+        canvas.drawCircle(o, 4, _startRingPaint);
+      case _NodeStyle.destination:
+        canvas.drawCircle(o, 7, _outlinePaint);
+        canvas.drawCircle(o, 5, _whitePaint);
+        canvas.drawCircle(o, 2.5, _accentFillPaint);
+      case _NodeStyle.next:
+        canvas.drawCircle(o, 6, _outlinePaint);
+        canvas.drawCircle(o, 4, _whitePaint);
+      case _NodeStyle.place:
+        canvas.drawCircle(o, 6, _outlinePaint);
+        canvas.drawCircle(o, 4, _placePaint);
+      case _NodeStyle.junction:
+        canvas.drawCircle(o, 2.5, _junctionPaint);
+    }
+  }
+
+  /// 12 dp white dot with an accent ring that grows and fades every 2 s.
+  void _drawHereMarker(Canvas canvas, Offset offset) {
+    final animated = pulse != null;
+    final t = (pulse?.value ?? pulseValue).clamp(0.0, 1.0);
+    if (animated || t > 0) {
+      _pulsePaint.color = BreadcrumbTheme.accent.withValues(alpha: 0.7 * (1 - t));
+      canvas.drawCircle(offset, 8 + 16 * t, _pulsePaint);
+    } else {
+      _pulsePaint.color = BreadcrumbTheme.accent.withValues(alpha: 0.5);
+      canvas.drawCircle(offset, 11, _pulsePaint);
+    }
+    canvas.drawCircle(offset, 8, _accentFillPaint);
+    canvas.drawCircle(offset, 6, _whitePaint);
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Background grid at 4% opacity
-    canvas.drawRect(Offset.zero & size, Paint()..color = canvasBackgroundColor);
+    canvas.drawRect(Offset.zero & size, _bgPaint);
 
-    final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.04)
-      ..strokeWidth = 1.0;
     const gridStep = 32.0;
     for (double x = 0; x <= size.width; x += gridStep) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), _gridPaint);
     }
     for (double y = 0; y <= size.height; y += gridStep) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), _gridPaint);
     }
 
-    final points = layoutMap(map);
-    if (points.isEmpty) return;
+    _prepare(size);
+    if (_points.isEmpty) return;
 
-    final pointMap = {for (final p in points) p.placeId: p};
+    if (_trail != null) canvas.drawPath(_trail!, _trailPaint);
+    if (_offRoute != null) canvas.drawPath(_offRoute!, _offRoutePaint);
+    if (_walked != null) canvas.drawPath(_walked!, _walkedPaint);
+    if (_route != null) canvas.drawPath(_route!, _routePaint);
 
-    // 2. Recorded corridors. With no route they are the trail itself (accent);
-    // under a route they step back to neutral so the route is the only accent.
-    final hasRoute = route != null && route!.legs.isNotEmpty;
-    final corridorPaint = Paint()
-      ..color = hasRoute ? BreadcrumbTheme.border : BreadcrumbTheme.accent
-      ..strokeWidth = 6.0
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    for (final c in map.corridors) {
-      final p1 = pointMap[c.from];
-      final p2 = pointMap[c.to];
-      if (p1 != null && p2 != null) {
-        canvas.drawLine(
-          toOffset(p1.x, p1.y, size, precomputedPoints: points),
-          toOffset(p2.x, p2.y, size, precomputedPoints: points),
-          corridorPaint,
-        );
-      }
+    for (final (o, style) in _nodes) {
+      _drawNode(canvas, o, style);
     }
 
-    // 3. Planned route: 6 px, round caps; the walked part is dimmed to 40%.
-    if (hasRoute) {
-      final routeMainPaint = Paint()
-        ..color = BreadcrumbTheme.accent
-        ..strokeWidth = 6.0
-        ..strokeCap = StrokeCap.round;
-      final walkedPaint = Paint()
-        ..color = BreadcrumbTheme.accent.withValues(alpha: 0.4)
-        ..strokeWidth = 6.0
-        ..strokeCap = StrokeCap.round;
-      final currentLeg = position?.legIndex;
-
-      for (var i = 0; i < route!.legs.length; i++) {
-        final leg = route!.legs[i];
-        final c = map.corridors.cast<Corridor?>().firstWhere(
-          (c) => c?.id == leg.corridorId,
-          orElse: () => null,
-        );
-        if (c == null) continue;
-        final p1 = pointMap[leg.reversed ? c.to : c.from];
-        final p2 = pointMap[leg.reversed ? c.from : c.to];
-        if (p1 == null || p2 == null) continue;
-        final o1 = toOffset(p1.x, p1.y, size, precomputedPoints: points);
-        final o2 = toOffset(p2.x, p2.y, size, precomputedPoints: points);
-        if (currentLeg == null || i > currentLeg) {
-          canvas.drawLine(o1, o2, routeMainPaint);
-        } else if (i < currentLeg) {
-          canvas.drawLine(o1, o2, walkedPaint);
-        } else {
-          final f = leg.steps == 0
-              ? 0.0
-              : (position!.stepsAlong / leg.steps).clamp(0.0, 1.0);
-          final mid = Offset.lerp(o1, o2, f)!;
-          canvas.drawLine(mid, o2, routeMainPaint);
-          canvas.drawLine(o1, mid, walkedPaint);
-        }
-      }
+    for (final (label, rect) in _labels) {
+      final pill = RRect.fromRectAndRadius(rect, Radius.circular(rect.height / 2));
+      canvas.drawRRect(pill, _labelBgPaint);
+      canvas.drawRRect(pill, _labelBorderPaint);
+      label.text.paint(canvas, label.offset);
     }
 
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    final startId = route != null && route!.legs.isNotEmpty
-        ? (() {
-            final firstLeg = route!.legs.first;
-            final c = map.corridors.cast<Corridor?>().firstWhere(
-              (c) => c?.id == firstLeg.corridorId,
-              orElse: () => null,
-            );
-            return c != null ? (firstLeg.reversed ? c.to : c.from) : map.start;
-          })()
-        : map.start;
-    final destId = route?.toId;
-    final placedLabels = <Rect>[];
-
-    // 4. Place dots with label pills, start marker, destination marker
-    for (final p in points) {
-      final offset = toOffset(p.x, p.y, size, precomputedPoints: points);
-
-      // D19: If this node is hereId ('_here'), draw pulsing moving dot
-      if (p.placeId == hereId) {
-        _drawHereMarker(canvas, offset);
-        continue;
-      }
-
-      final place = map.places.cast<Place?>().firstWhere(
-        (pl) => pl?.id == p.placeId,
-        orElse: () => null,
-      );
-
-      final isStart = p.placeId == startId || (place != null && place.kind == PlaceKind.start);
-      final isDest = (destId != null && p.placeId == destId) ||
-          (destId == null && place != null && place.name == 'End of walk');
-
-      if (isStart) {
-        // Start: hollow ring
-        canvas.drawCircle(offset, 6.0, Paint()..color = canvasBackgroundColor);
-        canvas.drawCircle(
-          offset,
-          5.0,
-          Paint()
-            ..color = BreadcrumbTheme.textPrimary
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.0,
-        );
-      } else if (isDest) {
-        // Destination: larger solid dot
-        canvas.drawCircle(offset, 8.0, Paint()..color = canvasBackgroundColor);
-        canvas.drawCircle(offset, 6.0, Paint()..color = BreadcrumbTheme.textPrimary);
-        canvas.drawCircle(offset, 2.0, Paint()..color = canvasBackgroundColor);
-      } else if (place == null || place.kind == PlaceKind.junction) {
-        // Junction: tiny neutral dot
-        canvas.drawCircle(offset, 2.5, Paint()..color = BreadcrumbTheme.textFaint);
-      } else {
-        // Marked place: small dot
-        canvas.drawCircle(offset, 5.0, Paint()..color = canvasBackgroundColor);
-        canvas.drawCircle(offset, 3.5, Paint()..color = BreadcrumbTheme.textSecondary);
-      }
-
-      // Draw label badge for places and start/dest (skip unlabeled junctions)
-      if (place != null && place.kind != PlaceKind.junction) {
-        textPainter.text = TextSpan(
-          text: place.name,
-          style: const TextStyle(
-            fontFamily: BreadcrumbTheme.fontFamily,
-            color: labelColor,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        );
-        textPainter.layout();
-        final textOffset = _labelOffset(
-          offset,
-          Size(textPainter.width, textPainter.height),
-          size,
-          placedLabels,
-        );
-        final labelRect = Rect.fromLTWH(
-          textOffset.dx - 6,
-          textOffset.dy - 2,
-          textPainter.width + 12,
-          textPainter.height + 4,
-        );
-        placedLabels.add(labelRect);
-        final bgRect = RRect.fromRectAndRadius(
-          labelRect,
-          Radius.circular(labelRect.height / 2),
-        );
-        canvas.drawRRect(
-          bgRect,
-          Paint()..color = labelBackgroundColor,
-        );
-        canvas.drawRRect(
-          bgRect,
-          Paint()
-            ..color = BreadcrumbTheme.border
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
-        );
-        textPainter.paint(canvas, textOffset);
-      }
-    }
-
-    // 5. Moving position dot (if route & position provided)
-    if (route != null && position != null && route!.legs.isNotEmpty) {
-      if (position!.legIndex < route!.legs.length) {
-        final leg = route!.legs[position!.legIndex];
-        final c = map.corridors.cast<Corridor?>().firstWhere(
-          (c) => c?.id == leg.corridorId,
-          orElse: () => null,
-        );
-        if (c != null) {
-          final p1 = pointMap[leg.reversed ? c.to : c.from];
-          final p2 = pointMap[leg.reversed ? c.from : c.to];
-          if (p1 != null && p2 != null) {
-            final fraction = leg.steps == 0 ? 0.0 : (position!.stepsAlong / leg.steps);
-            final clampedFraction = fraction.clamp(0.0, 1.0);
-            final cx = p1.x + (p2.x - p1.x) * clampedFraction;
-            final cy = p1.y + (p2.y - p1.y) * clampedFraction;
-
-            _drawHereMarker(canvas, toOffset(cx, cy, size, precomputedPoints: points));
-          }
-        }
-      } else if (position!.legIndex == route!.legs.length) {
-        // Arrived at final destination
-        final leg = route!.legs.last;
-        final c = map.corridors.cast<Corridor?>().firstWhere(
-          (c) => c?.id == leg.corridorId,
-          orElse: () => null,
-        );
-        if (c != null) {
-          final p2 = pointMap[leg.reversed ? c.from : c.to];
-          if (p2 != null) {
-            _drawHereMarker(canvas, toOffset(p2.x, p2.y, size, precomputedPoints: points));
-          }
-        }
-      }
-    }
+    if (_dot != null) _drawHereMarker(canvas, _dot!);
   }
 
   @override
@@ -437,6 +510,7 @@ class TrailPainter extends CustomPainter {
     return oldDelegate.map != map ||
         oldDelegate.route != route ||
         oldDelegate.position != position ||
-        oldDelegate.pulseValue != pulseValue;
+        oldDelegate.pulseValue != pulseValue ||
+        oldDelegate.pulse != pulse;
   }
 }

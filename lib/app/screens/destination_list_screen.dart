@@ -451,7 +451,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
               const SizedBox(height: 14),
               _NoteCard(
                 icon: _isListening ? Icons.graphic_eq_rounded : Icons.info_outline_rounded,
-                color: _isListening ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.warning,
+                color: _isListening ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.offRoute,
                 text: feedback,
               ),
             ],

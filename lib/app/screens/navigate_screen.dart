@@ -1,6 +1,5 @@
 import 'package:breadcrumb/app/widgets/ui/ui.dart';
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/core/contracts.dart';
@@ -12,11 +11,12 @@ import 'package:breadcrumb/app/widgets/arrow_glyph.dart';
 import 'package:breadcrumb/app/widgets/trail_view.dart';
 import 'scan_screen.dart';
 
-/// Google-Maps-style navigation screen:
-/// - Top instruction card: solid accent block, arrow glyph + confidence ring,
-///   with the "Then: ..." strip as its lower edge
-/// - TrailView filling the middle (the hero)
-/// - Bottom sheet with destination name, steps left, progress bar, and two equal buttons
+/// Navigation screen, readable while walking and from a projector:
+/// - Instruction card: a 64 dp state-coloured arrow box, "N STEPS", the
+///   instruction (shrinks to fit two lines, never cut off) and "Then: ...".
+///   Off route it turns orange, arrived green; questions get inline buttons.
+/// - TrailView filling the middle, north-up and auto-fitted
+/// - Dock: confidence gauge, destination, steps left, progress, two buttons
 class NavigateScreen extends StatefulWidget {
   final String destinationId;
   final bool simulate;
@@ -40,6 +40,11 @@ class _NavigateScreenState extends State<NavigateScreen> {
   String? _errorMessage;
   String? _alreadyTherePlace;
   int _simulatedTimestamp = 0;
+
+  // Card styling only; none of this feeds the tracker or the guide.
+  int _backOnRouteFlashes = 0;
+  Position? _flashedFor;
+  String? _dismissedPrompt;
 
   @override
   void initState() {
@@ -180,6 +185,11 @@ class _NavigateScreenState extends State<NavigateScreen> {
 
     setState(() {
       _currentInstruction = newInstruction;
+      // UI only: flash the card once when the walker rejoins the route.
+      if (position.backOnRoute && !identical(position, _flashedFor)) {
+        _flashedFor = position;
+        _backOnRouteFlashes++;
+      }
     });
   }
 
@@ -311,16 +321,6 @@ class _NavigateScreenState extends State<NavigateScreen> {
     }
   }
 
-  ArrowKind _getNextArrowKind(String text) {
-    final lower = text.toLowerCase();
-    if (lower.contains('left')) return ArrowKind.left;
-    if (lower.contains('right')) return ArrowKind.right;
-    if (lower.contains('around')) return ArrowKind.uTurn;
-    if (lower.contains('stairs') || lower.contains('floor')) return ArrowKind.stairs;
-    if (lower.contains('arrive')) return ArrowKind.arrival;
-    return ArrowKind.straight;
-  }
-
   @override
   void dispose() {
     _sensorSubscription?.cancel();
@@ -328,9 +328,72 @@ class _NavigateScreenState extends State<NavigateScreen> {
     super.dispose();
   }
 
+
+  static const _promptKinds = {
+    InstructionKind.arrivingConfirm,
+    InstructionKind.confirmPlace,
+    InstructionKind.maybePassed,
+  };
+
+  /// The transition leg a changeFloor instruction is about: the current leg,
+  /// or the one after the current straight run.
+  Leg? _floorLeg(RoutePlan? route, Position? position) {
+    if (route == null || position == null || route.legs.isEmpty) return null;
+    final i = position.legIndex.clamp(0, route.legs.length - 1);
+    if (route.legs[i].isTransition) return route.legs[i];
+    final j = runEnd(route, i);
+    return j + 1 < route.legs.length ? route.legs[j + 1] : null;
+  }
+
+  ArrowKind _glyphFor(Instruction? instruction) {
+    switch (instruction?.kind) {
+      case InstructionKind.offRoute:
+      case InstructionKind.maybePassed:
+        return ArrowKind.uTurn;
+      case InstructionKind.arrivingConfirm:
+      case InstructionKind.confirmPlace:
+        return ArrowKind.arrival;
+      case InstructionKind.changeFloor:
+        return _floorLeg(_route, _position)?.kind == CorridorKind.lift ? ArrowKind.lift : ArrowKind.stairs;
+      default:
+        return arrowKindFor(instruction?.kind);
+    }
+  }
+
+  Color _toneFor(Instruction? instruction) {
+    final kind = instruction?.kind;
+    if (kind == InstructionKind.arrive) return BreadcrumbTheme.success;
+    if ((_position?.offRoute ?? false) ||
+        kind == InstructionKind.offRoute ||
+        kind == InstructionKind.maybePassed) {
+      return BreadcrumbTheme.offRoute;
+    }
+    return BreadcrumbTheme.accent;
+  }
+
+  Future<void> _openScan() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScanScreen(
+          destinationId: widget.destinationId,
+          currentRoute: _route,
+          onReplan: (newRoute, newPosition) {
+            setState(() {
+              _route = newRoute;
+              _position = newPosition;
+            });
+            _updateInstruction();
+          },
+        ),
+      ),
+    );
+    _updateInstruction();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final showSimulated = _isSimulating || _usedSimulation;
+    final showSimulated = _isSimulating || _usedSimulation || (_showDebugButtons && kDebugMode);
 
     if (_errorMessage != null) {
       return Scaffold(
@@ -341,7 +404,7 @@ class _NavigateScreenState extends State<NavigateScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: BreadcrumbTheme.danger),
+                const Icon(Icons.error_outline_rounded, size: 48, color: BreadcrumbTheme.error),
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage!,
@@ -384,8 +447,17 @@ class _NavigateScreenState extends State<NavigateScreen> {
                   const StatusPill.simulated(),
                   const SizedBox(height: 16),
                 ],
-                const ArrowGlyph(kind: ArrowKind.arrival, size: 48, color: BreadcrumbTheme.textPrimary),
-                const SizedBox(height: 16),
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: BreadcrumbTheme.success,
+                    borderRadius: BreadcrumbTheme.borderRadiusLg,
+                  ),
+                  alignment: Alignment.center,
+                  child: const ArrowGlyph(kind: ArrowKind.arrival, size: 44, color: BreadcrumbTheme.onAccent),
+                ),
+                const SizedBox(height: 24),
                 Text(
                   "You're already at $_alreadyTherePlace",
                   style: BreadcrumbTheme.heading,
@@ -420,22 +492,13 @@ class _NavigateScreenState extends State<NavigateScreen> {
     );
     final destName = destPlace?.name ?? widget.destinationId;
 
-    final stepsLeft = _currentInstruction?.steps;
+    final instruction = _currentInstruction;
+    final stepsLeft = instruction?.steps;
     final confidence = _getConfidence();
-    final nextInstructionText = _getNextInstructionText(route, position, _currentInstruction);
-
-    // Secondary: outlined, same 52 dp height as the primary button.
-    final actionButtonStyle = ElevatedButton.styleFrom(
-      backgroundColor: Colors.transparent,
-      foregroundColor: BreadcrumbTheme.textPrimary,
-      shadowColor: Colors.transparent,
-      side: const BorderSide(color: BreadcrumbTheme.border),
-      minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      shape: const RoundedRectangleBorder(borderRadius: BreadcrumbTheme.borderRadius),
-      textStyle: BreadcrumbTheme.button,
-      elevation: 0,
-    );
+    final nextInstructionText = _getNextInstructionText(route, position, instruction);
+    final showPrompt = instruction != null &&
+        _promptKinds.contains(instruction.kind) &&
+        _dismissedPrompt != instruction.text;
 
     return Scaffold(
       appBar: AppBar(
@@ -463,123 +526,27 @@ class _NavigateScreenState extends State<NavigateScreen> {
               }
             },
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // SIMULATED indicator banner
-            if (showSimulated)
-              Container(
-                width: double.infinity,
-                color: BreadcrumbTheme.surface,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: const Text(
-                  'SIMULATED',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: BreadcrumbTheme.warning,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ),
-
-            // Instruction card: one solid accent block (turn banner) with the
-            // "Then:" strip as its lower edge.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: ClipRRect(
-                borderRadius: BreadcrumbTheme.borderRadius,
-                child: Container(
-                  color: BreadcrumbTheme.accent,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            ConfidenceRing(
-                              confidence: confidence,
-                              size: 56.0,
-                              child: ArrowGlyph(
-                                kind: arrowKindFor(_currentInstruction?.kind),
-                                size: 32,
-                                color: BreadcrumbTheme.onAccent,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _currentInstruction?.text ?? 'Calculating...',
-                                    style: const TextStyle(
-                                      fontFamily: BreadcrumbTheme.fontFamily,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w600,
-                                      color: BreadcrumbTheme.onAccent,
-                                      height: 1.2,
-                                    ),
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (stepsLeft != null && stepsLeft > 0) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      stepsLeft == 1 ? '1 step' : '$stepsLeft steps',
-                                      style: const TextStyle(
-                                        fontFamily: BreadcrumbTheme.fontFamily,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        color: BreadcrumbTheme.onAccent,
-                                        fontFeatures: [FontFeature.tabularFigures()],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (nextInstructionText != null)
-                        Container(
-                          color: BreadcrumbTheme.onAccent.withValues(alpha: 0.12),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(
-                            children: [
-                              ArrowGlyph(
-                                kind: _getNextArrowKind(nextInstructionText),
-                                size: 20,
-                                color: BreadcrumbTheme.onAccent,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  nextInstructionText,
-                                  style: const TextStyle(
-                                    fontFamily: BreadcrumbTheme.fontFamily,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: BreadcrumbTheme.onAccent,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: InstructionCard(
+                text: instruction?.text ?? 'Calculating...',
+                glyph: _glyphFor(instruction),
+                tone: _toneFor(instruction),
+                steps: stepsLeft,
+                // Off route the "Then" of the route ahead would mislead.
+                then: _toneFor(instruction) == BreadcrumbTheme.offRoute ? null : nextInstructionText,
+                flashes: _backOnRouteFlashes,
+                onYes: showPrompt ? _onImHere : null,
+                onNotYet: showPrompt
+                    ? () => setState(() => _dismissedPrompt = instruction.text)
+                    : null,
               ),
             ),
 
@@ -590,8 +557,8 @@ class _NavigateScreenState extends State<NavigateScreen> {
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 120),
                   decoration: BoxDecoration(
-                    color: BreadcrumbTheme.surface,
-                    borderRadius: BreadcrumbTheme.borderRadius,
+                    color: BreadcrumbTheme.bg,
+                    borderRadius: BreadcrumbTheme.borderRadiusLg,
                     border: Border.all(color: BreadcrumbTheme.border),
                   ),
                   clipBehavior: Clip.antiAlias,
@@ -607,14 +574,14 @@ class _NavigateScreenState extends State<NavigateScreen> {
             // Dev toggle debug buttons if active
             if (_showDebugButtons && kDebugMode)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Wrap(
                   alignment: WrapAlignment.center,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: 8,
                   runSpacing: 4,
                   children: [
-                    const Text('DEBUG: ', style: TextStyle(fontWeight: FontWeight.bold, color: BreadcrumbTheme.textSecondary)),
+                    const Text('DEBUG', style: BreadcrumbTheme.eyebrow),
                     OutlinedButton(
                       onPressed: _onStepDebug,
                       child: const Text('+1 step'),
@@ -631,98 +598,82 @@ class _NavigateScreenState extends State<NavigateScreen> {
                 ),
               ),
 
-            // Bottom sheet: destination name, steps left, thin progress bar, two equal buttons
+            // Dock: confidence, destination, steps left, progress, two buttons
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(top: 12),
               decoration: const BoxDecoration(
-                color: BreadcrumbTheme.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(BreadcrumbTheme.radius)),
+                color: BreadcrumbTheme.surface1,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(BreadcrumbTheme.radiusLg)),
                 border: Border(top: BorderSide(color: BreadcrumbTheme.border)),
               ),
               child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Text(
-                            destName,
-                            style: const TextStyle(
-                              fontFamily: BreadcrumbTheme.fontFamily,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: BreadcrumbTheme.textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                destName,
+                                style: BreadcrumbTheme.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$remainingSteps steps left',
+                                style: BreadcrumbTheme.secondary.copyWith(fontFeatures: BreadcrumbTheme.tabular),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            '$remainingSteps steps left',
-                            style: const TextStyle(
-                              fontFamily: BreadcrumbTheme.fontFamily,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w400,
-                              color: BreadcrumbTheme.textSecondary,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                        if (showSimulated) ...[
+                          const SizedBox(width: 8),
+                          const StatusPill.simulated(),
+                        ],
+                        const SizedBox(width: 12),
+                        ConfidenceGauge(confidence: confidence),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(999),
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 4,
-                        backgroundColor: BreadcrumbTheme.border,
+                        backgroundColor: BreadcrumbTheme.surface3,
                         valueColor: const AlwaysStoppedAnimation<Color>(BreadcrumbTheme.accent),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton(
-                            style: actionButtonStyle,
-                            onPressed: _onImHere,
-                            child: const FittedBox(fit: BoxFit.scaleDown, child: Text("I'm here")),
+                          child: PressScale(
+                            child: ElevatedButton(
+                              style: BreadcrumbTheme.primaryButton,
+                              onPressed: _onImHere,
+                              child: const FittedBox(fit: BoxFit.scaleDown, child: Text("I'm here")),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: ElevatedButton(
-                            style: actionButtonStyle,
-                            onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ScanScreen(
-                                    destinationId: widget.destinationId,
-                                    currentRoute: _route,
-                                    onReplan: (newRoute, newPosition) {
-                                      setState(() {
-                                        _route = newRoute;
-                                        _position = newPosition;
-                                      });
-                                      _updateInstruction();
-                                    },
-                                  ),
-                                ),
-                              );
-                              _updateInstruction();
-                            },
-                            child: const FittedBox(fit: BoxFit.scaleDown, child: Text('Scan sign')),
+                          child: PressScale(
+                            child: ElevatedButton(
+                              style: BreadcrumbTheme.secondaryElevatedButton,
+                              onPressed: _openScan,
+                              child: const FittedBox(fit: BoxFit.scaleDown, child: Text('Scan sign')),
+                            ),
                           ),
                         ),
                       ],
@@ -738,96 +689,250 @@ class _NavigateScreenState extends State<NavigateScreen> {
   }
 }
 
-/// A small confidence ring around the arrow icon.
-/// Uses [confidence] (0.0 to 1.0, defaults to 1.0 full ring);
-/// turns amber (warning) when confidence is below 0.5.
-class ConfidenceRing extends StatelessWidget {
-  const ConfidenceRing({
+/// The instruction card. Same layout in every state; only [tone] (border,
+/// arrow box) changes, crossfading over 250 ms.
+class InstructionCard extends StatelessWidget {
+  const InstructionCard({
     super.key,
-    required this.confidence,
-    required this.child,
-    this.size = 56.0,
+    required this.text,
+    required this.glyph,
+    required this.tone,
+    this.steps,
+    this.then,
+    this.flashes = 0,
+    this.onYes,
+    this.onNotYet,
   });
 
-  final double confidence;
-  final Widget child;
-  final double size;
+  final String text;
+  final ArrowKind glyph;
+  final Color tone;
+  final int? steps;
+  final String? then;
+
+  /// Bumped each time the walker gets back on route: one brief accent flash.
+  final int flashes;
+
+  /// Inline [Yes] [Not yet] for "Are you at ...?" style questions.
+  final VoidCallback? onYes;
+  final VoidCallback? onNotYet;
 
   @override
   Widget build(BuildContext context) {
-    final isLow = confidence < 0.5;
-    final ringColor = isLow ? BreadcrumbTheme.warning : BreadcrumbTheme.onAccent;
-    final trackColor = BreadcrumbTheme.onAccent.withValues(alpha: 0.22);
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: Size(size, size),
-            painter: _ConfidenceRingPainter(
-              progress: confidence.clamp(0.0, 1.0),
-              color: ringColor,
-              trackColor: trackColor,
-              strokeWidth: 3.5,
+    final steps = this.steps;
+    final then = this.then;
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ExcludeSemantics(
+              child: AnimatedContainer(
+                duration: BreadcrumbTheme.medium,
+                curve: BreadcrumbTheme.ease,
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: tone,
+                  borderRadius: BreadcrumbTheme.borderRadius,
+                ),
+                alignment: Alignment.center,
+                child: AnimatedSwitcher(
+                  duration: BreadcrumbTheme.medium,
+                  switchInCurve: BreadcrumbTheme.ease,
+                  child: ArrowGlyph(
+                    key: ValueKey(glyph),
+                    kind: glyph,
+                    size: 40,
+                    color: BreadcrumbTheme.onAccent,
+                  ),
+                ),
+              ),
             ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (steps != null && steps > 0) ...[
+                    Text(
+                      steps == 1 ? '1 STEP' : '$steps STEPS',
+                      style: BreadcrumbTheme.eyebrow,
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  FitInstructionText(text),
+                  if (then != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      then,
+                      style: BreadcrumbTheme.caption.copyWith(fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (onYes != null) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: PressScale(
+                  child: FilledButton(
+                    key: const ValueKey('prompt-yes'),
+                    onPressed: onYes,
+                    child: const Text('Yes'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: PressScale(
+                  child: OutlinedButton(
+                    key: const ValueKey('prompt-not-yet'),
+                    onPressed: onNotYet,
+                    child: const Text('Not yet'),
+                  ),
+                ),
+              ),
+            ],
           ),
-          child,
         ],
+      ],
+    );
+
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: AnimatedContainer(
+        duration: BreadcrumbTheme.medium,
+        curve: BreadcrumbTheme.ease,
+        decoration: BoxDecoration(
+          color: BreadcrumbTheme.surface1,
+          borderRadius: BreadcrumbTheme.borderRadiusLg,
+          border: Border.all(color: tone),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            if (flashes > 0)
+              Positioned.fill(
+                child: TweenAnimationBuilder<double>(
+                  key: ValueKey(flashes),
+                  tween: Tween(begin: 1, end: 0),
+                  duration: const Duration(milliseconds: 900),
+                  curve: BreadcrumbTheme.ease,
+                  builder: (context, v, _) => ColoredBox(
+                    color: BreadcrumbTheme.accent.withValues(alpha: 0.22 * v),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: content,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ConfidenceRingPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final Color trackColor;
-  final double strokeWidth;
+/// The instruction at 28 sp, stepping down to fit two lines. If even the
+/// smallest size needs more lines it wraps: the text is never cut off.
+class FitInstructionText extends StatelessWidget {
+  const FitInstructionText(this.text, {super.key});
 
-  _ConfidenceRingPainter({
-    required this.progress,
-    required this.color,
-    required this.trackColor,
-    required this.strokeWidth,
-  });
+  final String text;
+
+  static const sizes = [28.0, 26.0, 24.0, 22.0, 20.0, 18.0];
+
+  static TextStyle styleFor(double size) => BreadcrumbTheme.headline.copyWith(
+        fontSize: size,
+        height: 1.18,
+        letterSpacing: -0.3,
+      );
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
+  Widget build(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        for (final size in sizes) {
+          final painter = TextPainter(
+            text: TextSpan(text: text, style: styleFor(size)),
+            textDirection: TextDirection.ltr,
+            textScaler: scaler,
+            maxLines: 2,
+          )..layout(maxWidth: constraints.maxWidth);
+          final fits = !painter.didExceedMaxLines;
+          painter.dispose();
+          if (fits) return Text(text, style: styleFor(size), maxLines: 2);
+        }
+        return Text(text, style: styleFor(sizes.last));
+      },
+    );
+  }
+}
 
-    final trackPaint = Paint()
-      ..color = trackColor
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-    canvas.drawCircle(center, radius, trackPaint);
+/// How sure the tracker is of the position, as 4 bars: 4 and 3 accent, 2
+/// orange (the app is about to ask "Are you at ...?"), 1 red. Mapped straight
+/// from `Position.confidence`; it never shows a number.
+class ConfidenceGauge extends StatelessWidget {
+  const ConfidenceGauge({super.key, required this.confidence});
 
-    if (progress > 0) {
-      final ringPaint = Paint()
-        ..color = color
-        ..strokeWidth = strokeWidth
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
+  final double confidence;
 
-      const startAngle = -math.pi / 2;
-      final sweepAngle = 2 * math.pi * progress;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        sweepAngle,
-        false,
-        ringPaint,
-      );
-    }
+  static int barsFor(double confidence) {
+    if (confidence >= 0.8) return 4;
+    if (confidence >= tuning.confidenceAskBelow) return 3;
+    if (confidence >= 0.3) return 2;
+    return 1;
   }
 
+  static Color colorFor(int bars) => switch (bars) {
+        >= 3 => BreadcrumbTheme.accent,
+        2 => BreadcrumbTheme.offRoute,
+        _ => BreadcrumbTheme.error,
+      };
+
+  static const _words = ['very low', 'low', 'good', 'high'];
+
+  int get bars => barsFor(confidence);
+
   @override
-  bool shouldRepaint(covariant _ConfidenceRingPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.color != color ||
-        oldDelegate.trackColor != trackColor;
+  Widget build(BuildContext context) {
+    final bars = this.bars;
+    final color = colorFor(bars);
+    return Semantics(
+      label: 'Position confidence ${_words[bars - 1]}, $bars of 4 bars',
+      excludeSemantics: true,
+      child: SizedBox(
+        width: 28,
+        height: 22,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (var i = 0; i < 4; i++)
+              AnimatedContainer(
+                duration: BreadcrumbTheme.medium,
+                curve: BreadcrumbTheme.ease,
+                width: 5,
+                height: 7.0 + i * 5,
+                decoration: BoxDecoration(
+                  color: i < bars ? color : BreadcrumbTheme.surface3,
+                  borderRadius: const BorderRadius.all(Radius.circular(1.5)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

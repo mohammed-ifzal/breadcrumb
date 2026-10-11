@@ -168,13 +168,14 @@ void main() {
   testWidgets('the app theme is dark with the agreed colours and 52 dp targets', (tester) async {
     final theme = BreadcrumbTheme.themeData;
     expect(theme.brightness, Brightness.dark);
-    expect(theme.scaffoldBackgroundColor, const Color(0xFF0E1116));
-    expect(theme.colorScheme.surface, const Color(0xFF161B22));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFF07090E));
+    expect(theme.colorScheme.surface, const Color(0xFF11141A));
     expect(theme.colorScheme.primary, const Color(0xFF2DE2C3));
     expect(BreadcrumbTheme.warning, const Color(0xFFFFB020));
-    expect(BreadcrumbTheme.textPrimary, const Color(0xFFF2F5F7));
-    expect(BreadcrumbTheme.textSecondary, const Color(0xFF8B949E));
-    expect(BreadcrumbTheme.radius, 14);
+    expect(BreadcrumbTheme.textPrimary, const Color(0xFFF5F7FA));
+    expect(BreadcrumbTheme.textSecondary, const Color(0xFF94A1B2));
+    expect(BreadcrumbTheme.radius, 12);
+    expect(theme.extension<BreadcrumbTokens>()?.offRoute, const Color(0xFFFF7A45));
     expect(theme.textTheme.displayLarge?.fontSize, greaterThanOrEqualTo(32));
     expect(theme.textTheme.headlineMedium?.fontSize, 24);
     expect(theme.textTheme.bodyMedium?.fontSize, 16);

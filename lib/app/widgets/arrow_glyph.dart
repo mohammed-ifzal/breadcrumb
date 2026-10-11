@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:breadcrumb/core/contracts.dart';
 
-enum ArrowKind { straight, left, right, uTurn, arrival, stairs }
+/// Turns snap to 90 degrees, so there are no slight-left or slight-right glyphs.
+enum ArrowKind { straight, left, right, uTurn, arrival, stairs, lift }
 
 /// Maps a guidance [InstructionKind] to the glyph drawn for it.
 ArrowKind arrowKindFor(InstructionKind? kind) {
@@ -102,6 +103,14 @@ class ArrowGlyphPainter extends CustomPainter {
           Offset(19, 8),
           Offset(27, 8),
         ]);
+      case ArrowKind.lift:
+        // Lift car with up and down chevrons.
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(const Rect.fromLTWH(6, 4, 20, 24), const Radius.circular(3)),
+          stroke,
+        );
+        line(const [Offset(11, 13), Offset(16, 9), Offset(21, 13)]);
+        line(const [Offset(11, 19), Offset(16, 23), Offset(21, 19)]);
     }
   }
 
