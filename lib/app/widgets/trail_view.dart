@@ -106,7 +106,7 @@ class _TrailViewState extends State<TrailView> with SingleTickerProviderStateMix
 
 class TrailPainter extends CustomPainter {
   static const Color labelColor = BreadcrumbTheme.textPrimary;
-  static const Color labelBackgroundColor = BreadcrumbTheme.surfaceRaised;
+  static const Color labelBackgroundColor = BreadcrumbTheme.surface;
   static const Color canvasBackgroundColor = BreadcrumbTheme.background;
 
   /// WCAG 2.1 relative luminance for contrast calculation.
@@ -178,26 +178,17 @@ class TrailPainter extends CustomPainter {
 
   void _drawHereMarker(Canvas canvas, Offset offset) {
     final clampedPulse = pulseValue.clamp(0.0, 1.0);
-    // Outer pulsing halo
-    final haloRadius = 10.0 + 8.0 * clampedPulse;
-    final haloAlpha = (1.0 - clampedPulse).clamp(0.0, 1.0) * 0.45;
+    // Soft pulse
+    final haloRadius = 9.0 + 9.0 * clampedPulse;
+    final haloAlpha = (1.0 - clampedPulse).clamp(0.0, 1.0) * 0.25;
     canvas.drawCircle(
       offset,
       haloRadius,
-      Paint()..color = BreadcrumbTheme.danger.withValues(alpha: haloAlpha),
+      Paint()..color = BreadcrumbTheme.textPrimary.withValues(alpha: haloAlpha),
     );
-    // Outer contrast ring
-    canvas.drawCircle(
-      offset,
-      9.0,
-      Paint()..color = Colors.white,
-    );
-    // Core marker
-    canvas.drawCircle(
-      offset,
-      7.0,
-      Paint()..color = BreadcrumbTheme.danger,
-    );
+    // Solid dot with a thin ring in the canvas colour so it reads on the route
+    canvas.drawCircle(offset, 8.0, Paint()..color = canvasBackgroundColor);
+    canvas.drawCircle(offset, 6.0, Paint()..color = BreadcrumbTheme.textPrimary);
   }
 
   /// Where to draw a label for the dot at [dot]: below, above, right or left,
@@ -223,11 +214,11 @@ class TrailPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Subtle background grid
+    // 1. Background grid at 4% opacity
     canvas.drawRect(Offset.zero & size, Paint()..color = canvasBackgroundColor);
 
     final gridPaint = Paint()
-      ..color = BreadcrumbTheme.border.withValues(alpha: 0.35)
+      ..color = Colors.white.withValues(alpha: 0.04)
       ..strokeWidth = 1.0;
     const gridStep = 32.0;
     for (double x = 0; x <= size.width; x += gridStep) {
@@ -242,10 +233,12 @@ class TrailPainter extends CustomPainter {
 
     final pointMap = {for (final p in points) p.placeId: p};
 
-    // 2. Thicker rounded teal corridors
+    // 2. Recorded corridors. With no route they are the trail itself (accent);
+    // under a route they step back to neutral so the route is the only accent.
+    final hasRoute = route != null && route!.legs.isNotEmpty;
     final corridorPaint = Paint()
-      ..color = BreadcrumbTheme.accent.withValues(alpha: 0.35)
-      ..strokeWidth = 8.0
+      ..color = hasRoute ? BreadcrumbTheme.border : BreadcrumbTheme.accent
+      ..strokeWidth = 6.0
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
@@ -261,20 +254,20 @@ class TrailPainter extends CustomPainter {
       }
     }
 
-    // 3. Planned route highlighted on top with a soft glow
-    if (route != null && route!.legs.isNotEmpty) {
-      final routeGlowPaint = Paint()
-        ..color = BreadcrumbTheme.accent.withValues(alpha: 0.4)
-        ..strokeWidth = 14.0
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-
+    // 3. Planned route: 6 px, round caps; the walked part is dimmed to 40%.
+    if (hasRoute) {
       final routeMainPaint = Paint()
         ..color = BreadcrumbTheme.accent
         ..strokeWidth = 6.0
         ..strokeCap = StrokeCap.round;
+      final walkedPaint = Paint()
+        ..color = BreadcrumbTheme.accent.withValues(alpha: 0.4)
+        ..strokeWidth = 6.0
+        ..strokeCap = StrokeCap.round;
+      final currentLeg = position?.legIndex;
 
-      for (final leg in route!.legs) {
+      for (var i = 0; i < route!.legs.length; i++) {
+        final leg = route!.legs[i];
         final c = map.corridors.cast<Corridor?>().firstWhere(
           (c) => c?.id == leg.corridorId,
           orElse: () => null,
@@ -282,13 +275,20 @@ class TrailPainter extends CustomPainter {
         if (c == null) continue;
         final p1 = pointMap[leg.reversed ? c.to : c.from];
         final p2 = pointMap[leg.reversed ? c.from : c.to];
-        if (p1 != null && p2 != null) {
-          final o1 = toOffset(p1.x, p1.y, size, precomputedPoints: points);
-          final o2 = toOffset(p2.x, p2.y, size, precomputedPoints: points);
-          // Glow layer
-          canvas.drawLine(o1, o2, routeGlowPaint);
-          // Sharp main line
+        if (p1 == null || p2 == null) continue;
+        final o1 = toOffset(p1.x, p1.y, size, precomputedPoints: points);
+        final o2 = toOffset(p2.x, p2.y, size, precomputedPoints: points);
+        if (currentLeg == null || i > currentLeg) {
           canvas.drawLine(o1, o2, routeMainPaint);
+        } else if (i < currentLeg) {
+          canvas.drawLine(o1, o2, walkedPaint);
+        } else {
+          final f = leg.steps == 0
+              ? 0.0
+              : (position!.stepsAlong / leg.steps).clamp(0.0, 1.0);
+          final mid = Offset.lerp(o1, o2, f)!;
+          canvas.drawLine(mid, o2, routeMainPaint);
+          canvas.drawLine(o1, mid, walkedPaint);
         }
       }
     }
@@ -307,7 +307,7 @@ class TrailPainter extends CustomPainter {
     final destId = route?.toId;
     final placedLabels = <Rect>[];
 
-    // 4. Place dots (circles only, no icons yet), start marker, destination marker
+    // 4. Place dots with label pills, start marker, destination marker
     for (final p in points) {
       final offset = toOffset(p.x, p.y, size, precomputedPoints: points);
 
@@ -327,40 +327,28 @@ class TrailPainter extends CustomPainter {
           (destId == null && place != null && place.name == 'End of walk');
 
       if (isStart) {
-        // Clear start marker: distinct teal ring with white/accent center (compact)
-        canvas.drawCircle(offset, 9.0, Paint()..color = BreadcrumbTheme.accent.withValues(alpha: 0.3));
-        canvas.drawCircle(offset, 7.0, Paint()..color = BreadcrumbTheme.accent);
-        canvas.drawCircle(offset, 4.5, Paint()..color = BreadcrumbTheme.onAccent);
-        canvas.drawCircle(offset, 2.0, Paint()..color = Colors.white);
+        // Start: hollow ring
+        canvas.drawCircle(offset, 6.0, Paint()..color = canvasBackgroundColor);
+        canvas.drawCircle(
+          offset,
+          5.0,
+          Paint()
+            ..color = BreadcrumbTheme.textPrimary
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.0,
+        );
       } else if (isDest) {
-        // Clear end (destination) marker: glowing amber/warning target (compact)
-        canvas.drawCircle(offset, 9.5, Paint()..color = BreadcrumbTheme.warning.withValues(alpha: 0.35));
-        canvas.drawCircle(offset, 7.0, Paint()..color = BreadcrumbTheme.warning);
-        canvas.drawCircle(offset, 4.5, Paint()..color = BreadcrumbTheme.surface);
-        canvas.drawCircle(offset, 2.5, Paint()..color = BreadcrumbTheme.warning);
+        // Destination: larger solid dot
+        canvas.drawCircle(offset, 8.0, Paint()..color = canvasBackgroundColor);
+        canvas.drawCircle(offset, 6.0, Paint()..color = BreadcrumbTheme.textPrimary);
+        canvas.drawCircle(offset, 2.0, Paint()..color = canvasBackgroundColor);
       } else if (place == null || place.kind == PlaceKind.junction) {
-        // Junction dot (compact)
-        canvas.drawCircle(offset, 3.5, Paint()..color = BreadcrumbTheme.textFaint);
-        canvas.drawCircle(
-          offset,
-          3.5,
-          Paint()
-            ..color = BreadcrumbTheme.border
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.0,
-        );
+        // Junction: tiny neutral dot
+        canvas.drawCircle(offset, 2.5, Paint()..color = BreadcrumbTheme.textFaint);
       } else {
-        // Place dot by kind: place (circles only, no icons yet - compact)
-        canvas.drawCircle(offset, 6.0, Paint()..color = BreadcrumbTheme.surfaceRaised);
-        canvas.drawCircle(
-          offset,
-          6.0,
-          Paint()
-            ..color = BreadcrumbTheme.accent
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5,
-        );
-        canvas.drawCircle(offset, 2.5, Paint()..color = BreadcrumbTheme.accent);
+        // Marked place: small dot
+        canvas.drawCircle(offset, 5.0, Paint()..color = canvasBackgroundColor);
+        canvas.drawCircle(offset, 3.5, Paint()..color = BreadcrumbTheme.textSecondary);
       }
 
       // Draw label badge for places and start/dest (skip unlabeled junctions)
@@ -368,9 +356,10 @@ class TrailPainter extends CustomPainter {
         textPainter.text = TextSpan(
           text: place.name,
           style: const TextStyle(
+            fontFamily: BreadcrumbTheme.fontFamily,
             color: labelColor,
             fontSize: 12,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w500,
           ),
         );
         textPainter.layout();
@@ -381,15 +370,15 @@ class TrailPainter extends CustomPainter {
           placedLabels,
         );
         final labelRect = Rect.fromLTWH(
-          textOffset.dx - 4,
+          textOffset.dx - 6,
           textOffset.dy - 2,
-          textPainter.width + 8,
+          textPainter.width + 12,
           textPainter.height + 4,
         );
         placedLabels.add(labelRect);
         final bgRect = RRect.fromRectAndRadius(
           labelRect,
-          const Radius.circular(4),
+          Radius.circular(labelRect.height / 2),
         );
         canvas.drawRRect(
           bgRect,

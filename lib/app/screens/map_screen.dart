@@ -163,11 +163,11 @@ class _MapScreenState extends State<MapScreen> {
                           borderRadius: BorderRadius.all(Radius.circular(16)),
                         ),
                         selected: isSelected,
-                        selectedColor: BreadcrumbTheme.accent,
-                        selectedTileColor: BreadcrumbTheme.accent.withValues(alpha: 0.08),
+                        selectedColor: BreadcrumbTheme.textPrimary,
+                        selectedTileColor: BreadcrumbTheme.textPrimary.withValues(alpha: 0.08),
                         leading: Icon(
                           isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                          color: isSelected ? BreadcrumbTheme.accent : BreadcrumbTheme.textSecondary,
+                          color: isSelected ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.textSecondary,
                         ),
                         title: Text(
                           p.name,
@@ -288,7 +288,7 @@ class _MapScreenState extends State<MapScreen> {
                     borderRadius: BreadcrumbTheme.borderRadius,
                     border: Border.all(
                       color: _previewRoute != null
-                          ? BreadcrumbTheme.accent.withValues(alpha: 0.5)
+                          ? BreadcrumbTheme.textPrimary.withValues(alpha: 0.5)
                           : BreadcrumbTheme.border,
                     ),
                   ),
@@ -296,7 +296,7 @@ class _MapScreenState extends State<MapScreen> {
                     children: [
                       Icon(
                         _previewRoute != null ? Icons.route_rounded : Icons.info_outline_rounded,
-                        color: _previewRoute != null ? BreadcrumbTheme.accent : BreadcrumbTheme.textSecondary,
+                        color: _previewRoute != null ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.textSecondary,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
@@ -306,7 +306,7 @@ class _MapScreenState extends State<MapScreen> {
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
-                            color: _previewRoute != null ? BreadcrumbTheme.accent : BreadcrumbTheme.textPrimary,
+                            color: _previewRoute != null ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.textPrimary,
                           ),
                         ),
                       ),
@@ -398,7 +398,7 @@ class _SelectorCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                Icon(icon, color: BreadcrumbTheme.accent, size: 22),
+                Icon(icon, color: BreadcrumbTheme.textPrimary, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -431,7 +431,7 @@ class _SelectorCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: BreadcrumbTheme.accent,
+                    color: BreadcrumbTheme.textPrimary,
                   ),
                 ),
               ],

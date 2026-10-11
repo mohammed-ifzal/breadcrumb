@@ -243,11 +243,11 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                           borderRadius: BorderRadius.all(Radius.circular(16)),
                         ),
                         selected: isSelected,
-                        selectedColor: BreadcrumbTheme.accent,
-                        selectedTileColor: BreadcrumbTheme.accent.withValues(alpha: 0.08),
+                        selectedColor: BreadcrumbTheme.textPrimary,
+                        selectedTileColor: BreadcrumbTheme.textPrimary.withValues(alpha: 0.08),
                         leading: Icon(
                           isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                          color: isSelected ? BreadcrumbTheme.accent : BreadcrumbTheme.textSecondary,
+                          color: isSelected ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.textSecondary,
                         ),
                         title: Text(
                           p.name,
@@ -390,7 +390,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
               const SizedBox(height: 14),
               const _NoteCard(
                 icon: Icons.memory_rounded,
-                color: BreadcrumbTheme.accent,
+                color: BreadcrumbTheme.textPrimary,
                 text: 'On-device AI is matching your words to a marked place.',
               ),
             ],
@@ -398,7 +398,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
               const SizedBox(height: 14),
               _NoteCard(
                 icon: _isListening ? Icons.graphic_eq_rounded : Icons.info_outline_rounded,
-                color: _isListening ? BreadcrumbTheme.accent : BreadcrumbTheme.warning,
+                color: _isListening ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.warning,
                 text: feedback,
               ),
             ],
@@ -468,7 +468,7 @@ class _StartPlaceButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                const Icon(Icons.my_location_rounded, color: BreadcrumbTheme.accent, size: 22),
+                const Icon(Icons.my_location_rounded, color: BreadcrumbTheme.textPrimary, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text.rich(
@@ -494,7 +494,7 @@ class _StartPlaceButton extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: BreadcrumbTheme.accent,
+                    color: BreadcrumbTheme.textPrimary,
                   ),
                 ),
               ],
@@ -518,13 +518,11 @@ class _MicButton extends StatelessWidget {
       onPressed: onPressed,
       tooltip: listening ? 'Listening...' : 'Voice Search',
       style: IconButton.styleFrom(
-        backgroundColor: listening
-            ? BreadcrumbTheme.accent
-            : BreadcrumbTheme.accent.withValues(alpha: 0.14),
-        foregroundColor: listening ? BreadcrumbTheme.onAccent : BreadcrumbTheme.accent,
+        backgroundColor: listening ? BreadcrumbTheme.accent : BreadcrumbTheme.surfaceRaised,
+        foregroundColor: listening ? BreadcrumbTheme.onAccent : BreadcrumbTheme.textPrimary,
         minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
         ),
       ),
       icon: Icon(listening ? Icons.mic_rounded : Icons.mic_none_rounded, size: 28),
@@ -589,7 +587,7 @@ class _PlaceChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.place_rounded, color: BreadcrumbTheme.accent, size: 22),
+                const Icon(Icons.place_rounded, color: BreadcrumbTheme.textPrimary, size: 22),
                 const SizedBox(width: 10),
                 Flexible(
                   child: Column(
