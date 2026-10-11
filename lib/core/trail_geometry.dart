@@ -45,5 +45,13 @@ List<TrailPoint> layoutMap(MapGraph map) {
       queue.add(next);
     }
   }
-  return points.values.toList();
+  // Run the legacy traversal unchanged, including reachable nodes and ordering.
+  // Only complete finite optional pairs replace a node's display position.
+  final recorded = {
+    for (final p in map.places)
+      if (p.x != null && p.y != null && p.x!.isFinite && p.y!.isFinite)
+        p.id: TrailPoint(p.id, p.x!, p.y!),
+  };
+  if (recorded.isEmpty) return points.values.toList();
+  return [for (final p in points.values) recorded[p.placeId] ?? p];
 }
