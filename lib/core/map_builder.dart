@@ -25,6 +25,10 @@ class LoopClosurePreview {
 /// headings remain unchanged. Loop correction pins every node visited before
 /// the target's latest occurrence, including the target itself.
 class MapBuilder implements contracts.MapBuilder {
+  MapBuilder({this.useLoopCorrection = tuning.useLoopCorrection});
+
+  /// D33: disabled recordings use the original coordinate-free map shape.
+  final bool useLoopCorrection;
   final _places = <contracts.Place>[];
   final _corridors = <contracts.Corridor>[];
   final _visits = <String>[];
@@ -55,8 +59,8 @@ class MapBuilder implements contracts.MapBuilder {
         id: 'p0',
         name: placeName,
         kind: contracts.PlaceKind.start,
-        x: 0,
-        y: 0,
+        x: useLoopCorrection ? 0 : null,
+        y: useLoopCorrection ? 0 : null,
       ),
     );
     _visits.add('p0');
@@ -102,7 +106,7 @@ class MapBuilder implements contracts.MapBuilder {
   }
 
   LoopClosurePreview? previewLoopClosure(String name) {
-    if (!_active) return null;
+    if (!useLoopCorrection || !_active) return null;
     final target = _existing(name);
     if (target == null) return null;
     final start = _visits.lastIndexOf(target.id);
@@ -122,7 +126,7 @@ class MapBuilder implements contracts.MapBuilder {
     final existing = _existing(name);
     if (existing != null) {
       if (existing.id == _from && _steps == 0) return;
-      _correctLoop(existing);
+      if (useLoopCorrection) _correctLoop(existing);
       _closeAt(existing);
       _floor = existing.floor;
       return;
@@ -205,7 +209,7 @@ class MapBuilder implements contracts.MapBuilder {
     if (finished != null) return finished;
     final from = _from;
     if (from == null) throw StateError('snapshot() before start()');
-    final end = _endPosition();
+    final end = useLoopCorrection ? _endPosition() : null;
     return _map(
       [
         ..._places,
@@ -214,8 +218,8 @@ class MapBuilder implements contracts.MapBuilder {
           name: 'You are here',
           kind: contracts.PlaceKind.junction,
           floor: _floor,
-          x: end.x,
-          y: end.y,
+          x: end?.x,
+          y: end?.y,
         ),
       ],
       [
@@ -255,7 +259,7 @@ class MapBuilder implements contracts.MapBuilder {
     contracts.CorridorKind kind = contracts.CorridorKind.walk,
     int floorDelta = 0,
   }) {
-    final end = _endPosition();
+    final end = useLoopCorrection ? _endPosition() : null;
     _corridors.add(
       contracts.Corridor(
         id: 'c${_corridors.length + 1}',
@@ -268,7 +272,7 @@ class MapBuilder implements contracts.MapBuilder {
       ),
     );
     if (!_places.any((p) => p.id == place.id)) {
-      _places.add(_positioned(place, end.x, end.y));
+      _places.add(end == null ? place : _positioned(place, end.x, end.y));
     }
     _travelled += _steps;
     _visits.add(place.id);

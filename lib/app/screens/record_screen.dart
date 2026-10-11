@@ -8,7 +8,7 @@ import '../../ai/alias_suggester.dart';
 import '../../core/contracts.dart' as contracts;
 import '../../core/map_builder.dart' as recording;
 import '../../core/map_json.dart';
-import '../../core/tuning.dart' show useTurnConfirmer;
+import '../../core/tuning.dart' as tuning;
 import '../../core/turn_confirmer.dart' show confirmedEvents;
 import '../../sensing/sensing_source.dart';
 import '../../sensing/trace_recorder.dart';
@@ -45,8 +45,11 @@ class RecordScreen extends StatefulWidget {
     this.traceRecorder,
     this.sensingSource,
     this.aliasSuggester,
+    this.useLoopCorrection = tuning.useLoopCorrection,
   });
 
+  /// D33: also controls the default builder's coordinate-free fallback.
+  final bool useLoopCorrection;
   final contracts.MapBuilder? mapBuilder;
   final Stream<Object>? events;
   final RecordMapSave? save;
@@ -102,7 +105,9 @@ class _RecordScreenState extends State<RecordScreen> {
   @override
   void initState() {
     super.initState();
-    _builder = widget.mapBuilder ?? recording.MapBuilder();
+    _builder =
+        widget.mapBuilder ??
+        recording.MapBuilder(useLoopCorrection: widget.useLoopCorrection);
     _save = widget.save ?? saveLatestMap;
     _trace = widget.traceRecorder ?? TraceRecorder();
     _trace.state.addListener(_onTraceState);
@@ -129,7 +134,7 @@ class _RecordScreenState extends State<RecordScreen> {
       // as the Tracker in Navigate.
       final events =
           widget.events ??
-          (useTurnConfirmer
+          (tuning.useTurnConfirmer
               ? confirmedEvents(_traceSource!)
               : _traceSource!.events());
       _subscription = events.listen(
@@ -192,7 +197,7 @@ class _RecordScreenState extends State<RecordScreen> {
 
   Future<bool> _confirmJoin(String name) async {
     final builder = _builder;
-    if (builder is! recording.MapBuilder) return true;
+    if (!widget.useLoopCorrection || builder is! recording.MapBuilder) return true;
     final preview = builder.previewLoopClosure(name);
     if (preview == null || !preview.requiresConfirmation) return true;
     return await showDialog<bool>(

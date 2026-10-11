@@ -167,3 +167,7 @@ const double loopClosureMaxErrorFraction = 0.35;
 /// D33: optional cardinal re-snap for display projection only, in degrees.
 /// Measured corridor headings remain unchanged.
 const double loopHeadingSnapToleranceDegrees = 10;
+
+/// D33: enable display-coordinate loop correction and large-error confirmation.
+/// False preserves the legacy coordinate-free recording, saving and layout.
+const bool useLoopCorrection = true;
