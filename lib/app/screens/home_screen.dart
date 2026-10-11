@@ -7,6 +7,7 @@ import 'package:breadcrumb/ai/device_tier.dart' show basicMatchingLabel;
 import 'destination_list_screen.dart';
 import 'record_screen.dart';
 import 'privacy_screen.dart';
+import 'saved_maps_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -97,7 +98,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const DestinationListScreen(),
+                    builder: (context) =>
+                        const DestinationListScreen(askStart: true),
                   ),
                 );
               },
@@ -112,6 +114,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const MapScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            ActionCard(
+              icon: Icons.folder_open_outlined,
+              title: 'Saved maps',
+              subtitle: 'Choose which recorded map to use. Rename or delete.',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SavedMapsScreen(),
                   ),
                 );
               },

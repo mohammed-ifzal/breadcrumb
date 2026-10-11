@@ -18,6 +18,19 @@ Future<void> tap(WidgetTester tester, String key) async {
   await tester.pumpAndSettle();
   await tester.tap(button);
   await tester.pumpAndSettle();
+  await confirmIfAsked(tester, key);
+}
+
+/// D33: Stop and Finish at start ask first; these tests accept.
+Future<void> confirmIfAsked(WidgetTester tester, String key) async {
+  final yes = switch (key) {
+    'record-stop' => find.byKey(const ValueKey('stop-yes')),
+    'record-finish-start' => find.byKey(const ValueKey('finish-yes')),
+    _ => null,
+  };
+  if (yes == null || yes.evaluate().isEmpty) return;
+  await tester.tap(yes);
+  await tester.pumpAndSettle();
 }
 
 Future<void> start(WidgetTester tester) async {
@@ -524,7 +537,7 @@ void main() {
     },
   );
 
-  test('default save creates maps/latest.json, round-trips and replaces prior content', () async {
+  test('D33: default save keeps every map and makes the newest active', () async {
     final directory = await Directory.systemTemp.createTemp(
       'breadcrumb-record-save-',
     );
@@ -532,13 +545,16 @@ void main() {
       final builder = MapBuilder()..start('First');
       builder.onStep(const contracts.StepEvent(20));
       final first = builder.finish();
-      final path = await saveLatestMap(
+      final path = await saveRecordedMap(
         first,
         documentsDirectory: () async => directory,
       );
+      expect(path, endsWith('.json'));
       expect(
         path,
-        '${directory.path}${Platform.pathSeparator}maps${Platform.pathSeparator}latest.json',
+        contains(
+          '${Platform.pathSeparator}maps${Platform.pathSeparator}first-',
+        ),
       );
       expect(
         decodeMap(await File(path).readAsString()).toJson(),
@@ -547,18 +563,21 @@ void main() {
       builder.start('Second');
       builder.addPlace('Desk', []);
       final second = builder.finish();
-      expect(
-        await saveLatestMap(second, documentsDirectory: () async => directory),
-        path,
+      final secondPath = await saveRecordedMap(
+        second,
+        documentsDirectory: () async => directory,
       );
+      expect(secondPath, isNot(path));
+      // The first map is still there, untouched.
       expect(
         decodeMap(await File(path).readAsString()).toJson(),
-        second.toJson(),
+        first.toJson(),
       );
-      expect(
-        directory.listSync(recursive: true).whereType<File>(),
-        hasLength(1),
+      // latest.json mirrors the active (newest) map for old tools.
+      final latest = File(
+        '${directory.path}${Platform.pathSeparator}maps${Platform.pathSeparator}latest.json',
       );
+      expect(decodeMap(await latest.readAsString()).toJson(), second.toJson());
     } finally {
       await directory.delete(recursive: true);
     }

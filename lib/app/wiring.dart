@@ -16,6 +16,7 @@ import 'package:breadcrumb/core/guide.dart';
 import 'package:breadcrumb/core/turn_confirmer.dart';
 import 'package:breadcrumb/core/tuning.dart' as tuning;
 import 'package:breadcrumb/sensing/sensing_source.dart' as real_sensing;
+import 'package:breadcrumb/app/map_library.dart';
 import 'package:breadcrumb/app/speaker.dart';
 import 'package:breadcrumb/perception/mlkit_sign_reader.dart';
 
@@ -119,7 +120,7 @@ class Wiring {
 
   set map(MapGraph newMap) {
     _activeMap = newMap;
-    _loadedMapJson = null;
+    _loadedMapKey = null;
     tracker = RouteTracker(_activeMap);
     guide = RouteGuide(_activeMap);
     currentPlaceId = defaultStartPlaceId(_activeMap);
@@ -215,31 +216,37 @@ class Wiring {
     }
   }
 
-  /// Where [reloadActiveMap] looks for maps/latest.json; tests point it at a
+  /// Where [reloadActiveMap] looks for the saved maps; tests point it at a
   /// temporary directory.
   Future<Directory> Function() documentsDirectory = getApplicationDocumentsDirectory;
 
-  /// The latest.json content behind [map], so an unchanged file is not reloaded
-  /// (which would reset the "You are at" choice).
-  String? _loadedMapJson;
+  /// The saved map behind [map] (its ID and content), so an unchanged active
+  /// map is not reloaded (which would reset the "You are at" choice).
+  String? _loadedMapKey;
 
-  /// D22: Load maps/latest.json from app documents directory if present,
-  /// otherwise keep default demo map. Called whenever Navigate opens, so a map
-  /// saved after app start is used without a restart.
+  /// D22, D33: loads the active saved map (a pre-D33 maps/latest.json is
+  /// migrated as the first saved map). With no saved map the demo map stays.
+  /// Called whenever Navigate or the floor map opens, so a map saved or chosen
+  /// after app start is used without a restart.
   Future<bool> reloadActiveMap({Directory? documentsDir}) async {
     try {
-      final dir = documentsDir ?? await documentsDirectory();
-      final file = File('${dir.path}/maps/latest.json');
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        if (content == _loadedMapJson) return true;
-        final loaded = decodeMap(content);
-        map = loaded;
-        _loadedMapJson = content;
-        return true;
+      final library = MapLibrary(
+        documentsDirectory:
+            documentsDir == null ? documentsDirectory : () async => documentsDir,
+      );
+      final active = await library.loadActive();
+      if (active == null) {
+        // The last saved map was deleted: back to the demo map.
+        if (_loadedMapKey != null) map = defaultDemoMap;
+        return false;
       }
+      final key = '${active.id}|${encodeMap(active.map)}';
+      if (key == _loadedMapKey) return true;
+      map = active.map;
+      _loadedMapKey = key;
+      return true;
     } catch (e) {
-      // Graceful fallback to current map if file cannot be read
+      // Graceful fallback to current map if the library cannot be read
     }
     return false;
   }

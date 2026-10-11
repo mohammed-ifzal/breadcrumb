@@ -7,9 +7,14 @@ import 'package:breadcrumb/app/widgets/ui/ui.dart';
 import 'package:breadcrumb/app/wiring.dart';
 import 'package:breadcrumb/ai/device_tier.dart' show basicMatchingLabel;
 import 'navigate_screen.dart';
+import 'scan_screen.dart';
+import 'package:breadcrumb/core/start_places.dart';
 
 class DestinationListScreen extends StatefulWidget {
-  const DestinationListScreen({super.key});
+  const DestinationListScreen({super.key, this.askStart = false});
+
+  /// D33: open "Where are you?" straight away (Home's Navigate does).
+  final bool askStart;
 
   @override
   State<DestinationListScreen> createState() => _DestinationListScreenState();
@@ -26,7 +31,9 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
   void initState() {
     super.initState();
     // D22: pick up a map saved since app start (Home loads it only once).
-    _reloadMap();
+    _reloadMap().then((_) {
+      if (widget.askStart && mounted) _showStartPlaceSelector(context);
+    });
     // Warm Gemma AI if not already warmed
     Wiring.instance.warmAi();
   }
@@ -191,12 +198,26 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
     }
   }
 
+  Future<void> _scanForStart() async {
+    final place = await Navigator.push<Place>(
+      context,
+      MaterialPageRoute(builder: (_) => const ScanScreen.forStart()),
+    );
+    if (place != null && mounted) {
+      setState(() => Wiring.instance.currentPlaceId = place.id);
+    }
+  }
+
+  /// D33: "Where are you?", places nearest first from the current choice
+  /// (by default the map's last place), plus "Scan a sign".
   void _showStartPlaceSelector(BuildContext context) {
     final wiring = Wiring.instance;
     final map = wiring.map;
-    final validPlaces = map.places
-        .where((p) => p.kind != PlaceKind.junction)
-        .toList();
+    final validPlaces = placesNearestFirst(
+      map,
+      wiring.effectiveCurrentPlaceId,
+      planner: wiring.planner,
+    );
 
     showModalBottomSheet(
       context: context,
@@ -217,7 +238,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                     children: [
                       const Expanded(
                         child: Text(
-                          'Change Start Location',
+                          'Where are you?',
                           style: BreadcrumbTheme.title,
                         ),
                       ),
@@ -229,6 +250,37 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                  child: ListTile(
+                    key: const ValueKey('start-scan'),
+                    minTileHeight: BreadcrumbTheme.minTouch,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(16)),
+                      side: BorderSide(color: BreadcrumbTheme.border),
+                    ),
+                    leading: const Icon(
+                      Icons.document_scanner_outlined,
+                      color: BreadcrumbTheme.textPrimary,
+                    ),
+                    title: const Text(
+                      'Scan a sign',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: BreadcrumbTheme.textPrimary,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Point the camera at a place name',
+                      style: TextStyle(fontSize: 15, color: BreadcrumbTheme.textSecondary),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _scanForStart();
+                    },
+                  ),
+                ),
                 Flexible(
                   child: ListView.builder(
                     shrinkWrap: true,
@@ -238,6 +290,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                       final p = validPlaces[index];
                       final isSelected = p.id == wiring.effectiveCurrentPlaceId;
                       return ListTile(
+                        key: ValueKey('start-place-${p.id}'),
                         minTileHeight: BreadcrumbTheme.minTouch,
                         shape: const RoundedRectangleBorder(
                           borderRadius: BorderRadius.all(Radius.circular(16)),

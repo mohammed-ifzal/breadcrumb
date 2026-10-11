@@ -54,20 +54,24 @@ Maps come from record mode (D15). Tests build maps in code. In version 1, **a
 map comes from one walk**; merging several walks is a stretch goal, because each walk
 has its own heading frame.
 
-**Where the map lives (D22).** When a recording is finished, the record screen writes
-`MapBuilder.finish().toJson()` to `<app documents>/maps/latest.json` (path_provider's
-application documents directory), replacing the previous file. Navigate loads
-`maps/latest.json` if it exists and parses; otherwise it loads the bundled demo map from
-`assets/maps/`. Navigate re-reads the file every time it opens, so a map saved after app
-start is used without a restart; an unchanged file keeps the "You are at" choice. Only
-the app layer does this file I/O; `lib/core/` stays pure.
+**Where the map lives (D22, D33).** When a recording is finished, the record screen saves
+`MapBuilder.finish().toJson()` as a new file `<app documents>/maps/<slug>-<yyyyMMdd-HHmmss>.json`
+(path_provider's application documents directory; `MapLibrary` in `lib/app/map_library.dart`) and
+makes it active: `maps/active.txt` holds the active file name, and `maps/latest.json` is
+rewritten as a copy of the active map. Older maps are never overwritten. Navigate and the floor
+map load the active map; with none they use the bundled demo map. A pre-D33 `latest.json` with
+no `active.txt` is migrated once as the first saved map. Navigate re-reads the library every
+time it opens, so a map saved or chosen after app start is used without a restart; an
+unchanged active map keeps the "You are at" choice. Only the app layer does this file I/O;
+`lib/core/` stays pure.
 
 **End of walk and the start place (D23).** When the walker taps Stop, the record screen
 calls `addPlace('End of walk', [])` and then `finish()`, so every recorded map ends at a
 place. It skips the call if a place was marked with no steps after it (no zero-step
 corridor). Navigate's "You are at" defaults to the loaded map's last place: the last node
 with `kind: place` in `nodes` order (walk order). A selector lists every place so the user
-can change it.
+can change it. D33: Navigate from Home opens it as "Where are you?", nearest first by route
+steps (`placesNearestFirst` in `lib/core/start_places.dart`), with "Scan a sign".
 
 **Floors (D24).** All optional, so maps without them load unchanged and one-floor maps
 are written without them:
