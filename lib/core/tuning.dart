@@ -118,6 +118,10 @@ const double confidenceCornerReset = 0.9;
 /// Below this the Guide asks "Are you at {next place}?", once per leg.
 const double confidenceAskBelow = 0.5;
 
+/// Off route, up to this many net steps away from the path, facing the leg
+/// again rejoins it; further, the Guide says "Walk back about N steps" (D31).
+const int walkBackMinSteps = 2;
+
 /// Arrive only after enough steps on the final leg and all its turns (D29).
 const bool useArrivalGuard = true;
 

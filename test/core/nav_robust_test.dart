@@ -216,9 +216,11 @@ void main() {
     });
 
     test('only within 2 x snapSteps of the corner, either side', () {
+      // Off route with a too-early left: a right then a left this close to the
+      // path would rejoin the leg instead (D31).
       final (early, _) = trackerFor('a', 'c', _longMap);
       walk(early, 1);
-      turn(early, -90);
+      turn(early, 90);
       walk(early, 2); // at 3: 21 before the corner
       expect(turn(early, 90).offRoute, isTrue);
       walk(early, 1); // at 4: 20 before
