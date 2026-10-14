@@ -60,7 +60,7 @@ void main() {
     await tester.pump();
     await tap(tester, 'record-mark');
     expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.text('Join loop at Entrance?'), findsOneWidget);
+    expect(find.text('Join the loop?'), findsOneWidget);
     expect(
       find.text("Positions don't match well - join anyway?"),
       findsOneWidget,
@@ -84,7 +84,7 @@ void main() {
     expect(newPlace.y, before.places.last.y);
     expect(after.corridors.map((edge) => edge.steps), [10, 10, 1, 1, 0]);
     expect(after.corridors.map((edge) => edge.heading), [0, 90, 180, 270, 270]);
-    expect(find.text('Recording trail'), findsOneWidget);
+    expect(find.text('RECORDING'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -196,10 +196,10 @@ void main() {
               expect(after.corridors.first.heading, 0);
               expect(find.text('Marked place: Entrance 2'), findsOneWidget);
             }
-            expect(find.text('Recording trail'), findsOneWidget);
+            expect(find.text('RECORDING'), findsOneWidget);
             events.add(const c.StepEvent(5));
             await tester.pumpAndSettle();
-            expect(find.text('Steps: 5'), findsOneWidget);
+            expect(tester.widget<Text>(find.byKey(const ValueKey('record-steps'))).data, '5');
             expect(
               builder.snapshot().corridors.fold<int>(
                 0,

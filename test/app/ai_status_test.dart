@@ -106,7 +106,7 @@ void main() {
 
       expect(find.text('Basic matching'), findsOneWidget);
       expect(find.text('model not loaded'), findsOneWidget);
-      expect(find.text('AI warming...'), findsNothing);
+      expect(find.text('AI warming up…'), findsNothing);
     });
 
     testWidgets('HomeScreen shows Basic matching when status is unavailable', (

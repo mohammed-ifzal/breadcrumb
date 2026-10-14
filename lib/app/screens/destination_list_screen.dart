@@ -27,6 +27,9 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
   String? _feedbackMessage;
   int _latestRequestId = 0;
 
+  /// The last request and the place it resolved to, shown as "Understood".
+  (String, String)? _understood;
+
   @override
   void initState() {
     super.initState();
@@ -51,10 +54,11 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
 
   void _onTextChanged(String _) {
     _latestRequestId++;
-    if (_isThinking || _feedbackMessage != null) {
+    if (_isThinking || _feedbackMessage != null || _understood != null) {
       setState(() {
         _isThinking = false;
         _feedbackMessage = null;
+        _understood = null;
       });
     }
   }
@@ -131,6 +135,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
         setState(() {
           _isThinking = false;
           _feedbackMessage = null;
+          _understood = (utterance, targetId);
         });
         Navigator.push(
           context,
@@ -183,6 +188,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
     if (isValid) {
       setState(() {
         _isThinking = false;
+        _understood = (utterance, targetId);
       });
       Navigator.push(
         context,
@@ -255,9 +261,10 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                   child: ListTile(
                     key: const ValueKey('start-scan'),
                     minTileHeight: BreadcrumbTheme.minTouch,
+                    tileColor: BreadcrumbTheme.surface2,
                     shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(16)),
-                      side: BorderSide(color: BreadcrumbTheme.border),
+                      borderRadius: BreadcrumbTheme.borderRadius,
+                      side: BorderSide(color: BreadcrumbTheme.borderActive),
                     ),
                     leading: const Icon(
                       Icons.document_scanner_outlined,
@@ -293,14 +300,14 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                         key: ValueKey('start-place-${p.id}'),
                         minTileHeight: BreadcrumbTheme.minTouch,
                         shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                          borderRadius: BreadcrumbTheme.borderRadius,
                         ),
                         selected: isSelected,
                         selectedColor: BreadcrumbTheme.textPrimary,
-                        selectedTileColor: BreadcrumbTheme.textPrimary.withValues(alpha: 0.08),
+                        selectedTileColor: BreadcrumbTheme.surface2,
                         leading: Icon(
                           isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                          color: isSelected ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.textSecondary,
+                          color: isSelected ? BreadcrumbTheme.accent : BreadcrumbTheme.textSecondary,
                         ),
                         title: Text(
                           p.name,
@@ -346,47 +353,55 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
     final places = map.places
         .where((p) => p.kind != PlaceKind.junction && p.id != currentPlaceId)
         .toList();
+    final multiFloor = map.places.map((p) => p.floor).toSet().length > 1;
     final feedback = _feedbackMessage;
+    final understood = _understood;
+    final understoodPlace = understood == null
+        ? null
+        : map.places.cast<Place?>().firstWhere(
+            (p) => p?.id == understood.$2,
+            orElse: () => null,
+          );
 
     return Scaffold(
-      appBar: AppBar(
-        actions: [
-          // AI Ready indicator
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: ValueListenableBuilder<AiStatus>(
+      appBar: AppBar(),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+          children: [
+            // On-device AI status: only the states the app really has.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ValueListenableBuilder<AiStatus>(
               valueListenable: wiring.aiStatus,
               builder: (context, status, _) {
                 if (status.isReady) {
                   return const StatusPill(
-                    label: 'AI ready',
-                    icon: Icons.memory_rounded,
+                    label: 'On-device AI ready',
                     tone: StatusTone.accent,
+                    dotColor: BreadcrumbTheme.accent,
                   );
                 } else if (status.isLoading) {
                   return const StatusPill(
-                    label: 'AI warming...',
-                    icon: Icons.hourglass_top_rounded,
-                    tone: StatusTone.neutral,
+                    label: 'AI warming up…',
+                    dotColor: BreadcrumbTheme.textSecondary,
                   );
                 } else {
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const StatusPill(
                         // D30: unavailable is the basic tier (matcher + aliases).
                         label: basicMatchingLabel,
-                        icon: Icons.manage_search_rounded,
-                        tone: StatusTone.neutral,
+                        dotColor: BreadcrumbTheme.textMuted,
                       ),
                       if (status.reason != null && status.reason!.isNotEmpty) ...[
-                        const SizedBox(width: 6),
                         Text(
                           status.reason!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: BreadcrumbTheme.textSecondary,
-                          ),
+                          style: BreadcrumbTheme.caption,
                         ),
                       ],
                     ],
@@ -394,31 +409,25 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                 }
               },
             ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-          children: [
+            ),
+            const SizedBox(height: 16),
             // D23: "You are at" selector
             _StartPlaceButton(
               placeName: currentPlace?.name ?? currentPlaceId,
               onTap: () => _showStartPlaceSelector(context),
             ),
-            const SizedBox(height: 28),
-            const Text('Where do you want to go?', style: BreadcrumbTheme.heading),
+            const SizedBox(height: 24),
+            const Text('Where do you want to go?', style: BreadcrumbTheme.headline),
             const SizedBox(height: 16),
             TextField(
               controller: _controller,
               onChanged: _onTextChanged,
               onSubmitted: (_) => _submit(),
               textInputAction: TextInputAction.go,
-              style: BreadcrumbTheme.body.copyWith(fontSize: 19),
+              style: BreadcrumbTheme.body.copyWith(fontSize: 18),
               decoration: InputDecoration(
-                hintText: 'Where do you want to go?',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                hintText: 'Say or type a place, e.g. coffee',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                 prefixIcon: const Padding(
                   padding: EdgeInsets.only(left: 16, right: 8),
                   child: Icon(Icons.search_rounded, color: BreadcrumbTheme.textSecondary),
@@ -432,7 +441,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             PrimaryButton(
               label: 'Submit',
               icon: Icons.near_me_rounded,
@@ -440,7 +449,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
               onPressed: _submit,
             ),
             if (_isThinking) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               const _NoteCard(
                 icon: Icons.memory_rounded,
                 color: BreadcrumbTheme.textPrimary,
@@ -448,38 +457,50 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
               ),
             ],
             if (feedback != null) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               _NoteCard(
                 icon: _isListening ? Icons.graphic_eq_rounded : Icons.info_outline_rounded,
                 color: _isListening ? BreadcrumbTheme.textPrimary : BreadcrumbTheme.offRoute,
                 text: feedback,
               ),
             ],
-            const SizedBox(height: 14),
-            PrimaryButton(
-              label: 'View floor map',
-              icon: Icons.map_rounded,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const MapScreen(),
-                  ),
-                );
-              },
+            if (understood != null && understoodPlace != null) ...[
+              const SizedBox(height: 16),
+              _UnderstoodCard(
+                key: ValueKey(understood),
+                query: understood.$1,
+                place: understoodPlace,
+                showFloor: multiFloor,
+              ),
+            ],
+            const SizedBox(height: 16),
+            PressScale(
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MapScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('View floor map'),
+              ),
             ),
-            const SizedBox(height: 36),
+            const SizedBox(height: 32),
             SectionHeader(
               'Marked places',
               trailing: places.length == 1 ? '1 place' : '${places.length} places',
             ),
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 for (final place in places)
                   _PlaceChip(
                     place: place,
+                    showFloor: multiFloor,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -507,7 +528,7 @@ class _StartPlaceButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: BreadcrumbTheme.surface,
+      color: BreadcrumbTheme.surface1,
       shape: const RoundedRectangleBorder(
         borderRadius: BreadcrumbTheme.borderRadius,
         side: BorderSide(color: BreadcrumbTheme.border),
@@ -521,7 +542,7 @@ class _StartPlaceButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                const Icon(Icons.my_location_rounded, color: BreadcrumbTheme.textPrimary, size: 22),
+                const Icon(Icons.my_location_rounded, color: BreadcrumbTheme.accent, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text.rich(
@@ -533,7 +554,7 @@ class _StartPlaceButton extends StatelessWidget {
                           text: placeName,
                           style: const TextStyle(
                             color: BreadcrumbTheme.textPrimary,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -546,8 +567,8 @@ class _StartPlaceButton extends StatelessWidget {
                   'Change',
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: BreadcrumbTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    color: BreadcrumbTheme.accent,
                   ),
                 ),
               ],
@@ -571,14 +592,13 @@ class _MicButton extends StatelessWidget {
       onPressed: onPressed,
       tooltip: listening ? 'Listening...' : 'Voice Search',
       style: IconButton.styleFrom(
-        backgroundColor: listening ? BreadcrumbTheme.accent : BreadcrumbTheme.surfaceRaised,
-        foregroundColor: listening ? BreadcrumbTheme.onAccent : BreadcrumbTheme.textPrimary,
-        minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(14)),
-        ),
+        backgroundColor: BreadcrumbTheme.surface3,
+        foregroundColor: BreadcrumbTheme.textPrimary,
+        minimumSize: const Size(48, 48),
+        side: BorderSide(color: listening ? BreadcrumbTheme.accent : BreadcrumbTheme.borderActive),
+        shape: const RoundedRectangleBorder(borderRadius: BreadcrumbTheme.borderRadius),
       ),
-      icon: Icon(listening ? Icons.mic_rounded : Icons.mic_none_rounded, size: 28),
+      icon: listening ? const ListeningBars() : const Icon(Icons.mic_none_rounded, size: 26),
     );
   }
 }
@@ -595,9 +615,9 @@ class _NoteCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: BreadcrumbTheme.surface1,
         borderRadius: BreadcrumbTheme.borderRadius,
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -607,7 +627,7 @@ class _NoteCard extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontSize: 16, height: 1.35, fontWeight: FontWeight.w600, color: color),
+              style: BreadcrumbTheme.body.copyWith(fontWeight: FontWeight.w500, color: color, height: 1.35),
             ),
           ),
         ],
@@ -616,54 +636,135 @@ class _NoteCard extends StatelessWidget {
   }
 }
 
-class _PlaceChip extends StatelessWidget {
-  const _PlaceChip({required this.place, required this.onTap});
+/// `Understood: "query" → Place (Floor N)`. Fades in and slides up 10 dp.
+class _UnderstoodCard extends StatelessWidget {
+  const _UnderstoodCard({super.key, required this.query, required this.place, required this.showFloor});
 
+  final String query;
   final Place place;
-  final VoidCallback onTap;
+  final bool showFloor;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: BreadcrumbTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BreadcrumbTheme.borderRadius,
-        side: BorderSide(color: BreadcrumbTheme.border),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: BreadcrumbTheme.medium,
+      curve: BreadcrumbTheme.ease,
+      builder: (context, v, child) => Opacity(
+        opacity: v,
+        child: Transform.translate(offset: Offset(0, 10 * (1 - v)), child: child),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: BreadcrumbTheme.minTouch),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 18, 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.place_rounded, color: BreadcrumbTheme.textPrimary, size: 22),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        place.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: BreadcrumbTheme.textPrimary,
-                        ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: BreadcrumbTheme.surface1,
+          borderRadius: BreadcrumbTheme.borderRadius,
+          border: Border.all(color: BreadcrumbTheme.accent.withValues(alpha: 0.6)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.check_circle_outline_rounded, color: BreadcrumbTheme.accent, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  style: BreadcrumbTheme.body,
+                  children: [
+                    const TextSpan(
+                      text: 'Understood: ',
+                      style: TextStyle(color: BreadcrumbTheme.textSecondary),
+                    ),
+                    TextSpan(text: '"$query"'),
+                    const TextSpan(
+                      text: '  →  ',
+                      style: TextStyle(color: BreadcrumbTheme.accent),
+                    ),
+                    TextSpan(
+                      text: place.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    if (showFloor)
+                      TextSpan(
+                        text: ' (Floor ${place.floor})',
+                        style: const TextStyle(color: BreadcrumbTheme.textSecondary),
                       ),
-                      if (place.aliases.isNotEmpty)
-                        Text(
-                          place.aliases.join(' · '),
-                          style: const TextStyle(fontSize: 14, color: BreadcrumbTheme.textSecondary),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaceChip extends StatelessWidget {
+  const _PlaceChip({required this.place, required this.onTap, this.showFloor = false});
+
+  final Place place;
+  final VoidCallback onTap;
+  final bool showFloor;
+
+  @override
+  Widget build(BuildContext context) {
+    return PressScale(
+      child: Material(
+        color: BreadcrumbTheme.surface1,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BreadcrumbTheme.borderRadius,
+          side: BorderSide(color: BreadcrumbTheme.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: BreadcrumbTheme.minTouch),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 16, 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.place_rounded, color: BreadcrumbTheme.accent, size: 20),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          place.name,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: BreadcrumbTheme.textPrimary,
+                          ),
+                        ),
+                        if (place.aliases.isNotEmpty)
+                          Text(
+                            place.aliases.join(' · '),
+                            style: BreadcrumbTheme.secondary,
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (showFloor) ...[
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: const BoxDecoration(
+                        color: BreadcrumbTheme.surface3,
+                        borderRadius: BreadcrumbTheme.borderRadiusSm,
+                      ),
+                      child: Text(
+                        'F${place.floor}',
+                        style: BreadcrumbTheme.eyebrow.copyWith(color: BreadcrumbTheme.textPrimary),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),

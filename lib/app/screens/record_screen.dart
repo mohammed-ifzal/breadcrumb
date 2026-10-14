@@ -11,7 +11,9 @@ import '../../core/turn_confirmer.dart' show confirmedEvents;
 import '../../sensing/sensing_source.dart';
 import '../../sensing/trace_recorder.dart';
 import '../map_library.dart';
+import '../theme.dart';
 import '../widgets/trail_view.dart';
+import '../widgets/ui/ui.dart';
 import '../wiring.dart';
 
 /// D33: saves a finished recording as a new map in the [MapLibrary] and makes
@@ -24,6 +26,42 @@ Future<String> saveRecordedMap(
   final saved = await MapLibrary(documentsDirectory: documentsDirectory)
       .save(map);
   return saved.path;
+}
+
+/// The walk so far, oldest first, from the recorded corridors in walk order:
+/// the start, then per corridor its turn ("Left", "Right", "U-turn"; turns are
+/// already snapped), its steps ("45 steps") or floor change ("Stairs up"),
+/// and the place it ends at. Real data only; display text, not logic.
+List<String> trailTimeline(contracts.MapGraph map) {
+  final places = {for (final p in map.places) p.id: p};
+  final items = <String>[];
+  final start = places[map.start];
+  if (start != null) items.add(start.name);
+  contracts.Corridor? previous;
+  for (final c in map.corridors) {
+    if (previous != null && !previous.isTransition && !c.isTransition) {
+      final turn = contracts.turnBetween(previous.heading, c.heading);
+      if (turn.abs() > tuning.turnAroundAngle) {
+        items.add('U-turn');
+      } else if (turn.abs() >= tuning.straightTolerance) {
+        items.add(turn > 0 ? 'Left' : 'Right');
+      }
+    }
+    if (c.isTransition) {
+      final kind = '${c.kind.name[0].toUpperCase()}${c.kind.name.substring(1)}';
+      items.add('$kind ${c.floorDelta > 0 ? 'up' : 'down'}');
+    } else if (c.steps > 0) {
+      items.add(c.steps == 1 ? '1 step' : '${c.steps} steps');
+    }
+    final end = places[c.to];
+    if (end != null &&
+        end.id != contracts.hereId &&
+        end.kind != contracts.PlaceKind.junction) {
+      items.add(end.name);
+    }
+    previous = c;
+  }
+  return items;
 }
 
 /// Return the full path after saving, or throw an error for the screen to display.
@@ -101,6 +139,10 @@ class _RecordScreenState extends State<RecordScreen> {
   final _markSteps = <int?>[];
   bool _asking = false;
 
+  /// Display only: time since Start, refreshed once a second while recording.
+  final _clock = Stopwatch();
+  Timer? _clockTick;
+
   @override
   void initState() {
     super.initState();
@@ -125,6 +167,14 @@ class _RecordScreenState extends State<RecordScreen> {
         _sensorError = null;
       });
       _sinceInjected.start();
+      _clock.start();
+      _clockTick = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted || !_recording) {
+          _clock.stop();
+          timer.cancel();
+        }
+        if (mounted) setState(() {});
+      });
       if (widget.events == null && widget.sensingSource == null) {
         _ownedSource = SensingSource(recorder: _trace);
       }
@@ -300,12 +350,12 @@ class _RecordScreenState extends State<RecordScreen> {
       final join = await _confirm(
         key: 'join',
         warning: _closureWarning(existing.name),
-        title: 'Join loop at ${existing.name}?',
+        title: 'Join the loop?',
         body:
-            'Yes: you are back at ${existing.name} and the loop closes here.\n'
-            'No: mark a new place called "${_freeName(existing.name)}".',
-        yes: 'Yes, join',
-        no: 'No, new place',
+            "A place called '${existing.name}' already exists. "
+            'Connect this point to it?',
+        yes: 'Join loop',
+        no: "Save as '${_freeName(existing.name)}'",
       );
       if (!mounted || !_recording) return;
       if (!join) name = _freeName(existing.name);
@@ -653,6 +703,7 @@ class _RecordScreenState extends State<RecordScreen> {
   @override
   void dispose() {
     _recording = false;
+    _clockTick?.cancel();
     unawaited(_releaseSensors());
     _trace.state.removeListener(_onTraceState);
     _sinceInjected.stop();
@@ -670,16 +721,154 @@ class _RecordScreenState extends State<RecordScreen> {
     await _trace.dispose();
   }
 
-  String _formatTurn(double angle) =>
-      '${angle >= 0 ? '+' : ''}${angle.toStringAsFixed(1)}° '
-      '(${angle >= 0 ? 'left' : 'right'})';
+  static String _formatElapsed(Duration d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    final sec = d.inSeconds.remainder(60);
+    return h > 0 ? '$h:${two(m)}:${two(sec)}' : '${two(m)}:${two(sec)}';
+  }
+
+  /// Secondary style for a [FilledButton], so Stop keeps its widget type.
+  static final ButtonStyle _secondaryFilled = FilledButton.styleFrom(
+    backgroundColor: BreadcrumbTheme.surface2,
+    foregroundColor: BreadcrumbTheme.textPrimary,
+    disabledBackgroundColor: BreadcrumbTheme.surface2,
+    disabledForegroundColor: BreadcrumbTheme.textMuted,
+    side: const BorderSide(color: BreadcrumbTheme.borderActive),
+    minimumSize: const Size(BreadcrumbTheme.minTouch, BreadcrumbTheme.minTouch),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BreadcrumbTheme.borderRadius,
+    ),
+    textStyle: BreadcrumbTheme.button,
+  );
+
+  Widget _statCard({
+    required String label,
+    required Widget value,
+    Widget? action,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: BreadcrumbTheme.surface1,
+        borderRadius: BreadcrumbTheme.borderRadius,
+        border: Border.fromBorderSide(
+          BorderSide(color: BreadcrumbTheme.border),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, style: BreadcrumbTheme.eyebrow),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: value,
+          ),
+          if (action != null) ...[
+            const Spacer(),
+            const SizedBox(height: 8),
+            action,
+          ],
+        ],
+      ),
+    );
+  }
+
+  static const _bigNumber = TextStyle(
+    fontFamily: BreadcrumbTheme.fontFamily,
+    fontSize: 36,
+    fontWeight: FontWeight.w700,
+    height: 1.1,
+    letterSpacing: -0.5,
+    color: BreadcrumbTheme.textPrimary,
+    fontFeatures: BreadcrumbTheme.tabular,
+  );
+
+  Widget _timeline(contracts.MapGraph map) {
+    final items = trailTimeline(map);
+    final shown = items.length > 7 ? items.sublist(items.length - 7) : items;
+    const turns = {'Left', 'Right', 'U-turn'};
+    return SizedBox(
+      height: 40,
+      child: SingleChildScrollView(
+        key: const ValueKey('record-timeline'),
+        scrollDirection: Axis.horizontal,
+        reverse: true,
+        child: Row(
+          children: [
+            if (shown.length < items.length)
+              const Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: Text('…', style: BreadcrumbTheme.secondary),
+              ),
+            for (var i = 0; i < shown.length; i++) ...[
+              if (i > 0)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 14,
+                    color: BreadcrumbTheme.textMuted,
+                  ),
+                ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: turns.contains(shown[i])
+                      ? BreadcrumbTheme.surface3
+                      : BreadcrumbTheme.surface1,
+                  borderRadius: BreadcrumbTheme.borderRadiusSm,
+                  border: Border.all(
+                    color: turns.contains(shown[i])
+                        ? BreadcrumbTheme.borderActive
+                        : BreadcrumbTheme.border,
+                  ),
+                ),
+                child: Text(
+                  shown[i],
+                  style: turns.contains(shown[i])
+                      ? BreadcrumbTheme.secondary.copyWith(
+                          color: BreadcrumbTheme.accent,
+                          fontWeight: FontWeight.w600,
+                        )
+                      : shown[i].endsWith(' steps') ||
+                            shown[i].endsWith(' step')
+                      ? BreadcrumbTheme.secondary.copyWith(
+                          fontFeatures: BreadcrumbTheme.tabular,
+                        )
+                      : BreadcrumbTheme.secondary.copyWith(
+                          color: BreadcrumbTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : const Duration(milliseconds: 180);
-    final theme = Theme.of(context);
+    if (!_recording && _clock.isRunning) _clock.stop();
+    final trailHeight = (MediaQuery.sizeOf(context).height * 0.42).clamp(
+      240.0,
+      480.0,
+    );
     // Leaving mid-walk would lose it, so Back asks first.
     final unsaved = _started && _savedPath == null && !_saving;
     return PopScope(
@@ -698,183 +887,376 @@ class _RecordScreenState extends State<RecordScreen> {
       child: Scaffold(
         appBar: AppBar(title: const Text('Record a trail')),
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (!_started) ...[
-                      Text(
-                        'Where does your trail start?',
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        key: const ValueKey('start-name'),
-                        controller: _startName,
-                        decoration: const InputDecoration(
-                          labelText: 'Start place name',
-                        ),
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _start(),
-                      ),
-                      const SizedBox(height: 12),
-                      ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _startName,
-                        builder: (_, value, _) => FilledButton(
-                          key: const ValueKey('record-start'),
-                          onPressed: value.text.trim().isEmpty ? null : _start,
-                          child: const Text('Start'),
-                        ),
-                      ),
-                    ],
-                    if (_started) ...[
-                      Text(
-                        _recording ? 'Recording trail' : 'Recording stopped',
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      AnimatedSwitcher(
-                        duration: duration,
-                        child: Text(
-                          'Steps: $_steps',
-                          key: ValueKey(_steps),
-                          style: theme.textTheme.headlineMedium,
-                        ),
-                      ),
-                      Text(
-                        _turns.isEmpty
-                            ? 'Last turn: none'
-                            : 'Last turn: ${_formatTurn(_turns.last)}',
-                      ),
-                      Text(
-                        'Current floor: ${_map!.value.places.last.floor}',
-                        key: const ValueKey('current-floor'),
-                      ),
-                      if (_recording)
-                        OutlinedButton.icon(
-                          key: const ValueKey('record-floor'),
-                          onPressed:
-                              _floorChanging ||
-                                  _builder is! recording.MapBuilder
-                              ? null
-                              : _changeFloor,
-                          icon: const Icon(Icons.swap_vert),
-                          label: const Text('Change floor'),
-                        ),
-                      if (_turns.length > 1) ...[
-                        const Text('Recent turns, newest first:'),
-                        for (final angle in _turns.reversed.take(3))
-                          Text(_formatTurn(angle)),
-                      ],
-                      const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: ColoredBox(
-                          color: theme.colorScheme.surfaceContainerLow,
-                          // A proportional canvas bounds TrailView's infinite
-                          // CustomPaint size inside the scroll view; no fixed height.
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: TrailView(mapNotifier: _map!),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _finished == null
-                            ? 'Your current position is the red dot.'
-                            : 'Your recorded trail.',
-                      ),
-                      if (_recording) ...[
-                        const SizedBox(height: 16),
-                        TextField(
-                          key: const ValueKey('place-name'),
-                          controller: _placeName,
-                          decoration: const InputDecoration(
-                            labelText: 'Place name',
-                          ),
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => _mark(),
-                        ),
-                        ValueListenableBuilder<TextEditingValue>(
-                          valueListenable: _placeName,
-                          builder: (_, value, _) => FilledButton(
-                            key: const ValueKey('record-mark'),
-                            onPressed: value.text.trim().isEmpty ? null : _mark,
-                            child: const Text('Mark place'),
-                          ),
-                        ),
-                      ],
-                      if (_marked != null) Text(_marked!),
-                      if (_canUndo)
-                        OutlinedButton.icon(
-                          key: const ValueKey('record-undo'),
-                          onPressed: _undoMark,
-                          icon: const Icon(Icons.undo_rounded),
-                          label: const Text('Undo last mark'),
-                        ),
-                      if (_recording)
-                        OutlinedButton(
-                          key: const ValueKey('record-finish-start'),
-                          onPressed: _saving ? null : _finishAtStart,
-                          child: const Text('Finish at start'),
-                        ),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        key: const ValueKey('record-stop'),
-                        onPressed: _saving || _savedPath != null ? null : _stop,
-                        child: Text(
-                          _saving
-                              ? 'Saving map…'
-                              : _saveError != null
-                              ? 'Retry save'
-                              : 'Stop',
-                        ),
-                      ),
-                      AnimatedSwitcher(
-                        duration: duration,
-                        transitionBuilder: (child, animation) =>
-                            FadeTransition(opacity: animation, child: child),
-                        child: _savedPath == null
-                            ? const SizedBox.shrink()
-                            : SelectableText(
-                                'Saved map: $_savedPath',
-                                key: ValueKey(_savedPath),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (!_started) ...[
+                            const Text(
+                              'Where does your trail start?',
+                              style: BreadcrumbTheme.headline,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Hold the phone in your hand, screen up, and walk at a normal pace. '
+                              'Mark places as you pass them.',
+                              style: BreadcrumbTheme.secondary,
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              key: const ValueKey('start-name'),
+                              controller: _startName,
+                              decoration: const InputDecoration(
+                                labelText: 'Start place name',
                               ),
-                      ),
-                      ValueListenableBuilder<TraceState>(
-                        valueListenable: _trace.state,
-                        builder: (_, trace, _) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (trace.path != null)
-                              SelectableText('Trace file: ${trace.path}'),
-                            if (trace.error != null || _traceFailure != null)
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _start(),
+                            ),
+                            const SizedBox(height: 16),
+                            ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _startName,
+                              builder: (_, value, _) => PressScale(
+                                child: FilledButton(
+                                  key: const ValueKey('record-start'),
+                                  onPressed: value.text.trim().isEmpty
+                                      ? null
+                                      : _start,
+                                  child: const Text('Start'),
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (_started) ...[
+                            // Header: recording light, state and the real elapsed time.
+                            Row(
+                              children: [
+                                PulsingDot(
+                                  color: _recording
+                                      ? BreadcrumbTheme.recording
+                                      : BreadcrumbTheme.textMuted,
+                                  active: _recording,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      _recording ? 'RECORDING' : 'STOPPED',
+                                      style: BreadcrumbTheme.eyebrow.copyWith(
+                                        fontSize: 13,
+                                        color: _recording
+                                            ? BreadcrumbTheme.recording
+                                            : BreadcrumbTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      _formatElapsed(_clock.elapsed),
+                                      key: const ValueKey('record-elapsed'),
+                                      style: BreadcrumbTheme.title.copyWith(
+                                        fontFeatures: BreadcrumbTheme.tabular,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: _statCard(
+                                      label: 'STEPS',
+                                      value: Text(
+                                        '$_steps',
+                                        key: const ValueKey('record-steps'),
+                                        style: _bigNumber,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _statCard(
+                                      label: 'FLOOR',
+                                      value: Text(
+                                        'Current floor: ${_map!.value.places.last.floor}',
+                                        key: const ValueKey('current-floor'),
+                                        style: BreadcrumbTheme.title.copyWith(
+                                          fontFeatures: BreadcrumbTheme.tabular,
+                                        ),
+                                      ),
+                                      action: _recording
+                                          ? SizedBox(
+                                              width: double.infinity,
+                                              child: OutlinedButton.icon(
+                                                key: const ValueKey(
+                                                  'record-floor',
+                                                ),
+                                                onPressed:
+                                                    _floorChanging ||
+                                                        _builder
+                                                            is! recording.MapBuilder
+                                                    ? null
+                                                    : _changeFloor,
+                                                style: OutlinedButton.styleFrom(
+                                                  minimumSize: const Size(
+                                                    48,
+                                                    48,
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                      ),
+                                                ),
+                                                icon: const Icon(
+                                                  Icons.swap_vert_rounded,
+                                                  size: 20,
+                                                ),
+                                                label: const FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Text('Change floor'),
+                                                ),
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ValueListenableBuilder<contracts.MapGraph>(
+                              valueListenable: _map!,
+                              builder: (_, map, _) => _timeline(map),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: trailHeight,
+                              child: DecoratedBox(
+                                position: DecorationPosition.foreground,
+                                decoration: const BoxDecoration(
+                                  borderRadius: BreadcrumbTheme.borderRadiusLg,
+                                  border: Border.fromBorderSide(
+                                    BorderSide(color: BreadcrumbTheme.border),
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BreadcrumbTheme.borderRadiusLg,
+                                  child: TrailView(mapNotifier: _map!),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _finished == null
+                                  ? 'The white dot is you.'
+                                  : 'Your recorded trail.',
+                              style: BreadcrumbTheme.caption,
+                            ),
+                            if (_marked != null) ...[
+                              const SizedBox(height: 8),
                               Text(
-                                'Trace unavailable: ${trace.error ?? _traceFailure}. Map recording continues.',
+                                _marked!,
+                                style: BreadcrumbTheme.body.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            AnimatedSwitcher(
+                              duration: duration,
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
+                              child: _savedPath == null
+                                  ? const SizedBox.shrink()
+                                  : Padding(
+                                      key: ValueKey(_savedPath),
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: SelectableText(
+                                        'Saved map: $_savedPath',
+                                        style: BreadcrumbTheme.secondary
+                                            .copyWith(
+                                              color: BreadcrumbTheme.success,
+                                            ),
+                                      ),
+                                    ),
+                            ),
+                            ValueListenableBuilder<TraceState>(
+                              valueListenable: _trace.state,
+                              builder: (_, trace, _) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (trace.path != null)
+                                    SelectableText(
+                                      'Trace file: ${trace.path}',
+                                      style: BreadcrumbTheme.caption,
+                                    ),
+                                  if (trace.error != null ||
+                                      _traceFailure != null)
+                                    Text(
+                                      'Trace unavailable: ${trace.error ?? _traceFailure}. Map recording continues.',
+                                      style: BreadcrumbTheme.caption,
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (_saveError != null)
+                              Text(
+                                _saveError!,
+                                style: BreadcrumbTheme.secondary.copyWith(
+                                  color: BreadcrumbTheme.error,
+                                ),
                               ),
                           ],
-                        ),
+                          if (_sensorError != null)
+                            Text(
+                              'Sensing error: $_sensorError',
+                              style: BreadcrumbTheme.secondary.copyWith(
+                                color: BreadcrumbTheme.error,
+                              ),
+                            ),
+                        ],
                       ),
-                      if (_saveError != null)
-                        Text(
-                          _saveError!,
-                          style: TextStyle(color: theme.colorScheme.error),
-                        ),
-                    ],
-                    if (_sensorError != null)
-                      Text(
-                        'Sensing error: $_sensorError',
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                  ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+              if (_started)
+                // Bottom tray: name, Mark place, then the secondary actions.
+                Container(
+                  decoration: const BoxDecoration(
+                    color: BreadcrumbTheme.surface1,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(BreadcrumbTheme.radiusLg),
+                    ),
+                    border: Border(
+                      top: BorderSide(color: BreadcrumbTheme.border),
+                    ),
+                  ),
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.5,
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_recording) ...[
+                          TextField(
+                            key: const ValueKey('place-name'),
+                            controller: _placeName,
+                            decoration: const InputDecoration(
+                              labelText: 'Place name',
+                            ),
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _mark(),
+                          ),
+                          const SizedBox(height: 8),
+                          ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: _placeName,
+                            builder: (_, value, _) => PressScale(
+                              child: FilledButton.icon(
+                                key: const ValueKey('record-mark'),
+                                onPressed: value.text.trim().isEmpty
+                                    ? null
+                                    : _mark,
+                                icon: const Icon(
+                                  Icons.add_location_alt_rounded,
+                                ),
+                                label: const Text('Mark place'),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        Row(
+                          children: [
+                            if (_canUndo) ...[
+                              Expanded(
+                                child: PressScale(
+                                  child: OutlinedButton(
+                                    key: const ValueKey('record-undo'),
+                                    onPressed: _undoMark,
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                    ),
+                                    child: const FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Undo last'),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            if (_recording) ...[
+                              Expanded(
+                                child: PressScale(
+                                  child: OutlinedButton(
+                                    key: const ValueKey('record-finish-start'),
+                                    onPressed: _saving ? null : _finishAtStart,
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                    ),
+                                    child: const FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Finish at start'),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Expanded(
+                              child: PressScale(
+                                child: FilledButton(
+                                  key: const ValueKey('record-stop'),
+                                  style: _secondaryFilled,
+                                  onPressed: _saving || _savedPath != null
+                                      ? null
+                                      : _stop,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      _saving
+                                          ? 'Saving map…'
+                                          : _saveError != null
+                                          ? 'Retry save'
+                                          : 'Stop',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

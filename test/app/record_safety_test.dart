@@ -131,9 +131,9 @@ void main() {
     expect(find.text('Stop and save this map?'), findsOneWidget);
     await tapKey(tester, 'stop-no');
     expect(saved, isEmpty);
-    expect(find.text('Recording trail'), findsOneWidget);
+    expect(find.text('RECORDING'), findsOneWidget);
     await walk(tester, 2);
-    expect(find.text('Steps: 5'), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('record-steps'))).data, '5');
     await tapKey(tester, 'record-stop');
     await tapKey(tester, 'stop-yes');
     expect(saved, hasLength(1));
@@ -177,7 +177,7 @@ void main() {
     await mark(tester, 'Cafe');
     await walk(tester, 5);
     await mark(tester, ' cafe ');
-    expect(find.text('Join loop at Cafe?'), findsOneWidget);
+    expect(find.text('Join the loop?'), findsOneWidget);
     await tapKey(tester, 'join-no');
     expect(find.text('Marked place: Cafe 2'), findsOneWidget);
     await walk(tester, 2);
@@ -199,7 +199,7 @@ void main() {
     await mark(tester, 'Cafe');
     await walk(tester, 5);
     await mark(tester, 'Entrance');
-    expect(find.text('Join loop at Entrance?'), findsOneWidget);
+    expect(find.text('Join the loop?'), findsOneWidget);
     await tapKey(tester, 'join-yes');
     expect(find.text('Joined to Entrance - loop closed'), findsOneWidget);
     await tapKey(tester, 'record-stop');
@@ -214,7 +214,7 @@ void main() {
     expect(find.text('Finish at Entrance?'), findsOneWidget);
     await tapKey(tester, 'finish-no');
     expect(saved, isEmpty);
-    expect(find.text('Recording trail'), findsOneWidget);
+    expect(find.text('RECORDING'), findsOneWidget);
     await tapKey(tester, 'record-finish-start');
     await tapKey(tester, 'finish-yes');
     expect(saved.single.corridors.single.to, saved.single.start);

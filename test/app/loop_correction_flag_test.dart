@@ -64,11 +64,11 @@ void main() {
         final dialog = tester.widget<AlertDialog>(find.byType(AlertDialog));
         expect(
           (dialog.title! as Text).data,
-          finish ? 'Finish at Entrance?' : 'Join loop at Entrance?',
+          finish ? 'Finish at Entrance?' : 'Join the loop?',
         );
         expect(
           (dialog.content! as Text).data,
-          finish ? 'This joins the loop at Entrance and saves the map.' : 'Yes: you are back at Entrance and the loop closes here.\nNo: mark a new place called "Entrance 2".',
+          finish ? 'This joins the loop at Entrance and saves the map.' : "A place called 'Entrance' already exists. Connect this point to it?",
         );
         expect(dialog.actions, hasLength(2));
         expect(
@@ -77,7 +77,7 @@ void main() {
         );
         expect(
           ((dialog.actions![0] as TextButton).child as Text).data,
-          finish ? 'Keep recording' : 'No, new place',
+          finish ? 'Keep recording' : "Save as 'Entrance 2'",
         );
         expect(
           (dialog.actions![1] as FilledButton).key,
@@ -85,7 +85,7 @@ void main() {
         );
         expect(
           ((dialog.actions![1] as FilledButton).child as Text).data,
-          finish ? 'Finish and save' : 'Yes, join',
+          finish ? 'Finish and save' : 'Join loop',
         );
         expect(
           find.text("Positions don't match well - join anyway?"),
@@ -181,12 +181,12 @@ void main() {
         );
         await tap(tester, finish ? 'finish-no' : 'join-no');
         expect(saved, isNull);
-        expect(find.text('Recording trail'), findsOneWidget);
+        expect(find.text('RECORDING'), findsOneWidget);
         if (finish) {
           expect(encodeMap(builder.snapshot()), before);
           events.add(const StepEvent(5));
           await tester.pumpAndSettle();
-          expect(find.text('Steps: 5'), findsOneWidget);
+          expect(tester.widget<Text>(find.byKey(const ValueKey('record-steps'))).data, '5');
         } else {
           expect(find.text('Marked place: Entrance 2'), findsOneWidget);
           await tap(tester, 'record-stop');
